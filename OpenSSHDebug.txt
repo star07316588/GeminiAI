@@ -1,4 +1,4 @@
-S C:\Users\Administrator> ssh -v -i "C:\Users\Administrator\.ssh\id_rsa" administrator@FABTMSWD1
+PS C:\Users\Administrator> ssh -v -i "C:\Users\Administrator\.ssh\id_rsa" administrator@FABTMSWD1
 OpenSSH_for_Windows_9.5p1, LibreSSL 3.8.2
 debug1: Connecting to fabtmswd1 [172.19.48.67] port 22.
 debug1: Connection established.
