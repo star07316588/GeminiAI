@@ -9,3 +9,6 @@ SSH Publishers
 Transfer Set
 Exec command
 .\MesTAManagementSystem_New\MesTAManagementSystem_New.deploy.cmd /Y
+
+PubkeyAcceptedAlgorithms +ssh-rsa
+HostKeyAlgorithms +ssh-rsa
