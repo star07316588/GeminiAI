@@ -23,3 +23,47 @@ SSH: Disconnecting configuration [FABTMSWD1] ...
 ERROR: Exception when publishing, exception message [Exec exit status not zero. Status [1]]
 Build step 'Send files or execute commands over SSH' changed build result to UNSTABLE
 Finished: UNSTABLE
+
+fatal: refusing to run without --i-still-use-this
+ERROR: Unable to retrieve changeset
+hudson.plugins.git.GitException: Error: git.exe whatchanged --no-abbrev -M "--format=commit %H%ntree %T%nparent %P%nauthor %aN <%aE> %ai%ncommitter %cN <%cE> %ci%n%n%w(0,4,4)%B" -n 1024 110d6f0cb09928e8d572b932fd0db7d57d0f6bdb "^110d6f0cb09928e8d572b932fd0db7d57d0f6bdb" in C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MesTAManagementSystem_New_Debug
+	at PluginClassLoader for git-client//org.jenkinsci.plugins.gitclient.CliGitAPIImpl$6.execute(CliGitAPIImpl.java:1321)
+	at PluginClassLoader for git//hudson.plugins.git.GitSCM.computeChangeLog(GitSCM.java:1500)
+	at PluginClassLoader for git//hudson.plugins.git.GitSCM.checkout(GitSCM.java:1384)
+	at hudson.scm.SCM.checkout(SCM.java:540)
+	at hudson.model.AbstractProject.checkout(AbstractProject.java:1250)
+	at hudson.model.AbstractBuild$AbstractBuildExecution.defaultCheckout(AbstractBuild.java:649)
+	at jenkins.scm.SCMCheckoutStrategy.checkout(SCMCheckoutStrategy.java:85)
+	at hudson.model.AbstractBuild$AbstractBuildExecution.run(AbstractBuild.java:522)
+	at hudson.model.Run.execute(Run.java:1860)
+	at hudson.model.FreeStyleBuild.run(FreeStyleBuild.java:44)
+	at hudson.model.ResourceController.execute(ResourceController.java:101)
+	at hudson.model.Executor.run(Executor.java:454)
+Path To MSBuild.exe: C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\msbuild.exe
+Executing the command cmd.exe /C " chcp 1252 & "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\msbuild.exe" /p:DeployOnBuild=True /p:Configuration=Debug MesTAManagementSystem_New.sln " && exit %%ERRORLEVEL%% from C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MesTAManagementSystem_New_Debug
+[MesTAManagementSystem_New_Debug] $ cmd.exe /C " chcp 1252 & "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\msbuild.exe" /p:DeployOnBuild=True /p:Configuration=Debug MesTAManagementSystem_New.sln " && exit %%ERRORLEVEL%%
+Active code page: 1252
+Microsoft (R) Build Engine version 16.11.6+a918ceb31 for .NET Framework
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Building the projects in this solution one at a time. To enable parallel build, please add the "-m" switch.
+Build started 4/29/2026 10:02:29 AM.
+Project "C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MesTAManagementSystem_New_Debug\MesTAManagementSystem_New.sln" on node 1 (default targets).
+ValidateSolutionConfiguration:
+  Building solution configuration "Debug|Any CPU".
+ValidateProjects:
+  The project "MesTAManagementSystem_New" is not selected for building in solution configuration "Debug|Any CPU".
+Done Building Project "C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MesTAManagementSystem_New_Debug\MesTAManagementSystem_New.sln" (default targets).
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.20
+SSH: Connecting from host [MXMIFBE]
+SSH: Connecting with configuration [FABTMSWD1] ...
+SSH: EXEC: completed after 207 ms
+SSH: Disconnecting configuration [FABTMSWD1] ...
+ERROR: Exception when publishing, exception message [Exec exit status not zero. Status [1]]
+Build step 'Send files or execute commands over SSH' changed build result to UNSTABLE
+Finished: UNSTABLE
