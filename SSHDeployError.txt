@@ -67,3 +67,5 @@ SSH: Disconnecting configuration [FABTMSWD1] ...
 ERROR: Exception when publishing, exception message [Exec exit status not zero. Status [1]]
 Build step 'Send files or execute commands over SSH' changed build result to UNSTABLE
 Finished: UNSTABLE
+
+cmd.exe /C " chcp 1252 & "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\msbuild.exe" /p:DeployOnBuild=True /p:Configuration=Debug /p:DeployIisAppPath="Default Web Site/MesTAManagementSystem_New" MesTAManagementSystem_New.sln " && exit %%ERRORLEVEL%%
