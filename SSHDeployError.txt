@@ -15,3 +15,11 @@ HostKeyAlgorithms +ssh-rsa
 
 PubkeyAcceptedKeyTypes +ssh-rsa
 HostKeyAlgorithms +ssh-rsa
+
+SSH: Connecting from host [MXMIFBE]
+SSH: Connecting with configuration [FABTMSWD1] ...
+SSH: EXEC: completed after 212 ms
+SSH: Disconnecting configuration [FABTMSWD1] ...
+ERROR: Exception when publishing, exception message [Exec exit status not zero. Status [1]]
+Build step 'Send files or execute commands over SSH' changed build result to UNSTABLE
+Finished: UNSTABLE
