@@ -12,3 +12,6 @@ Exec command
 
 PubkeyAcceptedAlgorithms +ssh-rsa
 HostKeyAlgorithms +ssh-rsa
+
+PubkeyAcceptedKeyTypes +ssh-rsa
+HostKeyAlgorithms +ssh-rsa
