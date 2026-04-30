@@ -69,3 +69,38 @@ Build step 'Send files or execute commands over SSH' changed build result to UNS
 Finished: UNSTABLE
 
 cmd.exe /C " chcp 1252 & "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\msbuild.exe" /p:DeployOnBuild=True /p:Configuration=Debug /p:DeployIisAppPath="Default Web Site/MesTAManagementSystem_New" MesTAManagementSystem_New.sln " && exit %%ERRORLEVEL%%
+
+Started by user admin
+Running as SYSTEM
+Building in workspace C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release
+Path To exe: D:\Hashcode???????1102\HashCodeUploader\HashCodeUploader.exe
+FATAL: Failed to create a temp file on C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release
+java.nio.charset.UnmappableCharacterException: Input length = 1
+	at java.base/java.nio.charset.CoderResult.throwException(CoderResult.java:275)
+	at java.base/sun.nio.cs.StreamEncoder.implWrite(StreamEncoder.java:307)
+	at java.base/sun.nio.cs.StreamEncoder.implWrite(StreamEncoder.java:282)
+	at java.base/sun.nio.cs.StreamEncoder.write(StreamEncoder.java:132)
+	at java.base/java.io.OutputStreamWriter.write(OutputStreamWriter.java:205)
+	at java.base/java.io.BufferedWriter.flushBuffer(BufferedWriter.java:120)
+	at java.base/java.io.BufferedWriter.close(BufferedWriter.java:268)
+	at hudson.FilePath$CreateTextTempFile.invoke(FilePath.java:1670)
+	at hudson.FilePath$CreateTextTempFile.invoke(FilePath.java:1640)
+	at hudson.FilePath.act(FilePath.java:1210)
+	at hudson.FilePath.act(FilePath.java:1193)
+	at hudson.FilePath.createTextTempFile(FilePath.java:1634)
+Caused: java.io.IOException: Failed to create a temp file on C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release
+	at hudson.FilePath.createTextTempFile(FilePath.java:1636)
+	at PluginClassLoader for windows-exe-runner//org.jenkinsci.plugins.windows_exe_runner.ExeBuilder.exec(ExeBuilder.java:180)
+	at PluginClassLoader for windows-exe-runner//org.jenkinsci.plugins.windows_exe_runner.ExeBuilder.perform(ExeBuilder.java:127)
+	at jenkins.tasks.SimpleBuildStep.perform(SimpleBuildStep.java:123)
+	at hudson.tasks.BuildStepCompatibilityLayer.perform(BuildStepCompatibilityLayer.java:80)
+	at hudson.tasks.BuildStepMonitor$1.perform(BuildStepMonitor.java:20)
+	at hudson.model.AbstractBuild$AbstractBuildExecution.perform(AbstractBuild.java:818)
+	at hudson.model.Build$BuildExecution.build(Build.java:199)
+	at hudson.model.Build$BuildExecution.doRun(Build.java:164)
+	at hudson.model.AbstractBuild$AbstractBuildExecution.run(AbstractBuild.java:527)
+	at hudson.model.Run.execute(Run.java:1860)
+	at hudson.model.FreeStyleBuild.run(FreeStyleBuild.java:44)
+	at hudson.model.ResourceController.execute(ResourceController.java:101)
+	at hudson.model.Executor.run(Executor.java:454)
+Finished: FAILURE
