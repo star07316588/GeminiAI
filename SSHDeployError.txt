@@ -104,3 +104,27 @@ Caused: java.io.IOException: Failed to create a temp file on C:\Users\Administra
 	at hudson.model.ResourceController.execute(ResourceController.java:101)
 	at hudson.model.Executor.run(Executor.java:454)
 Finished: FAILURE
+
+
+Started by user admin
+Running as SYSTEM
+Building in workspace C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release
+Path To exe: D:\Hashcode_1102\HashCodeUploader\HashCodeUploader.exe
+Executing : cmd.exe /C C:\Users\ADMINI~1\AppData\Local\Temp\exe_runner_9316013040585086998.bat && exit %ERRORLEVEL%
+[MES.NET_Release] $ cmd.exe /C C:\Users\ADMINI~1\AppData\Local\Temp\exe_runner_9316013040585086998.bat && exit %ERRORLEVEL%
+
+C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release>"D:\Hashcode_1102\HashCodeUploader\HashCodeUploader.exe" SourceDept="MY420" SourceFab="BE" SourceServer="MXMIFBE" SourcePath="C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release\MES.Net.Web\obj\Release\Package\PackageTmp" DeployDept="MY420" DeployFab="BE" DeployServer="FABMESIISP1" DeployPath="D:\FABMESIISP1\MESNET" CIProjectName="PROD_Website_MES.NET(FABMESIISP1)" IsDebug="N" 
+args Count : 10
+args[] : SourceDept=MY420 SourceFab=BE SourceServer=MXMIFBE SourcePath=C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release\MES.Net.Web\obj\Release\Package\PackageTmp DeployDept=MY420 DeployFab=BE DeployServer=FABMESIISP1 DeployPath=D:\FABMESIISP1\MESNET CIProjectName=PROD_Website_MES.NET(FABMESIISP1) IsDebug=N
+Start Check args
+SATRT Check SourceFab
+Start Get HashCode
+Start Send Mail
+End Send Mail
+
+Unhandled Exception: System.Exception: GetHostListByDept(HASHCODE, MY420) ???? Server(FABMESIISP1) IP
+   at HashCodeUploader.Program.GetHostListByDept(String apName, String sourceDept, String hostName) in E:\SourceCode\Project\Trunk\Server42\?????\HashCodeUploader\HashCodeUploader\Program.cs:line 369
+   at HashCodeUploader.Program.GetFileHashCode(String[] sourcePah, String[] deployPath) in E:\SourceCode\Project\Trunk\Server42\?????\HashCodeUploader\HashCodeUploader\Program.cs:line 157
+   at HashCodeUploader.Program.Main(String[] args) in E:\SourceCode\Project\Trunk\Server42\?????\HashCodeUploader\HashCodeUploader\Program.cs:line 138
+ERROR: Exited with code: 255
+Finished: FAILURE
