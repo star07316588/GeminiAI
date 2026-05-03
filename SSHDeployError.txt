@@ -128,3 +128,5 @@ Unhandled Exception: System.Exception: GetHostListByDept(HASHCODE, MY420) ???? S
    at HashCodeUploader.Program.Main(String[] args) in E:\SourceCode\Project\Trunk\Server42\?????\HashCodeUploader\HashCodeUploader\Program.cs:line 138
 ERROR: Exited with code: 255
 Finished: FAILURE
+
+jenkins.plugins.publish_over.BapPublisherException: Failed to connect and initialize SSH connection. Message: [Failed to connect session for config [FABMESIISP1]. Message [java.net.ConnectException: Connection refused: no further information]]
