@@ -144,3 +144,15 @@ Restart-Service wuauserv
 
 cd "C:\Program Files\OpenSSH"
 powershell.exe -ExecutionPolicy Bypass -File install-sshd.ps1
+
+Start-Service sshd
+Set-Service -Name sshd -StartupType 'Automatic'
+New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22
+
+New-Item -ItemType Directory -Force -Path "C:\ProgramData\ssh"
+New-Item -ItemType File -Force -Path "C:\ProgramData\ssh\administrators_authorized_keys"
+
+icacls "C:\ProgramData\ssh\administrators_authorized_keys" /inheritance:r
+icacls "C:\ProgramData\ssh\administrators_authorized_keys" /grant SYSTEM:F
+icacls "C:\ProgramData\ssh\administrators_authorized_keys" /grant Administrators:F
+Restart-Service sshd
