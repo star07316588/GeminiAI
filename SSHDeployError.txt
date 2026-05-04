@@ -130,3 +130,14 @@ ERROR: Exited with code: 255
 Finished: FAILURE
 
 jenkins.plugins.publish_over.BapPublisherException: Failed to connect and initialize SSH connection. Message: [Failed to connect session for config [FABMESIISP1]. Message [java.net.ConnectException: Connection refused: no further information]]
+
+# 1. 暫時關閉內部 WSUS 限制，允許連線到外部微軟伺服器
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "UseWUServer" -Value 0 -ErrorAction SilentlyContinue
+Restart-Service wuauserv
+
+# 2. 再次執行安裝指令
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+
+# 3. 把 WSUS 限制改回來，恢復公司預設資安狀態
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "UseWUServer" -Value 1 -ErrorAction SilentlyContinue
+Restart-Service wuauserv
