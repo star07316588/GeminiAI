@@ -141,3 +141,6 @@ Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 # 3. 把 WSUS 限制改回來，恢復公司預設資安狀態
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "UseWUServer" -Value 1 -ErrorAction SilentlyContinue
 Restart-Service wuauserv
+
+cd "C:\Program Files\OpenSSH"
+powershell.exe -ExecutionPolicy Bypass -File install-sshd.ps1
