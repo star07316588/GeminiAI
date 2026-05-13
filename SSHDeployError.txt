@@ -167,3 +167,5 @@ Send files or execute commands over SSH
 Transfer Set
 Exec command
 .\MES.NET\MES.Net.Web\MES.Net.Web.deploy.cmd /Y
+
+"C:\JenkinsTools\nuget.exe" restore "MES.NET.sln"
