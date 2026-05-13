@@ -158,3 +158,4 @@ icacls "C:\ProgramData\ssh\administrators_authorized_keys" /grant Administrators
 Restart-Service sshd
 
 Could not find file 'D:\FABMESIISP1\MES.NET\bin\roslyn\csc.exe'.
+Update-Package Microsoft.CodeDom.Providers.DotNetCompilerPlatform -r
