@@ -159,3 +159,11 @@ Restart-Service sshd
 
 Could not find file 'D:\FABMESIISP1\MES.NET\bin\roslyn\csc.exe'.
 Update-Package Microsoft.CodeDom.Providers.DotNetCompilerPlatform -r
+
+Build a Visual Studio project or solution using MSBuild
+
+Send files or execute commands over SSH
+
+Transfer Set
+Exec command
+.\MES.NET\MES.Net.Web\MES.Net.Web.deploy.cmd /Y
