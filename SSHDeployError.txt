@@ -162,7 +162,6 @@ Update-Package Microsoft.CodeDom.Providers.DotNetCompilerPlatform -r
 
 Build a Visual Studio project or solution using MSBuild
 
-MES.NET\MES.Net.Web\bin\roslyn\**\*
 Send files or execute commands over SSH
 
 Transfer Set
@@ -170,3 +169,5 @@ Exec command
 .\MES.NET\MES.Net.Web\MES.Net.Web.deploy.cmd /Y
 
 "C:\JenkinsTools\nuget.exe" restore "MES.NET.sln"
+
+MES.NET\MES.Net.Web\bin\roslyn\**\*
