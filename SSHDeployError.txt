@@ -193,3 +193,63 @@ C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release\
     </FilesForPackagingFromProject>
   </ItemGroup>
 </Target>
+
+這是一個非常精準且關鍵的發現！您已經完全抓到了 MSBuild 打包機制的核心邏輯。
+
+這兩個路徑代表了 ASP.NET 專案在建置與打包時的「兩個完全不同的階段」。以下為您詳細拆解它們的差別，以及為什麼 Web Deploy 會把 roslyn 弄丟：
+
+第一個路徑：原始的建置輸出區 (Build Output)
+...\MES.Net.Web\bin\roslyn
+
+它是什麼： 這是專案的「原始工作區」。當您從 Git 拉取程式碼（包含您用 .gitignore 強制推上去的 roslyn 資料夾），或是執行單純的編譯（Build）時，檔案都會放在這裡。
+
+為什麼有 csc.exe： 因為您已經把它加進 Git 了，所以 Jenkins 在 Checkout 程式碼時，這個資料夾就會原封不動地躺在這裡。
+
+第二個路徑：Web Deploy 的打包準備區 (Staging Area)
+...\MES.Net.Web\obj\Release\Package\PackageTmp\bin\roslyn
+
+它是什麼： 這是微軟 Web Publishing Pipeline (WPP) 的「候機室」。當您在 Jenkins 指令加上 /p:DeployOnBuild=true 時，MSBuild 會建立這個 PackageTmp 資料夾。它的任務是把「真正需要發布到 IIS 的檔案」收集過來，整理好之後，再壓成一個 .zip 檔並產生 .deploy.cmd。
+
+為什麼沒有 csc.exe： 這是因為 Web Deploy 非常嚴格（甚至可以說是有點死板）。在把檔案從 bin 搬到 PackageTmp 的過程中，它只會搬運有被明確記錄在 .csproj 專案檔裡面的檔案。因為我們是用 Git 強制塞進去的，對 Web Deploy 來說，它不認識這個外來的 roslyn 資料夾，所以在過濾時就把它當作垃圾丟棄了。
+
+這對您的部署有什麼影響？
+因為您目前 Jenkins 的設定是將 PackageTmp（或是它壓出來的 .zip 和 .deploy.cmd）傳送到 Deploy Server 上執行。既然在「候機室 (PackageTmp)」的時候 roslyn 就已經被丟包了，最後的 Deploy Server 上當然就看不到它。
+
+結論與解決方案
+既然您已經完全看懂了這個機制的運作原理，要解決這個問題，我們就是要「想辦法讓 roslyn 進入候機室，或是直接繞過候機室」。
+
+您可以根據您目前的專案狀況，選擇以下其中一條路徑：
+
+路線 A：繞過候機室（最快，修改 Jenkins SSH 設定）
+也就是我們上一次提到的「雙管齊下」暴力法。
+
+第一個 Transfer Set：照舊傳送並執行 .deploy.cmd（此時 IIS 網站更新了，但沒有 roslyn）。
+
+第二個 Transfer Set：直接把第一個路徑（MES.Net.Web\bin\roslyn\\*）的檔案，直接空投到 Deploy Server 的 IIS bin 資料夾裡。
+
+路線 B：讓候機室放行（修改專案檔 .csproj）
+如果您覺得分兩次傳太麻煩，想讓 Web Deploy 乖乖把它包進去，請在您的開發機用文字編輯器（或在 Visual Studio 對專案按右鍵 -> 卸載專案 -> 編輯專案檔）打開 MES.Net.Web.csproj，在檔案最下方的 </Project> 標籤之前，加入這段強制打包指令：
+
+XML
+<PropertyGroup>
+  <CopyAllFilesToSingleFolderForPackageDependsOn>
+    $(CopyAllFilesToSingleFolderForPackageDependsOn);
+    IncludeRoslynCompilerFiles;
+  </CopyAllFilesToSingleFolderForPackageDependsOn>
+  <CopyAllFilesToSingleFolderForMsdeployDependsOn>
+    $(CopyAllFilesToSingleFolderForMsdeployDependsOn);
+    IncludeRoslynCompilerFiles;
+  </CopyAllFilesToSingleFolderForMsdeployDependsOn>
+</PropertyGroup>
+<Target Name="IncludeRoslynCompilerFiles">
+  <ItemGroup>
+    <RoslynFiles Include="$(MSBuildProjectDirectory)\bin\roslyn\**\*" />
+    <FilesForPackagingFromProject Include="%(RoslynFiles.Identity)">
+      <DestinationRelativePath>bin\roslyn\%(RecursiveDir)%(Filename)%(Extension)</DestinationRelativePath>
+    </FilesForPackagingFromProject>
+  </ItemGroup>
+</Target>
+這段 XML 的意思就是明確警告 Web Deploy：「不管怎樣，把 bin\roslyn 裡面的所有東西都給我複製到 PackageTmp 裡面去！」
+
+路線 C：修復套件的原始設定（最標準的作法）
+如同之前提到的，把 Microsoft.CodeDom.Providers.DotNetCompilerPlatform 這個 NuGet 套件重新安裝並更新 .csproj。它本身就有內建類似上面路線 B 的腳本，只要設定正確，它就會自動化完成這一切，您甚至不需要把 roslyn 加進 .gitignore 裡。
