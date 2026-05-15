@@ -174,3 +174,22 @@ MES.NET\MES.Net.Web\bin\roslyn\**\*
 
 C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release\MES.Net.Web\bin\roslyn
 C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release\MES.Net.Web\obj\Release\Package\PackageTmp\bin\roslyn
+
+<PropertyGroup>
+  <CopyAllFilesToSingleFolderForPackageDependsOn>
+    $(CopyAllFilesToSingleFolderForPackageDependsOn);
+    IncludeRoslynCompilerFiles;
+  </CopyAllFilesToSingleFolderForPackageDependsOn>
+  <CopyAllFilesToSingleFolderForMsdeployDependsOn>
+    $(CopyAllFilesToSingleFolderForMsdeployDependsOn);
+    IncludeRoslynCompilerFiles;
+  </CopyAllFilesToSingleFolderForMsdeployDependsOn>
+</PropertyGroup>
+<Target Name="IncludeRoslynCompilerFiles">
+  <ItemGroup>
+    <RoslynFiles Include="$(MSBuildProjectDirectory)\bin\roslyn\**\*" />
+    <FilesForPackagingFromProject Include="%(RoslynFiles.Identity)">
+      <DestinationRelativePath>bin\roslyn\%(RecursiveDir)%(Filename)%(Extension)</DestinationRelativePath>
+    </FilesForPackagingFromProject>
+  </ItemGroup>
+</Target>
