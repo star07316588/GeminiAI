@@ -171,3 +171,6 @@ Exec command
 "C:\JenkinsTools\nuget.exe" restore "MES.NET.sln"
 
 MES.NET\MES.Net.Web\bin\roslyn\**\*
+
+C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release\MES.Net.Web\bin\roslyn
+C:\Users\Administrator\AppData\Local\Jenkins\.jenkins\workspace\MES.NET_Release\MES.Net.Web\obj\Release\Package\PackageTmp\bin\roslyn
