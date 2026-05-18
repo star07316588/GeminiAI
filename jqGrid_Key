@@ -1,0 +1,47 @@
+            $resultTable.jqGrid({
+                datatype: 'local',
+                autowidth: true,
+                shrinkToFit: false,
+                height: $('div.main').height() - 180, // 扣除上方資訊區塊高度
+                rownumbers: true,
+                viewrecords: true,
+                rowNum: 2000,
+                rowList: [500, 1000, 2000],
+                pager: $resultTablePager,
+                cellEdit: true,           // 啟用儲存格編輯
+                cellsubmit: 'clientArray',// 編輯後只存在前端記憶體
+                colNames: [
+                           '@Html.DisplayNameFor(r => r.Dept_Id)',
+                           '@Html.DisplayNameFor(r => r.Station_Id)',
+                           '@Html.DisplayNameFor(r => r.Shift_Id)',
+                           '@Html.DisplayNameFor(r => r.Emp_Id)',
+                           '@Html.DisplayNameFor(r => r.Item)',
+                           '@Html.DisplayNameFor(r => r.DetailItem)',
+                           '@Html.DisplayNameFor(r => r.Record)',
+                           @*'@Html.DisplayNameFor(r => r.Comments)',*@
+                ],
+                colModel: [
+                    { name: 'Dept_Id', index: 'Dept_Id', width: '60', sortable: true },
+                    { name: 'Station_Id', index: 'Station_Id', width: '60', sortable: true },
+                    { name: 'Shift_Id', index: 'Shift_Id', width: '60', sortable: true },
+                    { name: 'Emp_Id', index: 'Emp_Id', width: '80', key: true, sortable: true },
+                    { name: 'Item', index: 'Item', width: '120', sortable: true },
+                    { name: 'DetailItem', index: 'DetailItem', width: '150', sortable: true },
+                    // 主觀評比填寫欄位 (對應 JSP 的 input items)
+                    {
+                        name: 'Record', index: 'Record', width: '80', align: 'center',
+                        editable: true,
+                        editrules: { number: true, minValue: 0 },
+                        formatter: 'integer',
+                        classes: 'bg-warning' // 編輯提示底色
+                    },
+                    // 備註欄位
+                    {
+                        name: 'Comments', index: 'Comments', width: '250',
+                        editable: true,
+                        edittype: 'textarea',
+                        editoptions: { rows: "1" },
+                        classes: 'bg-warning'
+                    }
+                ]
+            });
