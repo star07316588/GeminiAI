@@ -102,3 +102,92 @@ public IEnumerable<dynamic> GetSubjectData(
 
         return result;
     }
+
+	public HashMap[] getTotalData_ph(Connection con,String startyear,String startmonth,String endtyear,String endtmonth,
+			  String station,String shift,String deptId,String empId,String DateType,String section,String userid,String func) throws Exception{
+		ArrayList al = new ArrayList();
+		al.add(startyear+startmonth);
+		al.add(endtyear+endtmonth);
+		String sql_ins="";
+		String sql = 			
+		"select ps.year,\n" +
+		"       ps.month,\n" + 
+		"       se.dept_id,\n" + 
+		"       se.station_id,\n" + 
+		"       se.shift_id,\n" + 
+		"       se.emp_id,\n" + 
+		"       se.name,\n" + 
+		"       se.position_group,\n" + 
+		"       se.title,\n" + 
+		"       to_char(se.arrive_date,'yyyy/mm/dd') arrive_date,\n" + 
+		"       ps.score RANKING,\n" + 
+		"       ps.ranking_shift,\n" + 
+		"       ps.ranking_shiftA,\n" + 
+		"       ps.Ranking_Title,\n" + 
+		"       ps.Ranking_Group1,\n";
+				
+		sql =sql + "ps.bonus,ps.balance ";
+		
+		sql =sql +	
+		"  from Rbl_DL_Performance_Summary ps,\n" + 
+		"       Sbl_Emp                    se,\n" + 			
+		"		rbl_dl_organization org " +
+		" where ps.emp_id = se.emp_id  " ;
+		sql_ins =sql;
+		sql+=" and ps.year || ps.month between ? and ?\n";
+		sql_ins+=" and ps.year || ps.month between '"+startyear+startmonth+"' and '"+endtyear+endtmonth+"'\n";
+		
+		if(station!=null && !station.equals("")){
+		sql +="	and se.station_id = ?\n";
+		al.add(station);
+		sql_ins+="	and se.station_id = '"+station+"'\n";
+		}
+		if(shift!=null && !shift.equals("")){
+		sql +="	and se.shift_id = ?\n";
+		al.add(shift);
+		sql_ins+="	and se.shift_id = '"+shift+"'\n";
+		}
+		if(deptId!=null && !deptId.equals("")){
+		sql +="	and se.dept_id = ?\n";
+		al.add(deptId);
+		sql_ins+="	and se.dept_id = '"+deptId+"'\n";
+		}
+		if(empId!=null && !empId.equals("")){
+		sql +="	and se.emp_id = ?\n";
+		al.add(empId);
+		sql_ins+="	and se.emp_id = '"+empId+"'\n";
+		}		
+		if(DateType!=null && !DateType.equals("")){
+		sql +="	and instr(ps.month,'"+DateType+"') > 0  \n";	
+		sql_ins+="	and instr(ps.month,'"+DateType+"') > 0  \n";
+		}		
+		sql += " and se.station_id = org.station_id \n"+ 
+		" and se.shift_id = org.shift_id \n"+ 
+		" and se.dept_id = org.dept_id \n"+
+		" and org.section ='"+section+"' \n" +		
+		" order by ps.year,\n" + 
+		"          ps.month,\n" + 
+		"          se.shift_id,\n" + 
+		"          se.station_id,\n" + 
+		"          se.title,\n" + 
+		"          se.emp_id";
+		sql_ins += " and se.station_id = org.station_id \n"+ 
+				" and se.shift_id = org.shift_id \n"+ 
+				" and se.dept_id = org.dept_id \n"+
+				" and org.section ='"+section+"' \n" +		
+				" order by ps.year,\n" + 
+				"          ps.month,\n" + 
+				"          se.shift_id,\n" + 
+				"          se.station_id,\n" + 
+				"          se.title,\n" + 
+				"          se.emp_id";
+		//System.out.print(sql);	
+		try{
+			DBAcc da =new DBAcc(con);   
+			da.insertconfidential("DL", userid, func, sql_ins);
+		}
+		catch(Exception e){
+			e.printStackTrace();	
+		}
+		return  SESDB.qryHashMapBySql(con,sql,(Object[])al.toArray(new Object[0]));
+	}
