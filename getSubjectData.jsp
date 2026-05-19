@@ -191,3 +191,111 @@ public IEnumerable<dynamic> GetSubjectData(
 		}
 		return  SESDB.qryHashMapBySql(con,sql,(Object[])al.toArray(new Object[0]));
 	}
+
+public class PerformanceRepository
+{
+    public IEnumerable<dynamic> GetTotalData_ph(
+        IDbConnection con, string startyear, string startmonth, string endtyear, string endtmonth,
+        string station, string shift, string deptId, string empId, string dateType, 
+        string section, string userid, string func)
+    {
+        IEnumerable<dynamic> result = null;
+
+        // 使用 DynamicParameters 來管理所有參數
+        var parameters = new DynamicParameters();
+        
+        // 組合基礎日期區間參數
+        string startPeriod = startyear + startmonth;
+        string endPeriod = endtyear + endtmonth;
+        parameters.Add("StartPeriod", startPeriod);
+        parameters.Add("EndPeriod", endPeriod);
+        parameters.Add("Section", section);
+
+        // 使用 StringBuilder 與 $@ 宣告大段的基礎 SQL
+        var sqlBuilder = new StringBuilder($@"
+            SELECT ps.year,
+                   ps.month,
+                   se.dept_id,
+                   se.station_id,
+                   se.shift_id,
+                   se.emp_id,
+                   se.name,
+                   se.position_group,
+                   se.title,
+                   TO_CHAR(se.arrive_date, 'yyyy/mm/dd') arrive_date,
+                   ps.score RANKING,
+                   ps.ranking_shift,
+                   ps.ranking_shiftA,
+                   ps.Ranking_Title,
+                   ps.Ranking_Group1,
+                   ps.bonus,
+                   ps.balance 
+            FROM Rbl_DL_Performance_Summary ps,
+                 Sbl_Emp se,
+                 rbl_dl_organization org
+            WHERE ps.emp_id = se.emp_id 
+              AND ps.year || ps.month BETWEEN :StartPeriod AND :EndPeriod
+              AND se.station_id = org.station_id 
+              AND se.shift_id = org.shift_id 
+              AND se.dept_id = org.dept_id 
+              AND org.section = :Section
+        ");
+
+        // 動態附加條件 (取代原本的字串拼接)
+        if (!string.IsNullOrEmpty(station))
+        {
+            sqlBuilder.AppendLine(" AND se.station_id = :Station ");
+            parameters.Add("Station", station);
+        }
+        if (!string.IsNullOrEmpty(shift))
+        {
+            sqlBuilder.AppendLine(" AND se.shift_id = :Shift ");
+            parameters.Add("Shift", shift);
+        }
+        if (!string.IsNullOrEmpty(deptId))
+        {
+            sqlBuilder.AppendLine(" AND se.dept_id = :DeptId ");
+            parameters.Add("DeptId", deptId);
+        }
+        if (!string.IsNullOrEmpty(empId))
+        {
+            sqlBuilder.AppendLine(" AND se.emp_id = :EmpId ");
+            parameters.Add("EmpId", empId);
+        }
+        if (!string.IsNullOrEmpty(dateType))
+        {
+            // 改用參數化取代原本的 instr(ps.month,'"+DateType+"')
+            sqlBuilder.AppendLine(" AND INSTR(ps.month, :DateType) > 0 ");
+            parameters.Add("DateType", dateType);
+        }
+
+        // 加上最後的 Order By
+        sqlBuilder.AppendLine($@"
+            ORDER BY ps.year,
+                     ps.month,
+                     se.shift_id,
+                     se.station_id,
+                     se.title,
+                     se.emp_id
+        ");
+
+        string finalSql = sqlBuilder.ToString();
+
+        try
+        {
+            // 模擬原本的紀錄 (實務上建議記錄 finalSql 及參數內容，而非組裝好的字串)
+            // DBAcc da = new DBAcc(con);   
+            // da.InsertConfidential("DL", userid, func, finalSql);
+
+            // 執行 Dapper 查詢
+            result = con.Query(finalSql, parameters);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+            throw;
+        }
+
+        return result;
+    }
+}
