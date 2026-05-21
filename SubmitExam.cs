@@ -127,3 +127,5 @@
 
             return View("ExamResult", model); // 可建立 ExamResult.cshtml 顯示詳細評分與結果
         }
+
+string path = Path.Combine(Server.MapPath("~/Content/Excel/"), newFileName);
