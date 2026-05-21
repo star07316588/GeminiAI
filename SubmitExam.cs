@@ -129,3 +129,15 @@
         }
 
 string path = Path.Combine(Server.MapPath("~/Content/Excel/"), newFileName);
+
+// 1. 取得資料夾的實體路徑
+string directoryPath = Server.MapPath("~/Content/Excel/");
+
+// 2. 檢查資料夾是否存在，若不存在則建立資料夾
+if (!Directory.Exists(directoryPath))
+{
+    Directory.CreateDirectory(directoryPath);
+}
+
+// 3. 組合出完整的檔案路徑
+string path = Path.Combine(directoryPath, newFileName);
