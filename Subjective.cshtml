@@ -96,3 +96,62 @@
             // 更新 Grid
             $resultTable.jqGrid('setCell', Emp_Id, 'Score', score);
         }
+
+//===================================================================================
+        //  核心邏輯：計算分數（已加入防重複排名邏輯）
+        //===================================================================================
+        function calculateRowScore(Emp_Id, rankVal) {
+            var rank = parseInt(rankVal);
+            var max = parseFloat($('#hidUpperBound').val());
+            var min = parseFloat($('#hidLowerBound').val());
+            var total = parseInt($('#hidTotalCount').val());
+
+            if (isNaN(rank) || isNaN(max) || isNaN(min) || isNaN(total)) return;
+
+            // 1. 驗證排名上限
+            if (rank > total) {
+                alert('排名不可大於總人數 (' + total + ')');
+                clearRowData(Emp_Id);
+                return;
+            }
+
+            // 2. 驗證排名是否重複
+            var isDuplicate = false;
+            var allRowsData = $resultTable.jqGrid('getRowData'); // 取得目前畫面上所有資料
+            
+            for (var i = 0; i < allRowsData.length; i++) {
+                var row = allRowsData[i];
+                // 排除目前正在編輯的這名員工(Emp_Id)，比對其他人的 Record
+                if (row.Emp_Id !== Emp_Id && parseInt(row.Record) === rank) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (isDuplicate) {
+                alert('排名 ' + rank + ' 已被其他員工填寫，請重新輸入！');
+                clearRowData(Emp_Id);
+                return;
+            }
+
+            // 3. 公式計算: Score = Max - ((Rank - 1) * ((Max - Min) / (Total - 1)))
+            var score = 0;
+            if (total > 1) {
+                var step = (max - min) / (total - 1);
+                score = max - ((rank - 1) * step);
+            } else {
+                score = max; // 只有一人時得最高分
+            }
+
+            // 四捨五入到小數點兩位
+            score = Math.round(score * 100) / 100;
+
+            // 更新 Grid
+            $resultTable.jqGrid('setCell', Emp_Id, 'Score', score);
+        }
+
+        // 輔助函式：當驗證失敗時負責清空儲存格
+        function clearRowData(Emp_Id) {
+            $resultTable.jqGrid('setCell', Emp_Id, 'Record', ''); // 清空排名 (建議給空字串，給 null 有時 jqGrid 會顯示 null)
+            $resultTable.jqGrid('setCell', Emp_Id, 'Score', '');  // 清空分數
+        }
