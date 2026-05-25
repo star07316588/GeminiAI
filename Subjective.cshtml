@@ -1,0 +1,98 @@
+            //===================================================================================
+            //  表格設定 (jqGrid)
+            //===================================================================================
+            $resultTable.jqGrid({
+                datatype: 'local',
+                autowidth: true,
+                shrinkToFit: false,
+                height: $('div.main').height() - 180, // 扣除上方資訊區塊高度
+                rownumbers: true,
+                viewrecords: true,
+                rowNum: 2000, // 考評通常一次全部顯示，不分頁
+                rowList: [500, 1000, 2000],
+                pager: $resultTablePager,
+                cellEdit: true,           // 啟用儲存格編輯
+                cellsubmit: 'clientArray',// 編輯後只存在前端記憶體，不直接 Post
+                colNames: [
+                           '@Html.DisplayNameFor(r => r.Dept_Id)',
+                           '@Html.DisplayNameFor(r => r.Station_Id)',
+                           '@Html.DisplayNameFor(r => r.Shift_Id)',
+                           '@Html.DisplayNameFor(r => r.Emp_Id)',
+                           '@Html.DisplayNameFor(r => r.Name)',
+                           '@Html.DisplayNameFor(r => r.Position_Group)',
+                           '@Html.DisplayNameFor(r => r.Title)',
+                           '@Html.DisplayNameFor(r => r.Record)',
+                           '@Html.DisplayNameFor(r => r.Score)',
+                           '@Html.DisplayNameFor(r => r.Comments)',
+                ],
+                colModel: [
+                    { name: 'Dept_Id', index: 'Dept_Id', width: '60', sortable: true },
+                    { name: 'Station_Id', index: 'Station_Id', width: '60', sortable: true },
+                    { name: 'Shift_Id', index: 'Shift_Id', width: '50', sortable: true },
+                    { name: 'Emp_Id', index: 'Emp_Id', width: '70', key: true, sortable: true },
+                    { name: 'Name', index: 'Name', width: '70', sortable: true },
+                    { name: 'Position_Group', index: 'Position_Group', width: '70', sortable: false },
+                    { name: 'Title', index: 'Title', width: '100', sortable: true },
+
+                    // === 重點修改區 ===
+                    {
+                        name: 'Record', index: 'Record', width: '80', align: 'center',
+                        editable: true,
+                        editrules: { number: true, minValue: 1 },
+                        formatter: 'integer',
+                        classes: 'bg-warning' // 加個底色提示可編輯
+                    },
+                    {
+                        name: 'Score', index: 'Score', width: '80', align: 'right',
+                        editable: false, // 分數由公式計算，不可手動改
+                        formatter: 'number', formatoptions: { decimalPlaces: 2 }
+                    },
+                    {
+                        name: 'Comments', index: 'Comments', width: '200',
+                        editable: true,
+                        edittype: 'textarea',
+                        editoptions: { rows: "1" },
+                        classes: 'bg-warning'
+                    }
+                ],
+                afterSaveCell: function (Emp_Id, cellname, value, iRow, iCol) {
+                    if (cellname === 'Record') {
+                        calculateRowScore(Emp_Id, value);
+                    }
+                }
+            });
+
+        //===================================================================================
+        //  核心邏輯：計算分數
+        //===================================================================================
+        function calculateRowScore(Emp_Id, rankVal) {
+            var rank = parseInt(rankVal);
+            var max = parseFloat($('#hidUpperBound').val());
+            var min = parseFloat($('#hidLowerBound').val());
+            var total = parseInt($('#hidTotalCount').val());
+
+            if (isNaN(rank) || isNaN(max) || isNaN(min) || isNaN(total)) return;
+
+            // 驗證排名
+            if (rank > total) {
+                alert('排名不可大於總人數 (' + total + ')');
+                $resultTable.jqGrid('setCell', Emp_Id, 'Record', null); // 清空
+                $resultTable.jqGrid('setCell', Emp_Id, 'Score', null);
+                return;
+            }
+
+            // 公式: Score = Max - ((Rank - 1) * ((Max - Min) / (Total - 1)))
+            var score = 0;
+            if (total > 1) {
+                var step = (max - min) / (total - 1);
+                score = max - ((rank - 1) * step);
+            } else {
+                score = max; // 只有一人時得最高分
+            }
+
+            // 四捨五入到小數點兩位
+            score = Math.round(score * 100) / 100;
+
+            // 更新 Grid
+            $resultTable.jqGrid('setCell', Emp_Id, 'Score', score);
+        }
