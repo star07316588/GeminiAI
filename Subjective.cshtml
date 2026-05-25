@@ -166,3 +166,121 @@
                         </div>
                     </td>
                 </tr>
+
+
+//===================================================================================
+//  核心邏輯：計算分數（完全依據 Station_Id 獨立分開計算與整站連動更新）
+//===================================================================================
+function calculateRowScore(rowid, rankVal) {
+    var rank = parseInt(rankVal);
+    var max = parseFloat($('#hidUpperBound').val());
+    var min = parseFloat($('#hidLowerBound').val());
+
+    if (isNaN(max) || isNaN(min)) return;
+
+    // 1. 取得當前編輯列的完整資料與站別
+    var currentRow = $resultTable.jqGrid('getRowData', rowid);
+    var currentStationId = currentRow.Station_Id; 
+
+    // 2. 取得全表資料，並過濾出「相同站別」的所有資料列
+    var allRowsData = $resultTable.jqGrid('getRowData');
+    var stationRows = allRowsData.filter(function (row) {
+        return row.Station_Id === currentStationId;
+    });
+
+    // 該站別的總人數
+    var total = stationRows.length; 
+
+    // 如果使用者把排名刪除（輸入空值），則清空該欄位，並重新計算該站其他人的分數
+    if (isNaN(rank) || rankVal === '') {
+        clearRowData(rowid);
+        recalculateStationScores(currentStationId, max, min, total);
+        return;
+    }
+
+    // 3. 驗證排名上限（根據該站別總人數）
+    if (rank > total) {
+        alert('在站別 [' + currentStationId + '] 中，排名不可大於該站總人數 (' + total + '人)');
+        clearRowData(rowid);
+        recalculateStationScores(currentStationId, max, min, total); // 恢復該站其他人的正確分數
+        return;
+    }
+
+    // 4. 驗證排名是否重複（只跟「同站別」的人比，且排除自己）
+    var isDuplicate = false;
+    for (var i = 0; i < stationRows.length; i++) {
+        var row = stationRows[i];
+        
+        // 判定是否為當前編輯的這一列（利用 Emp_Id + Station_Id 組合定位）
+        if (row.Emp_Id === currentRow.Emp_Id && row.Station_Id === currentRow.Station_Id) {
+            continue; 
+        }
+
+        if (parseInt(row.Record) === rank) {
+            isDuplicate = true;
+            break;
+        }
+    }
+
+    if (isDuplicate) {
+        alert('在站別 [' + currentStationId + '] 中，排名 ' + rank + ' 已被其他員工填寫！');
+        clearRowData(rowid);
+        recalculateStationScores(currentStationId, max, min, total); // 恢復該站其他人的正確分數
+        return;
+    }
+
+    // 5. 驗證通過，先更新當前畫面上這一列的 Record 值 (因為 getRowData 抓到的是舊值)
+    $resultTable.jqGrid('setCell', rowid, 'Record', rank);
+
+    // 6. 【核心修改】重新計算並更新該站別「所有員工」的分數
+    recalculateStationScores(currentStationId, max, min, total);
+}
+
+//===================================================================================
+//  輔助邏輯：專門負責「特定站別」的分數重算與 Grid 刷洗
+//===================================================================================
+function recalculateStationScores(stationId, max, min, total) {
+    // 重新取得最新 Grid 資料
+    var allRows = $resultTable.jqGrid('getRowData');
+    
+    // 計算間距步長 (以該站總人數為基準)
+    var step = (total > 1) ? (max - min) / (total - 1) : 0;
+
+    // 遍歷所有資料，只要是該站別的，就重新依據它目前的排名計算分數
+    for (var i = 0; i < allRows.length; i++) {
+        var row = allRows[i];
+        
+        if (row.Station_Id === stationId) {
+            // 這裡需要獲取 jqGrid 自動生成的 rowid。
+            // 註：jqGrid getRowData 回傳的物件，預設會把 rowid 放在 `_id_` 或 `id` 屬性中，
+            // 如果抓不到，最穩妥的做法是利用當初塞進去唯一的 rowid，
+            // 或者是遍歷 jqGrid 的原始 IDs：
+            var rowids = $resultTable.jqGrid('getDataIDs');
+            var currentObjId = rowids[i]; // 或者是直接用對應的 rowid
+
+            var currentRank = parseInt(row.Record);
+
+            if (!isNaN(currentRank) && currentRank > 0) {
+                var score = 0;
+                if (total > 1) {
+                    score = max - ((currentRank - 1) * step);
+                } else {
+                    score = max; 
+                }
+                score = Math.round(score * 100) / 100;
+                
+                // 更新該列分數
+                $resultTable.jqGrid('setCell', currentObjId, 'Score', score);
+            } else {
+                // 如果該列沒有填排名，分數保持空字串
+                $resultTable.jqGrid('setCell', currentObjId, 'Score', '');
+            }
+        }
+    }
+}
+
+// 輔助函式：當驗證失敗時負責清空儲存格
+function clearRowData(rowid) {
+    $resultTable.jqGrid('setCell', rowid, 'Record', ''); 
+    $resultTable.jqGrid('setCell', rowid, 'Score', '');  
+}
