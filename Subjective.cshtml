@@ -155,3 +155,14 @@
             $resultTable.jqGrid('setCell', Emp_Id, 'Record', ''); // 清空排名 (建議給空字串，給 null 有時 jqGrid 會顯示 null)
             $resultTable.jqGrid('setCell', Emp_Id, 'Score', '');  // 清空分數
         }
+
+                <tr>
+                    <td align="right">
+                        @Html.DisplayNameFor(m => m.Station_Id)：
+                    </td>
+                    <td>
+                        <div class="form-group margin0">
+                            @Html.ListBoxFor(model => model.SelectedStationIds, Model.StationIdList, new { @id = "StationListBox", @class = "form-control input-xs", @style = "height: 50px" })
+                        </div>
+                    </td>
+                </tr>
