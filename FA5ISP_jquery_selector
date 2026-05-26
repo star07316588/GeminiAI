@@ -11,3 +11,8 @@ $('td[aria-describedby="selector_CBoxID"][title*="RDP"][title*="administrator"]'
     .closest('tr')
     .find('input[type="checkbox"]')
     .prop('checked', true);
+
+$('td[aria-describedby="selector_CBoxID"][title*="RDP" i][title*="administrator" i]')
+    .closest('tr')
+    .find('input[type="checkbox"]')
+    .click();
