@@ -253,3 +253,9 @@ XML
 
 路線 C：修復套件的原始設定（最標準的作法）
 如同之前提到的，把 Microsoft.CodeDom.Providers.DotNetCompilerPlatform 這個 NuGet 套件重新安裝並更新 .csproj。它本身就有內建類似上面路線 B 的腳本，只要設定正確，它就會自動化完成這一切，您甚至不需要把 roslyn 加進 .gitignore 裡。
+
+<?xml version="1.0" encoding="utf-8"?>
+<parameters>
+  <setParameter name="IIS Web Application Name" value="Default Web Site/MesTAManagementSystem_New_deploy" />
+  <setParameter name="SRSDB-Web.config Connection String" value="Data Source = (DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.211.63)(PORT = 1521)))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = srsprod.mxic.com.tw))); User Id = prjmgr; Password = 123456;" />
+</parameters>
