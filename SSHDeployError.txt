@@ -259,3 +259,5 @@ XML
   <setParameter name="IIS Web Application Name" value="Default Web Site/MesTAManagementSystem_New_deploy" />
   <setParameter name="SRSDB-Web.config Connection String" value="Data Source = (DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.211.63)(PORT = 1521)))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = srsprod.mxic.com.tw))); User Id = prjmgr; Password = 123456;" />
 </parameters>
+
+/p:DeployIisAppPath="Default Web Site/MesTAManagementSystem_New"
