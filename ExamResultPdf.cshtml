@@ -394,9 +394,27 @@ var pdfView = new ViewAsPdf("ExamResultPdf", model)
     }
 </style>
 
-<table border="1" style="border-collapse: collapse;" class="table table-bordered">
-    <thead style="display: table-header-group;">
-        <tr style="page-break-inside:avoid !important; page-break-after:auto;">
-             </tr>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>#題號(Number)</th>
+            <th>問題(Question)</th>
+            <th>正確答案(Correct)</th>
+            <th>你的答案(Your Answer)</th>
+            <th>結果(Result)</th>
+        </tr>
     </thead>
-    ...
+    <tbody>
+        @for (int i = 0; i < Model.NecessaryQuestions.Count; i++)
+        {
+            var q = Model.NecessaryQuestions[i];
+            <tr class="@(q.IsCorrect ? "table-success" : "table-danger")">
+                <td>@(i + 1)</td>
+                <td style="white-space:pre-wrap">@q.Subject</td>
+                <td>@q.Answer</td>
+                <td>@q.UserAnswer</td>
+                <td style="white-space: nowrap;">@(q.IsCorrect ? "✔ 正確" : "✘ 錯誤")</td>
+            </tr>
+        }
+    </tbody>
+</table>
