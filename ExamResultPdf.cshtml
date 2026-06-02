@@ -363,15 +363,14 @@
 var pdfView = new ViewAsPdf("ExamResultPdf", model)
 {
     PageSize = Rotativa.Options.Size.A4,
-    // 增加以下邊距設定（單位通常為公釐 mm）
-    MarginTop = 20,       // 為頂部的 Header 留出 20mm 的空間
-    MarginBottom = 20,    // 為底部的 Footer 留出 20mm 的空間
-    MarginLeft = 10,
-    MarginRight = 10,
+    
+    // 💡 透過 PageMargins 物件來設定上下左右邊距（單位：公釐 mm）
+    PageMargins = new Rotativa.Options.Margins(20, 10, 20, 10), // 順序為：上, 右, 下, 左
+
     CustomSwitches =
         "--header-right \"General PD\nMacronix Proprietary\" " + 
         "--header-font-size 9 " +
-        "--header-spacing 5 " + // 增加 Header 與內容之間的間距
+        "--header-spacing 5 " + // 讓 Header 與本文再多一點點間距
         "--footer-center \"本文件內容涉及個人資料，僅供本公司業務範圍使用。\" " +
         "--footer-font-size 8 " +
         "--footer-line"
