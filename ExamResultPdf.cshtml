@@ -357,3 +357,47 @@
         </tr>
     </table>
 </div>
+
+
+// 渲染 View 為 PDF
+var pdfView = new ViewAsPdf("ExamResultPdf", model)
+{
+    PageSize = Rotativa.Options.Size.A4,
+    // 增加以下邊距設定（單位通常為公釐 mm）
+    MarginTop = 20,       // 為頂部的 Header 留出 20mm 的空間
+    MarginBottom = 20,    // 為底部的 Footer 留出 20mm 的空間
+    MarginLeft = 10,
+    MarginRight = 10,
+    CustomSwitches =
+        "--header-right \"General PD\nMacronix Proprietary\" " + 
+        "--header-font-size 9 " +
+        "--header-spacing 5 " + // 增加 Header 與內容之間的間距
+        "--footer-center \"本文件內容涉及個人資料，僅供本公司業務範圍使用。\" " +
+        "--footer-font-size 8 " +
+        "--footer-line"
+};
+
+<style>
+    /* 確保表格跨頁時，tbody 的行（tr）不會被從中截斷 */
+    table tr {
+        page-break-inside: avoid !important;
+    }
+
+    /* 確保 table header 在新的一頁正確獨立顯示 */
+    thead {
+        display: table-header-group !important;
+    }
+
+    /* 預防 Bootstrap 的 table-bordered 造成 wkhtmltopdf 計算錯誤 */
+    .table {
+        border-collapse: collapse !important;
+        width: 100%;
+    }
+</style>
+
+<table border="1" style="border-collapse: collapse;" class="table table-bordered">
+    <thead style="display: table-header-group;">
+        <tr style="page-break-inside:avoid !important; page-break-after:auto;">
+             </tr>
+    </thead>
+    ...
