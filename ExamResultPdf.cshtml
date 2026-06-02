@@ -1,0 +1,262 @@
+
+//Controller
+public ActionResult SubmitExam(OnlineExamVM model)
+        {
+            // 建立檔名與路徑
+            string fileName = _testingService.GetPdfWritingFileName(model);
+            if (string.IsNullOrEmpty(fileName))
+            {
+                fileName = "ExamResult_" + model.EmpId + "_ " + DateTime.Now.ToString("yyyyMMddHHmmss") + ".pdf";
+            }
+            string folderPath = Server.MapPath("~/PDFResults/");
+            string filePath = Path.Combine(folderPath, fileName);
+
+            if(!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
+            // 渲染 View 為 PDF
+            var pdfView = new ViewAsPdf("ExamResultPdf", model)
+            {
+                PageSize = Rotativa.Options.Size.A4,
+                CustomSwitches =
+                    "--header-right \"General PD\nMacronix Proprietary\" " + 
+                    "--header-font-size 9 " +
+                    "--footer-center \"本文件內容涉及個人資料，僅供本公司業務範圍使用。\" " +
+                    "--footer-font-size 8 " +
+                    "--footer-line"
+            };
+
+            // 建立 PDF byte 並儲存於伺服器
+            var pdfBytes = pdfView.BuildFile(ControllerContext);
+            System.IO.File.WriteAllBytes(filePath, pdfBytes);
+
+            return View("ExamResult", model); // 可建立 ExamResult.cshtml 顯示詳細評分與結果
+        }
+
+//View
+@model MesTAManagementSystem_New.ViewModels.Training.Testing.OnlineExamVM
+@{
+    ViewBag.Title = "Exam Result - 考試結果";
+    Layout = null;
+}
+@section styles
+{
+}
+
+@{
+<script>
+        function getStationId() {
+            var empId = $('#txtEmp_id').val();
+            var cerItemId = $('#sltCerItemId').val();
+            if (cerItemId) {
+                $.ajax({
+                    url: '@Url.Action("GetStationIdList", "OnlineExam")',
+                    type: 'GET',
+                    data: { EmpId: empId, CerItemId: cerItemId },
+                    success: function (data) {
+                        var $stationIdSelect = $('#sltStationId');
+                        $stationIdSelect.empty(); // 先清空舊資料
+
+                        if (data.length > 0) {
+                            $stationIdSelect.append($('<option>').val('').text('--請選擇--'));
+                            $.each(data, function (index, item) {
+                                $stationIdSelect.append($('<option>').val(item.Value).text(item.Text));
+                            });
+                        } else {
+                            $stationIdSelect.append($('<option>').val('').text('無'));
+                        }
+                    },
+                    error: function () {
+                        alert('取得資料失敗');
+                    }
+                });
+            }
+        }
+
+        $('#Bnt').click(function () {
+            var empId = $('#txtEmp_id').val();
+            var cerItemId = $('#sltCerItemId').val();
+            var stationId = $('#sltStationId').val();
+
+            if (!empId || !cerItemId) {
+                alert("工號與試題項目不得為空");
+                return;
+            }
+
+            $.post('/OnlineExam/StartExam', { empId: empId, cerItemId: cerItemId, stationId: stationId }, function (res) {
+                if (res.success) {
+                    // 成功後可導頁或其他操作
+                    location.href = '/OnlineExam/PageExamList?empId=' + empId + '&cerItemId=' + cerItemId;
+                } else {
+                    alert("設定成績失敗");
+                }
+            });
+        });
+
+        $(document).ready(function () {
+            var allTime = @(Model.AllTime) * 60;
+            var LeftTime = allTime - @(Model.LeftTime);
+            var totalsec = (LeftTime !== "" && !isNaN(LeftTime)) ? parseInt(LeftTime) : 10;
+
+            var min = Math.floor(totalsec / 60);
+            var sec = totalsec % 60;
+
+            $('#timeSpend').text('花費時間(Left time): ' + min + ' Min ' + sec + ' sec');
+        });
+</script>
+}
+
+<div id="showTime" class="text-danger text-right" style="font-size: 24px;"></div>
+
+<div><center>考試日期：@DateTime.Now.ToString("yyyy/MM/dd") 工號：@Model.EmpId 科目：@Model.CerItemId 筆試</center></div>
+<div id="OnlineExam" class="page-container">
+    <table>
+        <tr>
+            <td colspan="2"><img src="~/Content/images/title-blank.jpg" /></td>
+            <td colspan="6" class="title">考試結果 Exam Result</td>
+        </tr>
+    </table>
+
+    @*<div>
+            <p><strong>工號 EMP ID:</strong> @Model.EmpId</p>
+            <p><strong>試題項目代碼 Course:</strong> @Model.CerItemId</p>
+            <p><strong>站別 Station:</strong> @Model.StationId</p>
+        </div>
+
+        <hr />
+
+        <h3>總成績 Total Score: @Model.Score</h3>
+
+        <ul>
+            <li>必考題 Necessary Score: @Model.NecessaryScore</li>
+            <li>是非題 True/False Score: @Model.TrueFalseScore</li>
+            <li>選擇題 Choice Score: @Model.ChoiceScore</li>
+            <li>連連看 Link Score: @Model.LinkScore</li>
+        </ul>*@
+
+    <hr />
+    @if (Model.NecessaryQuestions != null && Model.NecessaryQuestions.Count != 0)
+    {
+        <h4>1. 必考題 Necessary Questions</h4>
+        <table border="1" style="border-collapse: collapse;" class="table table-bordered">
+            <thead style="display: table-header-group;">
+                <tr style="page-break-inside:avoid !important; page-break-after:auto;">
+                    <th>#題號(Number)</th>
+                    <th>問題(Question)</th>
+                    <th>正確答案(Correct)</th>
+                    <th>你的答案(Your Answer)</th>
+                    <th>結果(Result)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.NecessaryQuestions.Count; i++)
+                {
+                    var q = Model.NecessaryQuestions[i];
+                    <tr class="@(q.IsCorrect ? "table-success" : "table-danger")">
+                        <td>@(i + 1)</td>
+                        <td style="white-space:pre-wrap">@q.Subject</td>
+                        <td>@q.Answer</td>
+                        <td>@q.UserAnswer</td>
+                        <td style="white-space: nowrap;">@(q.IsCorrect ? "✔ 正確" : "✘ 錯誤")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    @if (Model.TrueFalseQuestions != null && Model.TrueFalseQuestions.Count != 0)
+    {
+        <h4>2. 是非題 True/False Questions</h4>
+        <table border="1" style="border-collapse: collapse;" class="table table-bordered pre-wrap">
+            <thead style="display: table-header-group;">
+                <tr style="page-break-inside:avoid !important; page-break-after:auto;">
+                    <th>#題號(Number)</th>
+                    <th>問題(Question)</th>
+                    <th>正確答案(Correct)</th>
+                    <th>你的答案(Your Answer)</th>
+                    <th>結果(Result)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.TrueFalseQuestions.Count; i++)
+                {
+                    var q = Model.TrueFalseQuestions[i];
+                    <tr class="@(q.IsCorrect ? "table-success" : "table-danger")">
+                        <td>@(i + 1)</td>
+                        <td style="white-space:pre-wrap">@q.Subject</td>
+                        <td>@q.Answer</td>
+                        <td>@q.UserAnswer</td>
+                        <td style="white-space: nowrap;">@(q.IsCorrect ? "✔ 正確" : "✘ 錯誤")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    @if (Model.ChoiceQuestions != null && Model.ChoiceQuestions.Count != 0)
+    {
+        <h4>3. 選擇題 Multiple Choice Questions</h4>
+        <table border="1" style="border-collapse: collapse;" class="table table-bordered pre-wrap">
+            <thead style="display: table-header-group;">
+                <tr style="page-break-inside:avoid !important; page-break-after:auto;">
+                    <th>#題號(Number)</th>
+                    <th>問題(Question)</th>
+                    <th>正確答案(Correct)</th>
+                    <th>你的答案(Your Answer)</th>
+                    <th>結果(Result)</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                @for (int i = 0; i < Model.ChoiceQuestions.Count; i++)
+                {
+                    var q = Model.ChoiceQuestions[i];
+                    <tr class="@(q.IsCorrect ? "table-success" : "table-danger")">
+                        <td>@(i + 1)</td>
+                        <td style="white-space:pre-wrap">@q.Subject</td>
+                        <td>@q.Answer</td>
+                        <td>@q.UserAnswer</td>
+                        <td style="white-space: nowrap;">@(q.IsCorrect ? "✔ 正確" : "✘ 錯誤")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    @if (Model.LinkQuestions != null && Model.LinkQuestions.Count != 0)
+    {
+        <h4>4. 連連看 Linking Questions</h4>
+        <table border="1" style="border-collapse: collapse;" class="table table-bordered pre-wrap">
+            <thead style="display: table-header-group;">
+                <tr style="page-break-inside:avoid !important; page-break-after:auto;">
+                    <th>#題號(Number)</th>
+                    <th>問題(Question)</th>
+                    <th>圖片(File)</th>
+                    <th>正確答案(Correct)</th>
+                    <th>你的答案(Your Answer)</th>
+                    <th>結果(Result)</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                @for (int i = 0; i < Model.LinkQuestions.Count; i++)
+                {
+                    var q = Model.LinkQuestions[i];
+                    string imageUrl = string.Format("{0}://{1}{2}", Request.Url.Scheme, Request.Url.Authority, Url.Content("~/Content/Images/" + q.File_Name));
+                    <tr style="page-break-inside:avoid !important; page-break-after:auto;" class="@(q.IsCorrect ? "table-success" : "table-danger")">
+                        <td>@(i + 1)</td>
+                        <td style="white-space:pre-wrap">@q.Subject</td>
+                        <td><img style="max-width: 100%;height:auto;" src="@imageUrl" /></td>
+                        <td>@q.Answer</td>
+                        <td>@q.UserAnswer</td>
+                        <td style="white-space: nowrap;">@(q.IsCorrect ? "✔ 正確" : "✘ 錯誤")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    <table>
+        <tr>
+            <td id="timeSpend" style="font-weight:bold; padding-left:10px;"></td>
+        </tr>
+    </table>
+</div>
