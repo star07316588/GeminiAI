@@ -1,7 +1,104 @@
 
 //Controller
-public ActionResult SubmitExam(OnlineExamVM model)
+        public ActionResult SubmitExam(OnlineExamVM model)
         {
+            int NecsssaryIsCorrect = 0;
+            int TureFalseIsCorrect = 0;
+            int ChoiceIsCorrect = 0;
+            int LinkIsCorrect = 0;
+            int correct = 0;
+            string Subject = string.Empty;
+            string FileName = string.Empty;
+            string UserAnswer = string.Empty;
+            string Answer = string.Empty;
+            var ExamCerRegAndTime = _testingService.GetExamCerRegAndTime(model.EmpId, model.CerItemId);
+            model.AllTime = ExamCerRegAndTime.Select(m => m.AllTime).FirstOrDefault();
+
+            if (model.ExamRegNo == null)
+            {
+                ExamCerRegAndTime = _testingService.GetExamCerRegAndTime(model.EmpId, model.CerItemId);
+                model.ExamRegNo = ExamCerRegAndTime.Select(m => m.ExamRegNo).FirstOrDefault();
+            }
+
+            // 必考題評分
+            if (model.NecessaryQuestions != null)
+            {
+                for (int i = 0; i < model.NecessaryQuestions.Count; i++)
+                {
+                    Subject = model.NecessaryQuestions[i].Subject;
+                    UserAnswer = model.NecessaryQuestions[i].UserAnswer;
+                    Answer = model.NecessaryQuestions[i].Answer;
+                    if (model.NecessaryQuestions[i].IsCorrect)
+                    {
+                        correct++;
+                        NecsssaryIsCorrect++;
+                    }
+                }
+            }
+
+            // 是非題評分
+            if (model.TrueFalseQuestions != null)
+            {
+                for (int i = 0; i < model.TrueFalseQuestions.Count; i++)
+                {
+                    Subject = model.TrueFalseQuestions[i].Subject;
+                    UserAnswer = model.TrueFalseQuestions[i].UserAnswer;
+                    Answer = model.TrueFalseQuestions[i].Answer;
+                    if (model.TrueFalseQuestions[i].IsCorrect)
+                    {
+                        correct++;
+                        TureFalseIsCorrect++;
+                    }
+                }
+            }
+
+            // 選擇題評分
+            if (model.ChoiceQuestions != null)
+            {
+                for (int i = 0; i < model.ChoiceQuestions.Count; i++)
+                {
+                    Subject = model.ChoiceQuestions[i].Subject;
+                    UserAnswer = model.ChoiceQuestions[i].UserAnswer;
+                    Answer = model.ChoiceQuestions[i].Answer;
+                    if (model.ChoiceQuestions[i].IsCorrect)
+                    {
+                        correct++;
+                        ChoiceIsCorrect++;
+                    }
+                }
+            }
+
+            // 連連看評分
+            if (model.LinkQuestions != null)
+            {
+                for (int i = 0; i < model.LinkQuestions.Count; i++)
+                {
+                    Subject = model.LinkQuestions[i].Subject;
+                    UserAnswer = model.LinkQuestions[i].UserAnswer;
+                    FileName = model.LinkQuestions[i].File_Name;
+                    Answer = model.LinkQuestions[i].Answer;
+                    if (model.LinkQuestions[i].IsCorrect)
+                    {
+                        correct++;
+                        LinkIsCorrect++;
+                    }
+                }
+            }
+
+            model.TotalQuestions = (model.NecessaryQuestions != null ? model.NecessaryQuestions.Count : 0)
+                                 + (model.TrueFalseQuestions != null ? model.TrueFalseQuestions.Count : 0)
+                                 + (model.ChoiceQuestions != null ? model.ChoiceQuestions.Count : 0)
+                                 + (model.LinkQuestions != null ? model.LinkQuestions.Count : 0);
+            model.CorrectCount = correct;
+            model.NecessaryScore = (int)((double)NecsssaryIsCorrect / model.TotalQuestions * 100);
+            model.TrueFalseScore= (int)((double)TureFalseIsCorrect / model.TotalQuestions * 100);
+            model.ChoiceScore = (int)((double)ChoiceIsCorrect / model.TotalQuestions * 100);
+            model.LinkScore = (int)((double)LinkIsCorrect / model.TotalQuestions * 100);
+            model.Score = (int)((double)correct / model.TotalQuestions * 100);
+
+            model.ScoreType = "WR";
+            bool success = _testingService.UpdateScore(model, userId);
+
             // 建立檔名與路徑
             string fileName = _testingService.GetPdfWritingFileName(model);
             if (string.IsNullOrEmpty(fileName))
