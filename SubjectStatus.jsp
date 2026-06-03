@@ -105,3 +105,40 @@
                 }
             }
             return Content(JsonConvert.SerializeObject(result), "application/json");
+
+var empStatus = _reportService.GetSubjectStatus(searchInfo.Year, searchInfo.Month, searchInfo.Title, searchInfo.Dept_Id, Station_Id, searchInfo.Shift_Id);
+
+foreach (string status in empStatus)
+{
+    bool isStatusValid = false;
+
+    switch (searchInfo.LoginTitle)
+    {
+        case "LEADER":
+            isStatusValid = (status == "LEADER PROCESSING");
+            break;
+        case "SUPERVISOR":
+            isStatusValid = (status == "LEADER OK");
+            break;
+        case "MANAGER":
+            isStatusValid = (status == "SUPERVISOR OK");
+            break;
+        default:
+            isStatusValid = false;
+            break;
+    }
+
+    if (!isStatusValid)
+    {
+        // 回傳一個帶有錯誤訊息的 JSON
+        var errorResult = new { 
+            success = false, 
+            message = $"不允許執行主觀績效考核作業, status={status}" 
+        };
+        return Content(JsonConvert.SerializeObject(errorResult), "application/json");
+    }
+}
+
+// 若全數檢查通過 (符合)，走原本的 Rule
+// 建議您原來的 result 也包裝成帶有 success = true 的結構會更一致
+return Content(JsonConvert.SerializeObject(result), "application/json");
