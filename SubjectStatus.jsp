@@ -188,3 +188,62 @@ return Content(JsonConvert.SerializeObject(result), "application/json");
                         $.unblockUI();
                     }
                 });
+
+$.ajax({
+                    url: '@Url.Action("QueryTable")', // 請確認 Controller 有此 Action
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(vm),
+                    beforeSend: function () {
+                        $.blockUI({ message: '查詢中...' });
+                    },
+                    success: function (response) {
+                        // ==========================================
+                        // 1. 新增：攔截後端回傳的權限/狀態檢核錯誤
+                        // ==========================================
+                        if (response.success === false) {
+                            alert(response.message);
+                            return; // 提早中斷，不執行下方的畫面更新
+                        }
+
+                        // ==========================================
+                        // 2. 原本的成功邏輯：更新上方資訊區與 Grid
+                        // ==========================================
+                        // 假設後端回傳格式為 { Data: [...], Config: { Upper: 100, Lower: 60, Weight: 20... } }
+                        
+                        if (response.Config) {
+                            $('#lblWeighting').text(response.Config.Weighting);
+                            $('#lblRange').text(response.Config.LowerBound + ' ~ ' + response.Config.UpperBound);
+                            $('#lblRemark').text(response.Config.ItemRemark);
+
+                            // 備註內容 (支援 HTML 格式)
+                            $('#lblHeadTitle').text(response.Config.HeadTitle);
+                            $('#lblItemName').text(response.Config.ItemName);
+                            $('#lblDetailItemName').text(response.Config.DetailItemName);
+                            $('#lblItemRemark').html(response.Config.ItemRemark || "無說明");
+                            $('#lblDetailItemRemark').html(response.Config.DetailItemRemark || "無說明");
+
+                            // 寫入隱藏欄位供計算用
+                            $('#hidUpperBound').val(response.Config.UpperBound);
+                            $('#hidLowerBound').val(response.Config.LowerBound);
+                            $('#hidWeighting').val(response.Config.Weighting);
+                        }
+
+                        // 載入 Grid 資料
+                        var gridData = response.Data || response;
+
+                        $('#hidTotalCount').val(gridData.length); // 紀錄總筆數供公式分母使用
+
+                        $resultTable.jqGrid('clearGridData').jqGrid('setGridParam', {
+                            data: gridData
+                        }).trigger('reloadGrid');
+                    },
+                    complete: function () {
+                        $.unblockUI();
+                    },
+                    // 建議可以加上 error 區塊，捕捉真正的系統異常 (如 500 Server Error)
+                    error: function (xhr, status, error) {
+                        alert("系統發生異常，請聯絡資訊人員。");
+                        console.error(error);
+                    }
+                });
