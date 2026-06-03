@@ -23,3 +23,54 @@
 		}
 		//System.out.println(sSQL);
 		rs = jdbc.queryData(sSQL,con);	
+
+// 因為 SQL 只 Select 了單一欄位 (status)，我們可以直接回傳 IEnumerable<string>
+    public IEnumerable<string> GetSubjectStatus(
+        IDbConnection con, string year, string month, 
+        string deptId, string title, string stationId, string shiftId)
+    {
+        // 宣告 DynamicParameters 來集中管理參數
+        var parameters = new DynamicParameters();
+        parameters.Add("Year", year);
+        parameters.Add("Month", month);
+        parameters.Add("DeptId", deptId);
+        parameters.Add("Title", title);
+
+        // 使用 StringBuilder 建立基礎 SQL (使用逐字字串 $@ 保持排版乾淨)
+        var sqlBuilder = new StringBuilder($@"
+            SELECT a.status 
+            FROM Rbl_DL_Status a 
+            WHERE year = :Year 
+              AND month = :Month 
+              AND dept_id = :DeptId 
+              AND title = :Title 
+              AND type = 'SUBJECT' 
+        ");
+
+        // 處理 station_id：直接切成陣列，丟給 Dapper 處理 IN 語句
+        if (!string.IsNullOrEmpty(stationId))
+        {
+            string[] stationArray = stationId.Split(',');
+            sqlBuilder.AppendLine(" AND station_id IN :StationIds ");
+            parameters.Add("StationIds", stationArray);
+        }
+
+        // 處理 shift_id：同樣切成陣列，丟給 Dapper
+        if (!string.IsNullOrEmpty(shiftId))
+        {
+            string[] shiftArray = shiftId.Split(',');
+            sqlBuilder.AppendLine(" AND shift_id IN :ShiftIds ");
+            parameters.Add("ShiftIds", shiftArray);
+        }
+
+        try
+        {
+            // Dapper 執行查詢，因為只抓 status 欄位，直接 mapping 到字串集合
+            return con.Query<string>(sqlBuilder.ToString(), parameters);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+            throw;
+        }
+    }
