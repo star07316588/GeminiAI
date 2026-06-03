@@ -142,3 +142,49 @@ foreach (string status in empStatus)
 // 若全數檢查通過 (符合)，走原本的 Rule
 // 建議您原來的 result 也包裝成帶有 success = true 的結構會更一致
 return Content(JsonConvert.SerializeObject(result), "application/json");
+
+                $.ajax({
+                    url: '@Url.Action("QueryTable")', // 請確認 Controller 有此 Action
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(vm),
+                    beforeSend: function () {
+                        $.blockUI({ message: '查詢中...' });
+                    },
+                    success: function (response) {
+                        // 假設後端回傳格式為 { Data: [...], Config: { Upper: 100, Lower: 60, Weight: 20... } }
+                        // 如果只回傳 List，則 Config 需要另外處理
+
+                        // 1. 更新上方資訊區 (假設 response 包含 Config)
+                        if (response.Config) {
+                            $('#lblWeighting').text(response.Config.Weighting);
+                            $('#lblRange').text(response.Config.LowerBound + ' ~ ' + response.Config.UpperBound);
+                            $('#lblRemark').text(response.Config.ItemRemark);
+
+                            // 備註內容 (支援 HTML 格式，如 &quot;)
+                            $('#lblHeadTitle').text(response.Config.HeadTitle);
+                            $('#lblItemName').text(response.Config.ItemName);
+                            $('#lblDetailItemName').text(response.Config.DetailItemName);
+                            $('#lblItemRemark').html(response.Config.ItemRemark || "無說明");
+                            $('#lblDetailItemRemark').html(response.Config.DetailItemRemark || "無說明");
+
+                            // 寫入隱藏欄位供計算用
+                            $('#hidUpperBound').val(response.Config.UpperBound);
+                            $('#hidLowerBound').val(response.Config.LowerBound);
+                            $('#hidWeighting').val(response.Config.Weighting);
+                        }
+
+                        // 2. 載入 Grid 資料
+                        // 注意：這裡假設 response.Data 是資料 List
+                        var gridData = response.Data || response;
+
+                        $('#hidTotalCount').val(gridData.length); // 紀錄總筆數供公式分母使用
+
+                        $resultTable.jqGrid('clearGridData').jqGrid('setGridParam', {
+                            data: gridData
+                        }).trigger('reloadGrid');
+                    },
+                    complete: function () {
+                        $.unblockUI();
+                    }
+                });
