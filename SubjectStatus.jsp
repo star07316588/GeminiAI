@@ -74,3 +74,34 @@
             throw;
         }
     }
+
+            var empStatus = _reportService.GetSubjectStatus(searchInfo.Year, searchInfo.Month, searchInfo.Title, searchInfo.Dept_Id, Station_Id, searchInfo.Shift_Id);
+            foreach (string status in empStatus)
+            {
+                if(searchInfo.LoginTitle == "LEADER")
+                {
+                    if(status != "LEADER PROCESSING")
+                    {
+                        bcheck = false;
+                    }
+                }
+                else if (searchInfo.LoginTitle == "SUPERVISOR")
+                {
+                    if(status != "LEADER OK")
+                    {
+                        bcheck = false;
+                    }
+                }
+                else if (searchInfo.LoginTitle == "MANAGER")
+                {
+                    if(status != "SUPERVISOR OK")
+                    {
+                        bcheck = false;
+                    }
+                }
+                else
+                {
+                    bcheck = false;
+                }
+            }
+            return Content(JsonConvert.SerializeObject(result), "application/json");
