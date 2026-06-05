@@ -390,3 +390,192 @@ ErrorHandler:
         Call HandleError(False, typErrInfo, , moAppLog, True)
     End If
 End Sub
+
+namespace MesApi.Models
+{
+    // API 接收的參數
+    public class QuerySorterControlRequest
+    {
+        public string LotId { get; set; } // 對應 txtLotID_MergeSplit.Text
+        public string Action { get; set; } // 對應 sAction 參數
+    }
+
+    // 查詢回傳的資料結構
+    public class SorterControlInfo
+    {
+        public string Action { get; set; }
+        public string RefLotId { get; set; }
+        public string RefSlotNo { get; set; }
+        public string NewLotId { get; set; }
+        public string NewSlotNo { get; set; }
+        public string OriginalLotId { get; set; }
+        public string WaferId { get; set; }
+        public string SorterStart { get; set; }
+        public string SorterComplete { get; set; }
+        public string CreateUserId { get; set; }
+        public string CreateTime { get; set; }
+    }
+}
+
+using Microsoft.AspNetCore.Mvc;
+using MesApi.Models;
+using MesApi.Services;
+
+namespace MesApi.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class LotController : ControllerBase
+    {
+        private readonly ILotService _lotService;
+
+        public LotController(ILotService lotService)
+        {
+            _lotService = lotService;
+        }
+
+        // ... 之前寫的 ExecQuery [HttpGet("query")] ...
+
+        // 新增：處理 Sorter Control 的查詢
+        [HttpGet("sorter-control")]
+        public async Task<IActionResult> ExecQuerySorterControl([FromQuery] QuerySorterControlRequest request)
+        {
+            // Condition Checking
+            if (string.IsNullOrWhiteSpace(request.LotId) || string.IsNullOrWhiteSpace(request.Action))
+            {
+                return BadRequest(new { Message = "Pls input Query Criterial !! 請輸入查詢條件 !!" });
+            }
+
+            try
+            {
+                var result = await _lotService.GetSorterControlInfoAsync(request.LotId, request.Action);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // 攔截 Service 層拋出的特定商業邏輯例外 (對應 VB6 的 UtShowMsgBox)
+                // 回傳 HTTP 400 Bad Request 給前端，並附帶錯誤訊息
+                return BadRequest(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // 系統發生預期外的錯誤
+                return StatusCode(500, new { Message = "Fail to execute application, please call IT support!! 程式執行失敗, 請洽IT人員處理" });
+            }
+        }
+    }
+}
+
+using MesApi.Models;
+using MesApi.Repositories;
+
+namespace MesApi.Services
+{
+    public interface ILotService
+    {
+        // ... 前一個方法 ...
+        Task<IEnumerable<SorterControlInfo>> GetSorterControlInfoAsync(string lotId, string action);
+    }
+
+    public class LotService : ILotService
+    {
+        private readonly ILotRepository _lotRepo;
+
+        public LotService(ILotRepository lotRepo)
+        {
+            _lotRepo = lotRepo;
+        }
+
+        // ... 前一個方法 ...
+
+        public async Task<IEnumerable<SorterControlInfo>> GetSorterControlInfoAsync(string lotId, string action)
+        {
+            // 第一次查詢：查詢尚未完成的 Sorter 作業
+            var data = await _lotRepo.GetActiveSorterControlsAsync(lotId, action);
+
+            // 若第一段 SQL (colRS) 沒有資料
+            if (data == null || !data.Any())
+            {
+                // 第二次查詢 (colRS_2)：檢查是否其實已經完成了？
+                bool hasFinished = await _lotRepo.CheckAnySorterControlExistsAsync(lotId, action);
+
+                if (hasFinished)
+                {
+                    // 對應 MsgBox: Has finish Sorter operation
+                    throw new InvalidOperationException($"Lot '{lotId}' has finish Sorter '{action}' operation !! 已完成 Sorter '{action}' 作業 !!");
+                }
+                else
+                {
+                    // 對應 MsgBox: is no data found
+                    throw new InvalidOperationException($"Lot '{lotId}' is no '{action}' data found !! 查無 '{action}' 資料 !!");
+                }
+            }
+
+            return data;
+        }
+    }
+}
+
+using MesApi.Models;
+using Dapper;
+using System.Data;
+
+namespace MesApi.Repositories
+{
+    public interface ILotRepository
+    {
+        // ... 前面的方法 ...
+        Task<IEnumerable<SorterControlInfo>> GetActiveSorterControlsAsync(string lotId, string action);
+        Task<bool> CheckAnySorterControlExistsAsync(string lotId, string action);
+    }
+
+    public class LotRepository : ILotRepository
+    {
+        private readonly IDbConnection _dbConnection;
+
+        public LotRepository(IDbConnection dbConnection)
+        {
+            _dbConnection = dbConnection;
+        }
+
+        // ... 前面的方法 ...
+
+        public async Task<IEnumerable<SorterControlInfo>> GetActiveSorterControlsAsync(string lotId, string action)
+        {
+            string sql = @"
+                SELECT 
+                    ACTION as Action, REFLOTID as RefLotId, REFSLOTNO as RefSlotNo, 
+                    NEWLOTID as NewLotId, NEWSLOTNO as NewSlotNo, ORIGINALLOTID as OriginalLotId, 
+                    WAFERID as WaferId, SORTERSTART as SorterStart, SORTERCOMPLETE as SorterComplete, 
+                    CREATEUSERID as CreateUserId, CREATETIME as CreateTime
+                FROM TBL_SORTER_CONTROL s
+                WHERE s.REFLOTID = @LotId 
+                  AND s.DELETEFLAG = 'N' 
+                  AND s.ACTION = @Action 
+                  AND s.CREATETIME IN (
+                      SELECT DISTINCT CREATETIME 
+                      FROM TBL_SORTER_CONTROL 
+                      WHERE REFLOTID = @LotId 
+                        AND DELETEFLAG = 'N' 
+                        AND SORTERCOMPLETE = 'N' 
+                        AND ACTION = @Action
+                  )
+                ORDER BY CREATETIME, REFSLOTNO";
+
+            return await _dbConnection.QueryAsync<SorterControlInfo>(sql, new { LotId = lotId, Action = action });
+        }
+
+        public async Task<bool> CheckAnySorterControlExistsAsync(string lotId, string action)
+        {
+            // 對應第二段 colRS_2 的查詢，我們只需要知道「是否存在」，所以用 SELECT 1 即可，效能更好。
+            string sql = @"
+                SELECT 1 
+                FROM TBL_SORTER_CONTROL 
+                WHERE REFLOTID = @LotId 
+                  AND ACTION = @Action";
+            
+            var result = await _dbConnection.QueryFirstOrDefaultAsync<int?>(sql, new { LotId = lotId, Action = action });
+            return result != null;
+        }
+    }
+}
