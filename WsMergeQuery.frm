@@ -265,3 +265,128 @@ ErrorHandler:
         Call HandleError(False, typErrInfo, , moAppLog, True)
     End If
 End Sub
+
+Private Sub ExecQuery_SorterControl(ByVal sAction As String)
+On Error GoTo ExitHandler:
+    Dim sProcID             As String
+    Dim typErrInfo          As tErrInfo
+
+    '----
+' Init
+'----
+    sProcID = "ExecQuery_SorterControl"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+
+'----
+' Condition Checking
+'----
+    
+    If Trim(txtLotID_MergeSplit.Text) = "" Then
+            UtShowMsgBox "Pls input Query Criterial !!" & vbNewLine & "請輸入查詢條件 !!"
+            GoTo ExitHandler
+    End If
+    
+
+'----
+' Action
+'----
+    Dim sSQL As String
+    Dim colRS As Collection
+    Dim colRS_2 As Collection
+    
+    Dim lIndex As Long
+    
+    Screen.MousePointer = vbHourglass
+
+    Me.spdSorterControl.MaxRows = 0
+    
+    sSQL = "select " & gsCAT_TSTC_ACTION & ", " & gsCAT_TSTC_REFLOTID & ", " & gsCAT_TSTC_REFSLOTNO & ", " & gsCAT_TSTC_NEWLOTID & ", " & _
+                 " " & gsCAT_TSTC_NEWSLOTNO & ", " & gsCAT_TSTC_ORIGINALLOTID & ", " & gsCAT_TSTC_WAFERID & ", " & gsCAT_TSTC_SORTERSTART & ", " & _
+                 " " & gsCAT_TSTC_SORTERCOMPLETE & " , " & gsCAT_TSTC_CREATEUSERID & ", " & gsCAT_TSTC_CREATETIME & " " & _
+            " from " & gsCAT_TBL_SORTER_CONTROL & " s " & _
+           " where s." & gsCAT_TSTC_REFLOTID & " = '" & txtLotID_MergeSplit.Text & "' " & _
+             " and s." & gsCAT_TSTC_DELETEFLAG & " = 'N' " & _
+             " and s." & gsCAT_TSTC_ACTION & " = '" & sAction & "' " & _
+             " and s.createtime in (select distinct " & gsCAT_TSTC_CREATETIME & " " & _
+                                    " from " & gsCAT_TBL_SORTER_CONTROL & " s " & _
+                                   " where s." & gsCAT_TSTC_REFLOTID & " = '" & txtLotID_MergeSplit.Text & "' " & _
+                                     " and s." & gsCAT_TSTC_DELETEFLAG & " = 'N' " & _
+                                     " and s." & gsCAT_TSTC_SORTERCOMPLETE & " = 'N' " & _
+                                     " and s." & gsCAT_TSTC_ACTION & " = '" & sAction & "' ) " & _
+           " order by createtime, REFSLOTNO "
+    
+    Set colRS = moProRawSql.QueryDatabase(sSQL)
+    
+    If colRS Is Nothing Or colRS.Count = 0 Then
+        sSQL = "select * " & _
+                " from " & gsCAT_TBL_SORTER_CONTROL & " s " & _
+               " where s." & gsCAT_TSTC_REFLOTID & " = '" & txtLotID_MergeSplit.Text & "'" & _
+               " and s." & gsCAT_TSTC_ACTION & " = '" & sAction & "' "
+        
+        Set colRS_2 = moProRawSql.QueryDatabase(sSQL)
+        If colRS_2.Count > 0 Then
+            UtShowMsgBox "Lot '" & Me.txtLotID_MergeSplit.Text & "' has finish Sorter '" & sAction & "' operation !!" & vbNewLine & _
+                         "Lot '" & Me.txtLotID_MergeSplit.Text & "' 已完成 Sorter '" & sAction & "' 作業 !!"
+        Else
+            UtShowMsgBox "Lot '" & Me.txtLotID_MergeSplit.Text & "' is no '" & sAction & "' data found !!" & vbNewLine & _
+                         "Lot '" & Me.txtLotID_MergeSplit.Text & "' 查無 '" & sAction & "' 資料 !!"
+        End If
+        GoTo ExitHandler
+    End If
+    
+    With Me.spdSorterControl
+        For lIndex = 1 To colRS.Count
+            .MaxRows = .MaxRows + 1
+            .SetText miSpdSorterControl_Action, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_ACTION)
+            .SetText miSpdSorterControl_RefLotId, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_REFLOTID)
+            .SetText miSpdSorterControl_RefSLotNo, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_REFSLOTNO)
+            .SetText miSpdSorterControl_NewLotId, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_NEWLOTID)
+            .SetText miSpdSorterControl_NewSLotNo, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_NEWSLOTNO)
+            .SetText miSpdSorterControl_OriginalLotId, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_ORIGINALLOTID)
+            .SetText miSpdSorterControl_WaferId, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_WAFERID)
+            .SetText miSpdSorterControl_SorterStart, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_SORTERSTART)
+            .SetText miSpdSorterControl_SorterComplete, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_SORTERCOMPLETE)
+            .SetText miSpdSorterControl_CreateUserId, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_CREATEUSERID)
+            .SetText miSpdSorterControl_CreateTime, .MaxRows, colRS.Item(lIndex).Item(gsCAT_TSTC_CREATETIME)
+        Next
+    End With
+
+    With Me.spdSorterControl
+        'Sort it
+        .UserColAction = UserColActionSort
+        Call .SetCellBorder(0, 0, .MaxCols, .MaxRows, 15, -1, CellBorderStyleSolid)
+        Call .Sort(1, 1, .MaxCols, .MaxRows, SortByRow, Array(miSpdSorterControl_CreateTime, miSpdSorterControl_RefSLotNo), Array(1, 1))
+    End With
+    
+    Call ResizeSpdColumn(Me.spdSorterControl, moAppLog)
+
+'----
+' Done
+'----
+
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+    Screen.MousePointer = vbDefault
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Sub
