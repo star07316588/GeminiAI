@@ -579,3 +579,115 @@ namespace MesApi.Repositories
         }
     }
 }
+
+'Added by Jack on 2021/01/05 for CP測前併批專案.
+Private Sub cmdResendSAP_Click()
+On Error GoTo ExitHandler:
+    Dim sProcID             As String
+    Dim typErrInfo          As tErrInfo
+    
+    Dim oUser               As FwUser
+    
+    Dim vUpdateTable        As Variant
+    Dim vUpdateRowID        As Variant
+    
+    Dim sTable              As String
+    Dim sColumnValue        As String
+    Dim sWhere              As String
+    
+    '----
+' Init
+'----
+    sProcID = "ExecQuery"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+    
+    'Modified by Jack on 2021/03/03 for UAT bug fix. (加 "Set ")
+    'oUser = moFwOPR.ActiveUser
+    Set oUser = moFwOPR.ActiveUser
+    
+'----
+' Condition Checking
+'----
+    
+    If Trim(txtLotID.Text) = "" Then
+            UtShowMsgBox "Pls input Query Criterial !!" & vbNewLine & "請輸入查詢條件 !!"
+            GoTo ExitHandler
+    End If
+    
+    If spdLotInfo.MaxRows = 0 Then
+        UtShowMsgBox "Lot '" & Me.txtLotID.Text & "' is no data found !!" & vbNewLine & _
+                     "Lot '" & Me.txtLotID.Text & "' 查無資料 !!"
+        GoTo ExitHandler
+    End If
+
+'----
+' Action
+'----
+    Dim sSQL As String
+    Dim colRS As Collection
+    
+    Dim lIndex As Long
+    
+    Screen.MousePointer = vbHourglass
+
+    With Me.spdLotInfo
+        For lIndex = 1 To spdLotInfo.MaxRows
+            .GetText miSpdLotInfo_Table, lIndex, vUpdateTable
+            .GetText miSpdLotInfo_RowId, lIndex, vUpdateRowID
+            
+            vUpdateRowID = CStr(vUpdateRowID)
+            
+            'define table name
+            sTable = CStr(vUpdateTable)
+        
+            'define column value
+            sColumnValue = gsCAT_TVMG_SENDSAPFLAG & "='N', " & _
+                           gsCAT_TVMG_SENDSAPTIME & "='', " & _
+                           gsCAT_TVMG_UPDATEUSERID & "='" & oUser.UserName & "', " & _
+                           gsCAT_TVMG_UPDATETIME & "=to_char(sysdate, 'yyyymmddhh24miss') || '00' "
+                           
+            sWhere = "rowid='" & vUpdateRowID & "' " & _
+                      " and nvl(" & gsCAT_TVMG_SENDSAPFLAG & ", 'N') <> 'N'"
+                
+            'Modify table "Tbl_Lot_Info"
+            If UpdateRawSqlTxn(moAppLog, moFwWIP, moFwWF, moCwMbx, "CAT", sTable, sColumnValue, sWhere) <> 0 Then
+                Call RaiseError(glERR_FAILTOUPDATE, _
+                    FormatErrorText(gsETX_FAILTOUPDATE, "data to database!"))
+            End If
+                        
+        Next
+    End With
+    
+    UtShowMsgBox "Lot '" & Me.txtLotID.Text & "' data is updated !!" & vbNewLine & _
+                 "Lot '" & Me.txtLotID.Text & "' 資料已更新, 稍後將重傳給SAP !!"
+    
+'----
+' Done
+'----
+
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+    Screen.MousePointer = vbDefault
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Sub
