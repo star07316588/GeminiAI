@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WIP QUERY</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <!-- ★ 共用 Site CSS（放在 tabulator 之後）★ -->
+    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        .msc-panel, .mab-bar {
+            margin-bottom: 10px
+        }
+
+ /* ══════════════════════════════════════════════════════════
+   Modal overlay
+   ════════════════════════════════════════════════════════ */
+        .mes-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: rgba(0, 0, 0, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* 進場動畫 */
+            animation: modal-fade-in 0.18s ease;
+        }
+
+        @keyframes modal-fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Modal 容器 */
+        .mes-modal {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+            overflow: hidden;
+            animation: modal-slide-in 0.18s ease;
+            /* 寬高由 :style 動態傳入 */
+        }
+
+        @keyframes modal-slide-in {
+            from {
+                transform: translateY(-16px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Modal header */
+        .mes-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .mes-modal-title {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            flex: 1;
+        }
+        /* 右上角按鈕群 */
+        .mes-modal-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mes-modal-icon-btn {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            cursor: pointer;
+            color: var(--text-dim);
+            font-size: 14px;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+
+            .mes-modal-icon-btn:hover {
+                background: var(--accent-light);
+                color: var(--accent);
+                border-color: var(--accent);
+            }
+
+            .mes-modal-icon-btn.danger:hover {
+                background: var(--danger-bg, rgba(198,40,40,0.10));
+                color: var(--danger);
+                border-color: var(--danger);
+            }
+
+        /* Modal footer */
+        .mes-modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        /* Modal body：讓 mes-query-result 撐滿 */
+        .mes-modal-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding:15px;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="app" class="page-layout" data-app>
+
+        <!-- ══ Toolbar ══ -->
+        <mes-toolbar title="WIP Query"
+                     :items="toolbarItems"
+                     @item-click="onToolbarAction"></mes-toolbar>
+
+        <div class="page-body">
+
+            <!-- ══ 區域 1：查詢條件 ══ -->
+            <mes-search-criteria title="Select a lot to Query"
+                                 :fields="criteriaFields"
+                                 :cols="5"
+                                 v-model="qry"
+                                 ref="criteria"
+                                 @enter="doQuery"></mes-search-criteria>
+
+            <!-- ══ 區域 2：按鈕列 ══
+        mes-action-bar 管理所有操作按鈕-->
+            <mes-action-bar :buttons="actionButtons"
+                            :auto-add-close="true"
+                            @action="onAction"></mes-action-bar>
+
+            <!-- ══ 區域 3：查詢結果 ══ -->
+            <!-- WIP Information -->
+            <mes-query-result ref="resultWip"
+                              title="WIP Information"
+                              :columns="colWip"
+                              :summary="resultSummary"
+                              :data="dataWip"></mes-query-result>
+
+        </div><!-- /.page-body -->
+
+        <!-- ══ StatusBar ══ -->
+        <mes-statusbar :items="statusItems"
+                       :msg="statusMsg"
+                       :msg-type="statusMsgType"></mes-statusbar>
+
+
+        <!-- ══ Modal ══════════════════════════════════════════════════
+         顯示視窗
+         ════════════════════════════════════════════════════════ -->
+        <transition name="modal-t">
+            <div v-if="modal.show"
+                 class="mes-modal-overlay">
+                 <!-- @click.self="closeModal"--> <!-- 點擊遮罩關閉 -->
+                 
+                <div class="mes-modal"
+                     :style="{ width: modal.width, height: modal.height }">
+
+                    <!-- Header -->
+                    <div class="mes-modal-header">
+                        <i class="mdi mdi-table" style="color:var(--accent);font-size:16px;"></i>
+                        <span class="mes-modal-title">{{ modal.title }}</span>
+                        <div class="mes-modal-actions">
+                            <!-- 列印按鈕 -->
+                            <button class="mes-modal-icon-btn"
+                                    title="列印"
+                                    @click="printResult">
+                                <i class="mdi mdi-printer-outline"></i>
+                            </button>
+                            <!-- 關閉 -->
+                            <button class="mes-modal-icon-btn danger"
+                                    title="關閉"
+                                    @click="closeModal">
+                                <i class="mdi mdi-close"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Body：mes-query-result 填滿 -->
+                    <div class="mes-modal-body">
+                        <mes-query-result ref="resultModel"
+                                          title=""
+                                          :columns="modal.columns"
+                                          :data="modal.data"
+                                          :summary="modal.summary"
+                                          @table-built="onTableBuilt"></mes-query-result>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="mes-modal-footer">
+                        <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);flex:1;">
+                            {{ modal.data.length }} 筆資料
+                        </span>
+                        <button class="mes-btn secondary" @click="printResult">
+                            <span><i class="mdi mdi-printer-outline"></i> Print</span>
+                        </button>
+                        <button class="mes-btn" @click="closeModal">
+                            <span><i class="mdi mdi-close"></i> Close</span>
+                        </button>
+                    </div>
+
+                </div><!-- /.mes-modal -->
+            </div><!-- /.mes-modal-overlay -->
+        </transition>
+
+        <transition name="modal-t2">
+            <div v-if="modal_detail.show" class="mes-modal-overlay">
+                <div class="mes-modal"
+                     :style="{ width: modal_detail.width, height: modal_detail.height }">
+
+                    <!-- Header -->
+                    <div class="mes-modal-header">
+                        <i class="mdi mdi-table" style="color:var(--accent);font-size:16px;"></i>
+                        <span class="mes-modal-title">{{ modal_detail.title }}</span>
+                    </div>
+                    <!-- Body -->
+                    <div class="mes-modal-body">
+                        <mes-detail-view-inline
+                            class="mdvi-panel--first"
+                            title="Lot Basic"
+                            :fields="modal_detail.fields"
+                            :data="modal_detail.lotinfo"
+                            cols="3"
+                            wrap="true"
+                            label-width="90"
+                            ></mes-detail-view-inline>
+
+                        <mes-query-result ref="resultModel"
+                                          title="Dgrade Information"
+                                          :columns="modal_detail.columns"
+                                          :data="modal_detail.data"
+                                          :summary="modal_detail.summary"
+                                          @table-built="onTableBuilt"></mes-query-result>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="mes-modal-footer">
+                        <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);flex:1;">
+                            {{ modal_detail.data.length }} 筆資料
+                        </span>
+                        <button class="mes-btn secondary" @click="printResult">
+                            <span><i class="mdi mdi-printer-outline"></i> Print</span>
+                        </button>
+                        <button class="mes-btn" @click="closeModal">
+                            <span><i class="mdi mdi-close"></i> Close</span>
+                        </button>
+                    </div>
+
+                </div><!-- /.mes-modal -->
+            </div>
+        </transition>
+    </div><!-- /#app -->
+    <!-- ── Scripts ── -->
+    <script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/tabulator.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <!-- ★ MES 共用元件 ★ -->
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-search-criteria.js"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+    <script src="/Scripts/mes-query-result.js?v=260522"></script>
+    <script src="/Scripts/mes-detail-view-inline.js"></script>
+
+    <script>
+
+        Vue.use(VMessageBox);   // ← 安裝 Plugin
+        /* ─────────────────────────────────────────────────────────────
+           主 App
+        ───────────────────────────────────────────────────────────── */
+        var vapp = new Vue({
+            el: '#app',
+
+            data() {
+                return {
+                    /* ── 查詢參數（key 對應 criteriaFields[].key）── */
+                    qry: {
+                        lotId: '', step: '', ipn: '', stage: '', holdType: '', location: '', virtualLotId: '', monocotsParentLotId: ''
+                    },
+
+                    /* ── 條件欄位定義（展示所有 type）── */
+                    criteriaFields: [
+                        /* ── input ── */
+                        { key: 'lotId', label: 'Lot Id', type: 'input', placeholder: '' },
+
+                        { key: 'step', label: 'Step', type: 'slimselect', placeholder: ' ', options: [], disabled: false, searchable: true },
+                        { key: 'ipn', label: 'IPN', type: 'input', placeholder: '建議用全碼' },
+                        { key: 'stage', label: 'Stage', type: 'combobox' },
+                        { key: 'holdType', label: 'Hold Type', type: 'combobox', options: [{ label: 'Hold', value: 'Hold' }, { label: 'Non-Hold', value: 'Non-Hold' }] },
+                        { key: 'location', label: 'Location', type: 'slimselect', options: [], placeholder: ' ' },
+                        { key: 'virtualLotId', label: 'Virtual Lot Id', type: 'input' },
+                        { key: 'monocotsParentLotId', label: 'Monocots ParentLotId', type: 'input' },
+                    ],
+
+                    /* ── 按鈕定義 ── */
+                    actionButtons: [
+                        { action: 'print', label: 'Qrery Print', icon: 'mdi-printer-outline' },
+                        { action: 'export', label: 'Export CSV', icon: 'mdi-file-delimited-outline' },
+                        { action: 'testflow', label: 'Query TestFlow', icon: 'mdi-sitemap' },
+                        { action: 'confirm', label: 'Qrery Confirm', icon: 'mdi-magnify' },
+                    ],
+
+                    // 表格欄位 (field建議用大寫配合 oracle 回傳都是大寫)
+                    colWip: [
+                        { title: 'LotId', field: 'LOTID', width: 'auto' },
+                        { title: 'IPN', field: 'IPN', width: 'auto' },
+                        { title: 'LotStatus', field: 'LOTSTATUS', width: 'auto', sorter:"string" },
+                        { title: 'HotFlag', field: 'HOTLOTFLAG', width: 'auto', sorter:"string" },
+                        { title: 'LotOwner', field: 'LOTOWNER', width: 'auto', sorter:"string" },
+                        { title: 'WaferQty', field: 'WAFERQTY', width: 'auto', hozAlign: 'right' },
+                        { title: 'ChipQty', field: 'CHIPQTY', width: 'auto', hozAlign: 'right' },
+                        { title: 'Step', field: 'STEP', width: 'auto', sorter:"string" },
+                        { title: 'HoldCode', field: 'HOLDCODE', width: 'auto' },
+                        { title: 'HoldReason', field: 'HOLDREASON', width: 'auto', sorter:"string" },
+                        { title: 'FabOutDate', field: 'FAB_OUT', width: 'auto', sorter:"string" },
+                        { title: 'AtDays', field: 'ATDAYS', width: 'auto', hozAlign: 'right' },
+                        { title: 'Stage', field: 'STAGE', width: 'auto', sorter:"string" },
+                        { title: 'ErunTickNo', field: 'ERUNTICNO', width: 'auto', sorter:"string" },
+                        { title: 'RwSapNo', field: 'SAPRWNO', width: 'auto', sorter:"string" },
+                        { title: 'MfgTicNo', field: 'MFGTICNO', width: 'auto', sorter:"string" },
+                        { title: 'TestSite', field: 'TESTSITE', width: 'auto', sorter:"string" },
+                        { title: 'TurnkeyVendor', field: 'TURNKEYVENDOR', width: 'auto', sorter:"string" },
+                        { title: 'FgIPN', field: 'FGIPN', width: 'auto', sorter:"string" },
+                        { title: 'Location', field: 'LOCATION', width: 'auto', sorter:"string" },
+                        { title: 'UnpackTime', field: 'UNPACKTIME', width: 'auto', sorter:"string" },
+                        { title: 'RemainUnpackTime', field: 'REMAINUNPACKTIME', width: 'auto', hozAlign: 'right' },
+                        { title: 'WaferSize', field: 'WAFERSIZE', width: 'auto' },
+                        { title: 'DateCode', field: 'DATECODE', width: 'auto', sorter:"string" },
+                        { title: 'LotGrade', field: 'GRADELEVEL', width: 'auto', sorter:"string" },
+                        { title: 'LocID', field: 'LOCID', width: 'auto', sorter:"string" },
+                        { title: 'Packing', field: 'PACKING', width: 'auto', sorter:"string" },
+                        { title: 'SFGLocCarriertype', field: 'CARRIERTYPE', width: 'auto', sorter:"string" },
+                        { title: 'FailDgrade', field: 'FAILDGRADE', width: 'auto', sorter:"string" },
+                        { title: 'RiskLevel', field: 'RISKLEVEL', width: 'auto', sorter:"string" },
+                        { title: 'Fosbid', field: 'FOSBID', width: 'auto', sorter:"string" },
+                        { title: 'VirtualLotId', field: 'VIRTUALLOTID', width: 'auto', sorter:"string" },
+                        { title: 'FABQT', field: 'FABQT', width: 'auto', sorter:"string" },
+                        { title: 'CPPriority', field: 'CPPRIORITY', width: 'auto', sorter:"string" },
+                        { title: 'CP_Dgrade_Info', field: 'CP_DGRADE_INFO', width: 'auto', sorter:"string" },
+                        {
+                            title: 'Dgrade細項', field: 'DGDETAIL', width: 110, hozAlign: 'center',
+                            formatter: c => `<span class="tab-badge normal">Detail</span>`,
+                            cellClick: function (e, cell) {
+                                const data = cell.getRow().getData();
+                                vapp.showDetail(data);
+                            }
+                        },
+                        { title: 'AYInfo', field: 'AY_INFO', width: 110 },
+                        { title: 'MonocotsParentLotId', field: 'MONOCOTSPARENTLOTID', width: 150 },
+                    ],
+                    dataWip: [],
+                    dataTotal: {},
+
+                    /* ── Toolbar 額外按鈕 ── */
+                    toolbarItems: [
+                    ],
+
+                    /* ── StatusBar ── */
+                    statusMsg: '',//'READY',
+                    statusMsgType: '',
+                    statusItems: [],
+
+                    /* Modal 狀態 for testflow */
+                    modal: {
+                        show: false,
+                        title: '',
+                        width: '900px',
+                        height: '540px',
+                        data: [],
+                        columns: [
+                            { title: "LotID", field: "LOTID", width: "auto" },
+                            { title: "IPN", field: "IPN", width: "auto" },
+                            { title: "Status", field: "LOTSTATUS", width: "auto" },
+                            { title: "HotFlag", field: "HOTLOTFLAG", width: "auto" },
+                            { title: "LotOwner", field: "LOTOWNER", width: "auto" },
+                            { title: "WaferQty", field: "WAFERQTY", width: "auto" },
+                            { title: "ChipQty", field: "CHIPQTY", width: "auto" },
+                            { title: "Step", field: "STEP", width: "auto" },
+                            { title: "實際測試Route", field: "ACTROUTE", width: "auto" },
+                            { title: "重工Route", field: "RWROUTE", width: "auto" },
+                            { title: "TECN Route", field: "TECNROUTE", width: "auto" },
+                            { title: "OI Route", field: "OIROUTE", width: "auto" },
+                            { title: "OI Sub Route", field: "OISUBROUTE", width: "auto" },
+                            { title: "LocID", field: "LOCID", width: "auto" },
+                            { title: "HoldCode", field: "HOLDCODE", width: "auto" },
+                            { title: "HoldReason", field: "HOLDREASON", width: "auto" },
+                            { title: "AtDays", field: "ATDAYS", width: "auto" },
+                            { title: "Stage", field: "STAGE", width: "auto" },
+                            { title: "ErunTicNo", field: "ERUNTICNO", width: "auto" },
+                            { title: "RwSapNo", field: "RWSAPNO", width: "auto" },
+                            { title: "MfgTicNo", field: "MFGTICNO", width: "auto" },
+                            { title: "TestSite", field: "TESTSITE", width: "auto" },
+                            { title: "TurnkeyVendor", field: "TURNKEYVENDOR", width: "auto" },
+                            { title: "FGIPN", field: "FGIPN", width: "auto" },
+                            { title: "Location", field: "LOCATION", width: "auto" },
+                            { title: "WaferSize", field: "WAFERSIZE", width: "auto" }],
+                        summary: [],
+                    },
+                    /* Modal 狀態 for detail */
+                    modal_detail: {
+                        show: false,
+                        title: '',
+                        width: '1000px',
+                        height: '580px',
+                        data: [],
+                        columns: [
+                            { title: 'DgWaferId',       field: 'WAFERID', width: 'auto' },
+                            { title: 'DgradeFlag',      field: 'DGRADEFLAG', width: 'auto' },
+                            { title: 'DgradeTestMode',  field: 'DGRADETESTMODE', width: 'auto' },
+                            { title: 'DgradeIpn',       field: 'DGRADEIPN', width: 'auto' },
+                            { title: 'FinishedFlag',    field: 'FINISHEDFLAG', width: 'auto' },],
+                        summary: [],
+                        fields: [
+                            { key:'LotId',     label:'Lot Id',     span:1, copyable:true },
+                            { key:'IPN',       label:'IPN',        span:1, breakBefore:true, },
+                            { key:'Step',      label:'Step',       span:1 },
+                            { key:'dgStep',    label:'DgStepId',   span:1, breakBefore:true },
+                            { key:'dgPath',    label:'DgPath',     span:2 },
+                            { key:'WQTY',      label:'WQty',       span:1, breakBefore:true },
+                            { key:'CQTY',      label:'CQty',       span:1 },
+                        ],
+                        lotinfo: {}
+                    },
+                }
+            },
+
+            computed: {
+                totalWQty() { return this.dataWip.reduce((s, r) => s + (Number(r.WAFERQTY) || 0), 0) },
+                totalCQty() { return this.dataWip.reduce((s, r) => s + (Number(r.CHIPQTY) || 0), 0) },
+
+                /* mes-query-result :summary prop */
+                resultSummary() {
+                    return [
+                        { label: 'Total WQty', value: this.totalWQty },
+                        { label: 'Total CQty', value: this.totalCQty },
+                    ]
+                },
+            },
+
+            methods: {
+                /* ── 查詢 ── */
+                async doTestflow() {
+                    try {
+                        //判斷是否全部為空值
+                        const allEmpty = Object.values(this.qry).every(v => !v);
+                        console.log('全部為空：', allEmpty);
+                        if (allEmpty) {
+                            VMessageBox.alert('Pls input Query Criterial !!<br>請輸入查詢條件 !!');
+                            return;
+                        }
+                        
+                        document.body.style.cursor = 'wait'; //游標變成等待
+                        //this.setStatus('QUERYING...', 'info')
+                        this.modal.title = 'TestFlow'
+                        this.modal.data = []
+                        this.modal.width = '1000px'
+                        this.modal.height = '580px'
+
+                        const url = "/api/query/wip-query/testflow";
+                        const result = await mesfetch(url, this.qry);
+
+                        if (result.Success) {
+                            this.modal.data = result.Data;
+                            console.log('result.Data:', result.Data);
+                        } else {
+                            VMessageBox.alert(result.Message).catch(() => {});
+                            return;
+                        }
+
+                        this.modal.summary = [
+                            { label: 'LOTS', value: this.modal.data.length },
+                            { label: 'WQTY', value: this.modal.data.reduce((s, r) => s + parseInt(r.WAFERQTY), 0) },
+                            { label: 'CQTY', value: this.modal.data.reduce((s, r) => s + parseInt(r.CHIPQTY), 0) },
+                        ]
+                        this.modal.show = true;
+                        /* Modal 顯示後，等 Vue 渲染 + CSS transition 完成，
+                        再呼叫 redraw 讓 Tabulator 重算正確高度           */
+                        this.$nextTick(() => {
+                            /* 18ms transition + 一點餘裕 */
+                            setTimeout(() => {
+                                if (this.$refs.resultModel) this.$refs.resultModel.redraw(true)
+                            }, 80)
+                        })
+                        
+                    } catch (error) {
+                        console.log(error);
+                        VMessageBox.alert(error.Message || window.commonError, '', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => {});
+
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                async doQuery() {
+                    //判斷是否全部為空值
+                    const allEmpty = Object.values(this.qry).every(v => !v);
+                    console.log('全部為空：', allEmpty);
+                    if (allEmpty) {
+                        VMessageBox.alert('Pls input Query Criterial !!<br>請輸入查詢條件 !!');
+                        return;
+                    }
+
+                    const url = "/api/query/wip-query/query";
+                    const total_start = Date.now();
+                    try {
+let start = total_start;
+console.log("開始", (new Date()).toLocaleString('zh-TW', { hour12: false }));
+
+                        document.body.style.cursor = 'wait';
+console.log("顯示 wait", `耗時 ${Date.now() - start} 毫秒`);
+start = Date.now();
+
+                        this.tableData = []
+                        this.$refs.resultWip.setData([]);
+console.log("清空資料", `耗時 ${Date.now() - start} 毫秒`);
+start = Date.now();
+console.log("AJAX 開始", (new Date()).toLocaleString('zh-TW', { hour12: false }));
+                        console.log('qry', this.qry);
+                        const result = await mesfetch(url, this.qry);
+
+                        console.log("query result", result);
+console.log("AJAX 結束", (new Date()).toLocaleString('zh-TW', { hour12: false }), `耗時 ${Date.now() - start} 毫秒`);
+start = Date.now();
+
+                        if (result.Success) {
+                            this.dataWip = result.Data;
+                            this.$refs.resultWip.setData(result.Data);
+                            //this.$refs.resultWip.redraw(true);
+console.log("資料已填入表格", `耗時 ${Date.now() - start} 毫秒`);
+                        } else {
+                            // 顯示回傳錯誤訊息
+                            VMessageBox.alert(result.Message, '', {
+                                icon: 'mdi-alert-circle', color: '#faa61a', iconBg: 'rgba(250,166,26,.12)'
+                            }).catch(() => {});
+                            
+                        }
+
+                    } catch (error) {
+                        console.log(error);
+                        VMessageBox.alert(error.Message || window.commonError, '', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => {});
+                                
+
+                    } finally {
+                        document.body.style.cursor = 'default';
+console.log("結束", (new Date()).toLocaleString('zh-TW', { hour12: false }), `總耗時 ${Date.now() - total_start} 毫秒`);
+                    }
+                },
+
+                doClear() {
+                    /* 重設所有條件 */
+                    Object.keys(this.qry).forEach(k => {
+                        this.qry[k] = Array.isArray(this.qry[k]) ? [] : ''
+                    })
+                    //this.filterText = ''
+                    //this.$refs.result.clearFilter()
+                    this.tableData = []
+                    this.$refs.resultWip.setData([])
+                    this.setStatus('CLEARED', '')
+                },
+
+                doPrint() { this.$refs.resultWip.print() },
+                doExport() { 
+                    this.$refs.resultWip.download('csv', 'wip-export.csv') 
+                    //this.$refs.resultWip.download("html", "wip-export.csv", {style:false});
+                },
+                doClose() { window.location.href = '/Content/F5.html'; },
+
+                /* ── mes-action-bar @action ── */
+                onAction(action) {
+                    const map = {
+                        testflow: this.doTestflow,
+                        confirm: this.doQuery,
+                        clear: this.doClear,
+                        print: this.doPrint,
+                        export: this.doExport,
+                        close: this.doClose,
+                    }
+                    if (map[action]) map[action].call(this)
+                },
+
+                /* ── toolbar ── */
+                onToolbarAction(action) {
+                    if (action === 'refresh') this.doQuery()
+                },
+
+                /* ── 狀態列 ── */
+                setStatus(msg, type) {
+                    this.statusMsg = msg
+                    this.statusMsgType = type || ''
+                },
+
+                /* ── 列印 / 匯出 ── */
+                printResult() {
+                    if (this.$refs.result) this.$refs.result.print(false, true)
+                },
+
+                /* ── ESC 關閉 ── */
+                onKeydown(e) {
+                    if (e.key === 'Escape') this.closeModal()
+                },
+                /* ── 關閉 Modal ── */
+                closeModal() {
+                    this.modal.show = false;
+                    this.modal_detail.show = false;
+                    //this.setStatus('CLOSED', '')
+                },
+                /* ── mes-query-result 事件 ── */
+                onTableBuilt() {
+                    /* table-built 觸發時 Modal 高度已確定，再 sync 一次確保正確 */
+                    this.$nextTick(() => {
+                        if (this.$refs.result) this.$refs.result.redraw(true)
+                    })
+                },
+                async showDetail(row){
+                    console.log("selected row data:", row);
+
+                    try {
+                        document.body.style.cursor = 'wait';
+                        this.modal_detail.data = [];
+                        const url = "/api/query/wip-query/detail";
+                        const result = await mesfetch(url, { lotId : row.LOTID });
+                        if (result.Success) {
+                            console.log('result.Data:', result.Data);
+                            this.modal_detail.data = result.Data.DGINFO;
+                            this.modal_detail.lotinfo = { LotId: row.LOTID, IPN: row.IPN, Step: row.STEP, 
+                                dgStep: result.Data.DGSTEP, dgPath: result.Data.DGPATH, WQTY: row.WAFERQTY, CQTY: row.CHIPQTY }
+                //totalWQty() { return this.dataWip.reduce((s, r) => s + (Number(r.WAFERQTY) || 0), 0) },
+                            this.modal_detail.summary = [
+                                { label: 'DgradeWQty', value: result.Data.WQTY },
+                                { label: 'DgradeCQty', value: result.Data.CQTY },
+                            ];
+                        }
+                        this.modal_detail.show = true;
+                    } catch (error) {
+                        console.log(error);
+                        VMessageBox.alert(error.Message || window.commonError, '', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => {});
+
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }                        
+                }
+            },
+            async created() {
+                const url = "/api/query/wip-query/init";
+                try {
+
+                    const result = await mesfetch(url, this.qry);
+                    if (result) {
+                        console.log("init result", result);
+                        this.$refs.criteria.setOptions('step', result.Steps); //slimselect 要改用 setOptions
+                        this.criteriaFields[3].options = result.Stages;
+                        this.$refs.criteria.setOptions('location', result.Locations); //slimselect 要改用 setOptions
+                    }
+                } catch (error) {
+                        console.log(error);
+                        VMessageBox.alert(error.Message || window.commonError, '', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => {});
+                }
+            },
+            mounted() {
+                const auth = typeof window.checkAuth === 'function' ? window.checkAuth() : null
+                //    if (auth) { this.token = auth.token || ''; this.userName = auth.userName || '' }
+
+                /* 初始數字 */
+                this.$nextTick(() => {
+
+                })
+            },
+        })
+    </script>
+</body>
+</html>
