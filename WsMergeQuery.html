@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WS MERGE QUERY</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        .msc-panel, .mab-bar {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="page-layout" data-app>
+
+        <mes-toolbar title="Ws Merge Query"></mes-toolbar>
+
+        <div class="page-body">
+
+            <mes-search-criteria title="Select Criteria to query"
+                                 :fields="criteriaFields"
+                                 :cols="4"
+                                 v-model="qry"
+                                 ref="criteria"
+                                 @enter="doQuery"></mes-search-criteria>
+
+            <mes-action-bar :buttons="actionButtons"
+                            :auto-add-close="true"
+                            @action="onAction"></mes-action-bar>
+
+            <div v-show="currentView === 'LotInfo'">
+                <mes-query-result ref="resultLotInfo"
+                                  title="Lot Information"
+                                  :columns="colLotInfo"
+                                  :summary="summaryLotInfo"
+                                  :data="dataLotInfo"></mes-query-result>
+            </div>
+
+            <div v-show="currentView === 'Sorter'">
+                <mes-query-result ref="resultSorter"
+                                  title="Sorter Control Information"
+                                  :columns="colSorter"
+                                  :summary="summarySorter"
+                                  :data="dataSorter"></mes-query-result>
+            </div>
+
+        </div><mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
+
+    </div><script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/tabulator.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-search-criteria.js"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+    <script src="/Scripts/mes-query-result.js?v=260522"></script>
+
+    <script>
+        Vue.use(VMessageBox);
+
+        var vapp = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    /* ── 查詢參數 ── */
+                    qry: {
+                        queryMode: 'Current', // 預設為 Current
+                        lotId: ''
+                    },
+
+                    /* ── 條件欄位定義 (取代原本的三個頁籤) ── */
+                    criteriaFields: [
+                        { 
+                            key: 'queryMode', 
+                            label: 'Query Mode', 
+                            type: 'combobox', 
+                            options: [
+                                { label: '1. Current (當前批號)', value: 'Current' },
+                                { label: '2. History (歷史批號)', value: 'History' },
+                                { label: '3. Merge Detail (併批明細)', value: 'Merge' },
+                                { label: '4. Split Detail (拆批明細)', value: 'Split' }
+                            ] 
+                        },
+                        { key: 'lotId', label: 'Merge Lot ID', type: 'input', placeholder: '請輸入併批批號' }
+                    ],
+
+                    /* ── 視窗控制 ── */
+                    currentView: 'LotInfo', // 切換顯示 'LotInfo' 或 'Sorter' 表格
+
+                    /* ── 表格資料 ── */
+                    dataLotInfo: [],
+                    dataSorter: [],
+
+                    /* ── Lot Info 欄位定義 (20欄) ── */
+                    colLotInfo: [
+                        { formatter: "rowSelection", titleFormatter: "rowSelection", hozAlign: "center", headerSort: false, width: 50 }, // 用於勾選 Resend SAP
+                        { title: 'ParentLotID', field: 'ParentLotId', width: 'auto', sorter: "string" },
+                        { title: 'SLotNo', field: 'SlotNo', width: 'auto', sorter: "string" },
+                        { title: 'ChildLotID', field: 'ChildLotId', width: 'auto', sorter: "string" },
+                        { title: 'WaferID', field: 'WaferId', width: 'auto', sorter: "string" },
+                        { title: 'WQty', field: 'WQty', width: 'auto', hozAlign: 'right' },
+                        { title: 'CQty', field: 'CQty', width: 'auto', hozAlign: 'right' },
+                        { title: 'MergeStepId', field: 'MergeStepId', width: 'auto', sorter: "string" },
+                        { title: 'UserID', field: 'CreateUserId', width: 'auto', sorter: "string" },
+                        { title: 'MergeTime', field: 'CreateTime', width: 'auto', sorter: "string" },
+                        { title: 'IPN', field: 'Ipn', width: 'auto', sorter: "string" },
+                        { title: 'Owner', field: 'Owner', width: 'auto', sorter: "string" },
+                        { title: 'Source', field: 'Source', width: 'auto', sorter: "string" },
+                        { title: 'ErrMsg', field: 'ErrMsg', width: 'auto', sorter: "string" },
+                        { title: 'DeleteTime', field: 'DeleteTime', width: 'auto', sorter: "string" },
+                        { title: 'MiddleLotId', field: 'MiddleLotId', width: 'auto', sorter: "string" },
+                        { title: 'WaferChipQty', field: 'WaferChipQty', width: 'auto', sorter: "string" },
+                        { title: 'FabCreateTime', field: 'FabCreateTime', width: 'auto', sorter: "string" },
+                        { title: 'RiskLevel', field: 'RiskLevel', width: 'auto', sorter: "string" },
+                        { title: 'RowId', field: 'RowId', visible: false },
+                        { title: 'Table', field: 'UpdateTable', visible: false }
+                    ],
+
+                    /* ── Sorter Control 欄位定義 (11欄) ── */
+                    colSorter: [
+                        { title: 'Action', field: 'Action', width: 'auto', sorter: "string" },
+                        { title: 'RefLotId', field: 'RefLotId', width: 'auto', sorter: "string" },
+                        { title: 'RefSLotNo', field: 'RefSlotNo', width: 'auto', sorter: "string" },
+                        { title: 'NewLotId', field: 'NewLotId', width: 'auto', sorter: "string" },
+                        { title: 'NewSLotNo', field: 'NewSlotNo', width: 'auto', sorter: "string" },
+                        { title: 'OriginalLotId', field: 'OriginalLotId', width: 'auto', sorter: "string" },
+                        { title: 'WaferId', field: 'WaferId', width: 'auto', sorter: "string" },
+                        { title: 'SorterStart', field: 'SorterStart', width: 'auto', sorter: "string" },
+                        { title: 'SorterComplete', field: 'SorterComplete', width: 'auto', sorter: "string" },
+                        { title: 'CreateUserId', field: 'CreateUserId', width: 'auto', sorter: "string" },
+                        { title: 'CreateTime', field: 'CreateTime', width: 'auto', sorter: "string" }
+                    ],
+
+                    statusMsg: 'READY',
+                    statusMsgType: ''
+                };
+            },
+
+            computed: {
+                /* ── 動態變更按鈕 ── */
+                actionButtons() {
+                    let btns = [
+                        { action: 'query', label: 'Query Confirm', icon: 'mdi-magnify' }
+                    ];
+
+                    // 只有在 Current 模式才顯示 Resend SAP 按鈕 (對應原本 VB6 Tab=0 的邏輯)
+                    if (this.qry.queryMode === 'Current') {
+                        btns.push({ action: 'resend', label: 'Resend SAP', icon: 'mdi-send-check', color: 'primary' });
+                    }
+
+                    btns.push({ action: 'clear', label: 'Clear', icon: 'mdi-eraser' });
+                    return btns;
+                },
+
+                summaryLotInfo() {
+                    return [{ label: 'TOTAL LOTS', value: this.dataLotInfo.length }];
+                },
+
+                summarySorter() {
+                    return [{ label: 'TOTAL RECORDS', value: this.dataSorter.length }];
+                }
+            },
+
+            methods: {
+                /* ── 執行查詢 ── */
+                async doQuery() {
+                    if (!this.qry.lotId.trim()) {
+                        VMessageBox.alert('Pls input Query Criterial !!<br>請輸入查詢條件 !!');
+                        return;
+                    }
+
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('QUERYING...', 'info');
+
+                    try {
+                        let url = "";
+                        let params = {};
+
+                        // 判斷查詢情境與對應的 API
+                        if (this.qry.queryMode === 'Current' || this.qry.queryMode === 'History') {
+                            this.currentView = 'LotInfo';
+                            this.dataLotInfo = [];
+                            this.$refs.resultLotInfo.setData([]);
+
+                            url = "/api/lot/query";
+                            params = { 
+                                LotId: this.qry.lotId, 
+                                IsHistoryTab: this.qry.queryMode === 'History' 
+                            };
+                        } else {
+                            this.currentView = 'Sorter';
+                            this.dataSorter = [];
+                            this.$refs.resultSorter.setData([]);
+
+                            url = "/api/lot/sorter-control";
+                            params = { 
+                                LotId: this.qry.lotId, 
+                                Action: this.qry.queryMode // 'Merge' 或 'Split'
+                            };
+                        }
+
+                        // 呼叫我們先前開發的 C# API
+                        const response = await mesfetch(url, params);
+
+                        // 依據視窗塞入資料
+                        if (this.currentView === 'LotInfo') {
+                            this.dataLotInfo = response;
+                            this.$refs.resultLotInfo.setData(response);
+                        } else {
+                            this.dataSorter = response;
+                            this.$refs.resultSorter.setData(response);
+                        }
+
+                        this.setStatus('QUERY SUCCESS', 'success');
+
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert(error.Message || '查詢發生預期外的錯誤', 'Error', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => {});
+                        this.setStatus('QUERY FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                /* ── Resend SAP (對應 cmdResendSAP_Click) ── */
+                async doResendSap() {
+                    // 取得被勾選的資料列
+                    const selectedRows = this.$refs.resultLotInfo.getSelectedData();
+
+                    if (!selectedRows || selectedRows.length === 0) {
+                        VMessageBox.alert(`Lot '${this.qry.lotId}' is no data selected !!<br>請先勾選要重送的資料列 !!`);
+                        return;
+                    }
+
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('UPDATING...', 'info');
+
+                    try {
+                        // 組合傳給 API 的 Payload
+                        const payload = {
+                            LotId: this.qry.lotId,
+                            UserId: window.checkAuth ? window.checkAuth().userName : 'System', // 帶入當前登入者
+                            Items: selectedRows.map(row => ({
+                                UpdateTable: row.UpdateTable,
+                                RowId: row.RowId
+                            }))
+                        };
+
+                        const response = await mesfetch("/api/lot/resend-sap", payload, "POST");
+
+                        VMessageBox.alert(response.Message || `Lot '${this.qry.lotId}' 資料已更新, 稍後將重傳給SAP !!`);
+                        
+                        // 更新成功後重新查詢
+                        this.doQuery(); 
+
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert(error.Message || '更新發生錯誤', 'Error', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => {});
+                        this.setStatus('UPDATE FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                doClear() {
+                    this.qry.lotId = '';
+                    this.dataLotInfo = [];
+                    this.dataSorter = [];
+                    if (this.$refs.resultLotInfo) this.$refs.resultLotInfo.setData([]);
+                    if (this.$refs.resultSorter) this.$refs.resultSorter.setData([]);
+                    this.setStatus('CLEARED', '');
+                },
+
+                doClose() {
+                    window.location.href = '/Content/F5.html';
+                },
+
+                /* ── Action Bar 分派器 ── */
+                onAction(action) {
+                    const map = {
+                        query: this.doQuery,
+                        resend: this.doResendSap,
+                        clear: this.doClear,
+                        close: this.doClose
+                    };
+                    if (map[action]) map[action].call(this);
+                },
+
+                setStatus(msg, type) {
+                    this.statusMsg = msg;
+                    this.statusMsgType = type || '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
