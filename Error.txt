@@ -1,3 +1,16 @@
 Error: HTTP error! status: 500
     at mesfetch (mes-util.js?v=260522:74:13)
     at async Er.doQuery (WsMergeQuery.html:211:42)
+
+{
+    "Message": "發生錯誤。",
+    "ExceptionMessage": "嘗試建立型別 'WsMergeQueryController' 的控制器時發生錯誤。請確認此控制器是否有無參數公用建構函式。",
+    "ExceptionType": "System.InvalidOperationException",
+    "StackTrace": "   於 System.Web.Http.Dispatcher.DefaultHttpControllerActivator.Create(HttpRequestMessage request, HttpControllerDescriptor controllerDescriptor, Type controllerType)\r\n   於 System.Web.Http.Controllers.HttpControllerDescriptor.CreateController(HttpRequestMessage request)\r\n   於 System.Web.Http.Dispatcher.HttpControllerDispatcher.<SendAsync>d__15.MoveNext()",
+    "InnerException": {
+        "Message": "發生錯誤。",
+        "ExceptionMessage": "類型 'MES.Net.Web.Controllers.Query.WsMergeQueryController' 沒有預設建構函式",
+        "ExceptionType": "System.ArgumentException",
+        "StackTrace": "   於 System.Linq.Expressions.Expression.New(Type type)\r\n   於 System.Web.Http.Internal.TypeActivator.Create[TBase](Type instanceType)\r\n   於 System.Web.Http.Dispatcher.DefaultHttpControllerActivator.GetInstanceOrActivator(HttpRequestMessage request, Type controllerType, Func`1& activator)\r\n   於 System.Web.Http.Dispatcher.DefaultHttpControllerActivator.Create(HttpRequestMessage request, HttpControllerDescriptor controllerDescriptor, Type controllerType)"
+    }
+}
