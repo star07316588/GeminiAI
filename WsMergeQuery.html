@@ -53,7 +53,8 @@
 
         </div><mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
 
-    </div><script src="/Scripts/vue.min.js"></script>
+    </div>
+    <script src="/Scripts/vue.min.js"></script>
     <script src="/Scripts/vuetify.min.js"></script>
     <script src="/Scripts/tabulator.min.js"></script>
     <script src="/Scripts/slimselect.js"></script>
@@ -77,16 +78,16 @@
 
                     /* ── 條件欄位定義 (取代原本的三個頁籤) ── */
                     criteriaFields: [
-                        { 
-                            key: 'queryMode', 
-                            label: 'Query Mode', 
-                            type: 'combobox', 
+                        {
+                            key: 'queryMode',
+                            label: 'Query Mode',
+                            type: 'combobox',
                             options: [
                                 { label: '1. Current (當前批號)', value: 'Current' },
                                 { label: '2. History (歷史批號)', value: 'History' },
                                 { label: '3. Merge Detail (併批明細)', value: 'Merge' },
                                 { label: '4. Split Detail (拆批明細)', value: 'Split' }
-                            ] 
+                            ]
                         },
                         { key: 'lotId', label: 'Merge Lot ID', type: 'input', placeholder: '請輸入併批批號' }
                     ],
@@ -189,19 +190,19 @@
                             this.dataLotInfo = [];
                             this.$refs.resultLotInfo.setData([]);
 
-                            url = "/api/lot/query";
-                            params = { 
-                                LotId: this.qry.lotId, 
-                                IsHistoryTab: this.qry.queryMode === 'History' 
+                            url = "/api/query/ws-merge-query/query";
+                            params = {
+                                LotId: this.qry.lotId,
+                                IsHistoryTab: this.qry.queryMode === 'History'
                             };
                         } else {
                             this.currentView = 'Sorter';
                             this.dataSorter = [];
                             this.$refs.resultSorter.setData([]);
 
-                            url = "/api/lot/sorter-control";
-                            params = { 
-                                LotId: this.qry.lotId, 
+                            url = "/api/query/ws-merge-query/sorter-control";
+                            params = {
+                                LotId: this.qry.lotId,
                                 Action: this.qry.queryMode // 'Merge' 或 'Split'
                             };
                         }
@@ -224,7 +225,7 @@
                         console.error(error);
                         VMessageBox.alert(error.Message || '查詢發生預期外的錯誤', 'Error', {
                             icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
-                        }).catch(() => {});
+                        }).catch(() => { });
                         this.setStatus('QUERY FAILED', 'error');
                     } finally {
                         document.body.style.cursor = 'default';
@@ -255,18 +256,18 @@
                             }))
                         };
 
-                        const response = await mesfetch("/api/lot/resend-sap", payload, "POST");
+                        const response = await mesfetch("/api/query/ws-merge-query/resend-sap", payload, "POST");
 
                         VMessageBox.alert(response.Message || `Lot '${this.qry.lotId}' 資料已更新, 稍後將重傳給SAP !!`);
-                        
+
                         // 更新成功後重新查詢
-                        this.doQuery(); 
+                        this.doQuery();
 
                     } catch (error) {
                         console.error(error);
                         VMessageBox.alert(error.Message || '更新發生錯誤', 'Error', {
                             icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
-                        }).catch(() => {});
+                        }).catch(() => { });
                         this.setStatus('UPDATE FAILED', 'error');
                     } finally {
                         document.body.style.cursor = 'default';
