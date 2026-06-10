@@ -209,17 +209,28 @@
 
                         // 呼叫我們先前開發的 C# API
                         const response = await mesfetch(url, params);
-
-                        // 依據視窗塞入資料
-                        if (this.currentView === 'LotInfo') {
-                            this.dataLotInfo = response;
-                            this.$refs.resultLotInfo.setData(response);
+                        
+                        // ⚠️ 新增：檢查後端是否回傳成功
+                        if (response.Success) {
+                            
+                            // 依據視窗塞入資料 (注意：這裡一定要加上 .Data)
+                            if (this.currentView === 'LotInfo') {
+                                this.dataLotInfo = response.Data; 
+                                this.$refs.resultLotInfo.setData(response.Data); // 只把陣列傳給 Tabulator
+                            } else {
+                                this.dataSorter = response.Data;
+                                this.$refs.resultSorter.setData(response.Data);  // 只把陣列傳給 Tabulator
+                            }
+                        
+                            this.setStatus('QUERY SUCCESS', 'success');
+                        
                         } else {
-                            this.dataSorter = response;
-                            this.$refs.resultSorter.setData(response);
+                            // 處理後端回傳 Success: false (例如：查無資料)
+                            VMessageBox.alert(response.Message || '查無資料或查詢失敗', '提示', {
+                                icon: 'mdi-information-outline', color: '#f39c12', iconBg: 'rgba(243,156,18,.1)'
+                            }).catch(() => { });
+                            this.setStatus('QUERY FAILED', 'error');
                         }
-
-                        this.setStatus('QUERY SUCCESS', 'success');
 
                     } catch (error) {
                         console.error(error);
