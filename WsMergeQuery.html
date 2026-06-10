@@ -267,9 +267,15 @@
                             }))
                         };
 
-                        const response = await mesfetch("/api/query/ws-merge-query/resend-sap", payload, "POST");
-
-                        VMessageBox.alert(response.Message || `Lot '${this.qry.lotId}' 資料已更新, 稍後將重傳給SAP !!`);
+                        const response = await mesfetch("/api/query/ws-merge-query/resend-sap", payload);
+                        
+                        // 加上判斷
+                        if (response.Success) {
+                            VMessageBox.alert(response.Message || `Lot '${this.qry.lotId}' 資料已更新, 稍後將重傳給SAP !!`);
+                            this.doQuery(); 
+                        } else {
+                            VMessageBox.alert(response.Message || '更新失敗');
+                        }
 
                         // 更新成功後重新查詢
                         this.doQuery();
