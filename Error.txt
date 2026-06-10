@@ -1,16 +1,66 @@
-Error: HTTP error! status: 500
-    at mesfetch (mes-util.js?v=260522:74:13)
-    at async Er.doQuery (WsMergeQuery.html:211:42)
+目前已經可從後端傳回資料 const response = await mesfetch(url, params);
+該response確定有回傳資料，但在跑this.$refs.resultLotInfo.setData(response);
+最後卻有以下錯誤訊息可能是什麼原因
+error = TypeError: e.indexOf is not a function at E.load (http://localhost:53131/Scripts/tabulator.min.js:2:83453) at A.setData (http://localhost:53131/Scripts/tabulator.min.js:2:115351) at a.setData (http://localhost:53131/Scripts/mes-query-result.js?v=260522:232:26) at Er.doQuery (http://localhost:53131/Content/Query/WsMergeQuery.html:216:54) console.error(error);
 
-{
-    "Message": "發生錯誤。",
-    "ExceptionMessage": "嘗試建立型別 'WsMergeQueryController' 的控制器時發生錯誤。請確認此控制器是否有無參數公用建構函式。",
-    "ExceptionType": "System.InvalidOperationException",
-    "StackTrace": "   於 System.Web.Http.Dispatcher.DefaultHttpControllerActivator.Create(HttpRequestMessage request, HttpControllerDescriptor controllerDescriptor, Type controllerType)\r\n   於 System.Web.Http.Controllers.HttpControllerDescriptor.CreateController(HttpRequestMessage request)\r\n   於 System.Web.Http.Dispatcher.HttpControllerDispatcher.<SendAsync>d__15.MoveNext()",
-    "InnerException": {
-        "Message": "發生錯誤。",
-        "ExceptionMessage": "類型 'MES.Net.Web.Controllers.Query.WsMergeQueryController' 沒有預設建構函式",
-        "ExceptionType": "System.ArgumentException",
-        "StackTrace": "   於 System.Linq.Expressions.Expression.New(Type type)\r\n   於 System.Web.Http.Internal.TypeActivator.Create[TBase](Type instanceType)\r\n   於 System.Web.Http.Dispatcher.DefaultHttpControllerActivator.GetInstanceOrActivator(HttpRequestMessage request, Type controllerType, Func`1& activator)\r\n   於 System.Web.Http.Dispatcher.DefaultHttpControllerActivator.Create(HttpRequestMessage request, HttpControllerDescriptor controllerDescriptor, Type controllerType)"
-    }
-}
+前端Source code
+                async doQuery() {
+                    if (!this.qry.lotId.trim()) {
+                        VMessageBox.alert('Pls input Query Criterial !!<br>請輸入查詢條件 !!');
+                        return;
+                    }
+
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('QUERYING...', 'info');
+
+                    try {
+                        let url = "";
+                        let params = {};
+
+                        // 判斷查詢情境與對應的 API
+                        if (this.qry.queryMode === 'Current' || this.qry.queryMode === 'History') {
+                            this.currentView = 'LotInfo';
+                            this.dataLotInfo = [];
+                            this.$refs.resultLotInfo.setData([]);
+
+                            url = "/api/query/ws-merge-query/query";
+                            params = {
+                                LotId: this.qry.lotId,
+                                IsHistoryTab: this.qry.queryMode === 'History'
+                            };
+                        } else {
+                            this.currentView = 'Sorter';
+                            this.dataSorter = [];
+                            this.$refs.resultSorter.setData([]);
+
+                            url = "/api/query/ws-merge-query/sorter-control";
+                            params = {
+                                LotId: this.qry.lotId,
+                                Action: this.qry.queryMode // 'Merge' 或 'Split'
+                            };
+                        }
+
+                        // 呼叫我們先前開發的 C# API
+                        const response = await mesfetch(url, params);
+
+                        // 依據視窗塞入資料
+                        if (this.currentView === 'LotInfo') {
+                            this.dataLotInfo = response;
+                            this.$refs.resultLotInfo.setData(response);
+                        } else {
+                            this.dataSorter = response;
+                            this.$refs.resultSorter.setData(response);
+                        }
+
+                        this.setStatus('QUERY SUCCESS', 'success');
+
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert(error.Message || '查詢發生預期外的錯誤', 'Error', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => { });
+                        this.setStatus('QUERY FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
