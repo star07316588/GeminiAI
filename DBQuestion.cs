@@ -70,3 +70,32 @@
 
             return data;
         }
+
+[HttpPost, Route("sorter-control"), AuthorizeToken]
+public async Task<IHttpActionResult> ExecQuerySorterControl([FromBody] QuerySorterControlRequest request)
+{
+    if (request == null || string.IsNullOrWhiteSpace(request.LotId) || string.IsNullOrWhiteSpace(request.Action))
+    {
+        return BadRequest("Pls input Query Criterial !! 請輸入查詢條件 !!");
+    }
+
+    try
+    {
+        var result = await _wsMergeQueryService.GetSorterControlInfoAsync(request.LotId, request.Action);
+        return Ok(new { Success = true, Message = "", Data = result });
+    }
+    catch (Exception ex)
+    {
+        AppLogger.Error(this, ex.Message, ex);
+        AppLogger.Info(this, JsonConvert.SerializeObject(request));
+        
+        // ✅ 同時攔截 ArgumentException 與 InvalidOperationException
+        if (ex is ArgumentException || ex is InvalidOperationException)
+        {
+            // 將我們在 Service 寫好的特定訊息，溫柔地傳給前端
+            return Ok(new { Success = false, Message = ex.Message });
+        }
+        
+        throw; // 真正預期外的錯誤（如資料庫斷線、語法錯誤）才丟 500
+    }
+}
