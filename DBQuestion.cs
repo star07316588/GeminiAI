@@ -43,3 +43,30 @@
                 throw; // 將例外往上拋給 Controller 處理
             }
         }
+
+
+        public async Task<IEnumerable<SorterControlInfo>> GetSorterControlInfoAsync(string lotId, string action)
+        {
+            // 第一次查詢：查詢尚未完成的 Sorter 作業
+            var data = await _lotRepo.GetActiveSorterControlsAsync(lotId, action);
+
+            // 若第一段 SQL (colRS) 沒有資料
+            if (data == null || !data.Any())
+            {
+                // 第二次查詢 (colRS_2)：檢查是否其實已經完成了？
+                bool hasFinished = await _lotRepo.CheckAnySorterControlExistsAsync(lotId, action);
+
+                if (hasFinished)
+                {
+                    // 對應 MsgBox: Has finish Sorter operation
+                    throw new InvalidOperationException($"Lot '{lotId}' has finish Sorter '{action}' operation !! 已完成 Sorter '{action}' 作業 !!");
+                }
+                else
+                {
+                    // 對應 MsgBox: is no data found
+                    throw new InvalidOperationException($"Lot '{lotId}' is no '{action}' data found !! 查無 '{action}' 資料 !!");
+                }
+            }
+
+            return data;
+        }
