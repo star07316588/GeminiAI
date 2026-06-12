@@ -998,3 +998,99 @@ public class Month_Cal_2 {
 	        }
 	}	
 }
+
+
+根據您提供的 Java 程式碼，Rbl_DL_Performance_summary 資料表中的 score (分數) 欄位，會在 四種不同的結算情境 下被計算並 Insert。這四種情境分別是：單月結算、半年結算、季度結算 與 年度結算。
+
+以下為您詳細拆解各個情境的計算來源 (Tables) 與條件 (Conditions)：
+
+1. 單月結算 (getManagerDatatoSummary 方法)
+這個方法負責抓取上個月的原始分數，並 Insert 到 summary 表中。
+
+資料來源 Tables：
+
+rbl_dl_performance_manager (經理評分資料表)
+
+rbl_dl_emp (員工基本資料表)
+
+rbl_dl_organization (組織單位資料表)
+
+計算邏輯與條件：
+
+鎖定人員與時間：先找出符合特定部門 (dept_id)、特定課別 (section)，且時間點為 系統日期的「上個月」 (to_char(add_months(sysdate,-1 ), 'YYYYMM')) 的員工。這部分透過 JOIN rbl_dl_emp 與 rbl_dl_organization 來確認人員隸屬的 shift_id 與 station_id。
+
+擷取 Score (原始分數)：針對上述找出的員工 (emp_id)，去 rbl_dl_performance_manager 查詢其分數。
+
+條件：year || month 為上個月。
+
+條件：item like '經理評比%Ranking' (只抓取項目名稱為「經理評比...Ranking」的紀錄)。
+
+計算：直接取該筆紀錄的 final 欄位值 (nvl(a.final,0))。如果查無資料，則 score 設為 "0"。
+
+2. 半年結算 (sixMonthRanking 方法)
+這個方法負責計算每半年的平均分數 (1H 或是 2H)，並將這筆半年總結紀錄 Insert 回 summary 表。
+
+資料來源 Tables：
+
+rbl_dl_performance_summary (自身的歷史紀錄)
+
+rbl_dl_emp
+
+rbl_dl_organization
+
+計算邏輯與條件：
+
+擷取 Score (半年平均分數)：
+
+條件時間區間：系統日期的 過去 6 個月 內 (>= to_char(add_months(sysdate, -6), 'yyyymm') 且 <= to_char(add_months(sysdate, -1), 'yyyymm'))。
+
+排除條件 (重要)：skipflag = 'N'。這表示只計算沒有被標記為 Skip 的月份。
+
+計算公式：利用 round(avg(score), 2)，將該員工過去 6 個月內符合條件的 score 進行平均，並四捨五入至小數點後第二位。
+
+3. 季度結算 (QuarterRanking 方法)
+計算每季 (Q1, Q2, Q3, Q4) 的平均分數，並 Insert 回 summary 表。
+
+資料來源 Tables：
+
+rbl_dl_performance_summary
+
+rbl_dl_emp
+
+rbl_dl_organization
+
+計算邏輯與條件：
+
+擷取 Score (季度平均分數)：
+
+條件時間區間：系統日期的 過去 3 個月 內 (>= to_char(add_months(sysdate, -3), 'yyyymm') 且 <= to_char(add_months(sysdate, -1), 'yyyymm'))。
+
+排除條件：skipflag = 'N' (同樣排除不列入計算的月份)。
+
+計算公式：round(avg(score), 2)，將該季內 (過去 3 個月) 的分數平均，取到小數點後第二位。
+
+4. 年度結算 (TotalYearRanking 方法)
+計算一整年度 (Y) 的平均分數，並 Insert 回 summary 表。
+
+資料來源 Tables：
+
+rbl_dl_performance_summary
+
+rbl_dl_emp
+
+rbl_dl_organization
+
+計算邏輯與條件：
+
+擷取 Score (年度平均分數)：
+
+條件時間區間：計算對象年份的 1月到12月 (>= ... 'yyyy' || '01' 且 <= ... 'yyyy' || '12')。
+
+排除條件：skipflag = 'N'。
+
+計算公式：round(avg(score), 2)，將該年度內 12 個月的分數進行平均，取到小數點後第二位。
+
+總結
+最源頭的單月 score 是從 rbl_dl_performance_manager (經理評估表) 的 final 欄位抓過來的 (前提是 item 包含 經理評比%Ranking)。
+
+季、半年、年度的 score 則都是去撈取 Rbl_DL_Performance_summary 過去自己產生的單月資料，加上條件 skipflag = 'N' 之後，使用 AVG() 函數做算術平均得來的。
