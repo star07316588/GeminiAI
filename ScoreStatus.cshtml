@@ -1,0 +1,228 @@
+@model MesTAManagementSystem_New.ViewModels.DLOperation.Report.ScoreStatusVM
+@{
+    ViewBag.Title = "ScoreStatus(績效考核Status查詢)";
+    Layout = "~/Views/Shared/_LayoutMainWithBasic.cshtml";
+}
+@section styles
+{
+}
+
+@section scripts
+{
+    @Scripts.Render("~/bundles/jquery-ui")
+    @Scripts.Render("~/bundles/jqgrid")
+    @Scripts.Render("~/bundles/jquery-blockui")
+    <script type="text/javascript">
+        //===================================================================================
+        //  宣告區塊
+        //===================================================================================
+        var $resultTable = $('#result-table');
+        var $resultTablePager = $('#result-table-pager');
+        var $searchForm = $('#search-form');
+        var $submitButton = $('#submit-button');
+        var $searchDateTime = $('#BeginDate,#EndDate');
+        var $calendarIcon = $('.form-control-feedback');
+
+        $(document).ready(function () {
+            //===================================================================================
+            //  表格設定
+            //===================================================================================
+            $resultTable.jqGrid({
+                datatype: 'local',
+                autowidth: true,
+                shrinkToFit: false,
+                height: $('div.main').height() - 50,
+                rownumbers: true,
+                viewrecords: true,
+                rowNum: 2000,
+                rownumWidth: 35,
+                rowList: [500, 1000, 2000],
+                pager: $resultTablePager,
+                colNames: ['@Html.DisplayNameFor(r => r.Year)',
+                           '@Html.DisplayNameFor(r => r.Month)',
+                           '@Html.DisplayNameFor(r => r.New_Type)',
+                           '@Html.DisplayNameFor(r => r.Shift_Id)',
+                           '@Html.DisplayNameFor(r => r.Station_Id)',
+                           '@Html.DisplayNameFor(r => r.Title)',
+                           '@Html.DisplayNameFor(r => r.Status)',
+                           '@Html.DisplayNameFor(r => r.CreateuserId)',
+                           '@Html.DisplayNameFor(r => r.Createtime)',
+                           '@Html.DisplayNameFor(r => r.UpdateuserId)',
+                           '@Html.DisplayNameFor(r => r.Updatetime)'
+                ],
+                colModel: [
+                    { name: 'Year', index: 'Shift_Id', align: "left", editable: false, width: '70' },
+                    { name: 'Month', index: 'Title', align: "left", editable: false, width: '70' },
+                    { name: 'New_Type', index: 'Type', align: "left", editable: false, width: '70' },
+                    { name: 'Shift_Id', index: 'Jan', align: "left", editable: false, width: '70' },
+                    { name: 'Station_Id', index: 'Feb', align: "left", editable: false, width: '70' },
+                    { name: 'Title', index: 'TeMarmp', align: "left", editable: false, width: '70' },
+                    { name: 'Status', index: 'Apr', align: "left", editable: false, width: '120' },
+                    { name: 'CreateuserId', index: 'May', align: "left", editable: false, width: '70' },
+                    { name: 'Createtime', index: 'Jun', align: "left", editable: false, width: '120' },
+                    { name: 'UpdateuserId', index: 'Jul', align: "left", editable: false, width: '70' },
+                    { name: 'Updatetime', index: 'Aug', align: "left", editable: false, width: '120' }
+                ]
+            });
+            $resultTable.jqGrid('setFrozenColumns');
+            $('.frozen-div.ui-state-default.ui-jqgrid-hdiv').css({ 'height': '23px' }); //Frozen  Header預設22px, 有時字會被推擠
+
+            //===================================================================================
+            //  綁定datetimepicker
+            //===================================================================================
+            $searchDateTime.datetimepicker({
+                showTimepicker: false,
+                changeMonth: true,
+                changeYear: true,
+                dateFormat: 'yy-mm-dd'
+            });
+            $calendarIcon.css('z-index', $searchDateTime.css("z-index")); //把icon拉上來
+
+            //===================================================================================
+            //  按鈕自訂
+            //===================================================================================
+
+            $resultTable.navGrid('#result-table-pager', {
+                edit: false,
+                add: false,
+                del: false,
+                search: false,
+                refresh: false
+            });
+        });
+        //===================================================================================
+        //  表單查詢
+        //===================================================================================
+        $submitButton.click(function () {
+            var vm = {
+                StartYear: $("#StartYear").val(),
+                StartMonth: $("#StartMonth").val(),
+                EndYear: $("#EndYear").val(),
+                EndMonth: $("#EndMonth").val(),
+                Dept_Id: $("#Dept_Id").val(),
+                SelectedStationIds: $('#StationListBox').val()
+            };
+
+            $.ajax({
+                url: '@Url.Action("QueryTable")',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(vm),
+                beforeSend: function () {
+                    $.blockUI({ css: { cursor: 'wait'} });
+                },
+                statusCode: {
+                    401: function () {
+                        alert('登入期限已過，即將返回首頁');
+                        window.location.replace('@Url.Action("Index", "Home")');
+                    }
+                },
+                success: function (data) {
+                    setTimeout(function () {
+                        $resultTable.jqGrid('clearGridData').jqGrid('setGridParam', {
+                            datatype: 'local',
+                            data: data
+                        }).trigger('reloadGrid');
+                    }, 200);
+                },
+                complete: function () {
+                    $.unblockUI();
+                }
+            });
+        });
+    </script>
+}
+@section left_sidebar
+{
+    <form id="search-form" action="#">
+        <table width="100%">
+            <thead>
+                <tr>
+                    <th colspan="2">
+                        <i class="glyphicon glyphicon-search"></i>Find results with...
+                        <h5>ScoreStatus</h5>
+                        <h5>(績效考核Status查詢)</h5>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td align="right">
+                        @Html.DisplayNameFor(m => m.StartYear)：
+                    </td>
+                    <td>
+                        <div class="form-group margin0">
+                            @Html.DropDownListFor(model => model.StartYear, Model.StartYearList, new { @class = "form-control input-xs" })
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="right">
+                        @Html.DisplayNameFor(m => m.StartMonth)：
+                    </td>
+                    <td>
+                        <div class="form-group margin0">
+                            @Html.DropDownListFor(model => model.StartMonth, Model.StartMonthList, new { @class = "form-control input-xs" })
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="right">
+                        @Html.DisplayNameFor(m => m.EndYear)：
+                    </td>
+                    <td>
+                        <div class="form-group margin0">
+                            @Html.DropDownListFor(model => model.EndYear, Model.EndYearList, new { @class = "form-control input-xs" })
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="right">
+                        @Html.DisplayNameFor(m => m.EndMonth)：
+                    </td>
+                    <td>
+                        <div class="form-group margin0">
+                            @Html.DropDownListFor(model => model.EndMonth, Model.EndMonthList, new { @class = "form-control input-xs" })
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="right">
+                        @Html.DisplayNameFor(m => m.Dept_Id)：
+                    </td>
+                    <td>
+                        <div class="form-group margin0">
+                            @Html.DropDownListFor(model => model.Dept_Id, Model.DeptIdList, new { @class = "form-control input-xs" })
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="right">
+                        @Html.DisplayNameFor(m => m.Station_Id)：
+                    </td>
+                    <td>
+                        <div class="form-group margin0">
+                            @Html.ListBoxFor(model => model.Station_Id, Model.StationIdList, new { @id = "StationListBox", @class = "form-control input-xs", @style = "height: 100px" })
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                    </td>
+                    <td>
+                        <button id="submit-button" type="button" class="btn btn-xs btn-primary">
+                            Search
+                        </button>
+                        <button id="reset-button" type="reset" class="btn btn-xs btn-default">
+                            Reset
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </form>
+}
+<table id="result-table">
+</table>
+<div id="result-table-pager">
+</div>
