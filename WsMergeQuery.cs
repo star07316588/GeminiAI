@@ -400,3 +400,12 @@ namespace MesApi.Repositories
         }
     }
 }
+
+    var result = await _wsMergeQueryService.GetLotMergeInfoAsync(request.LotId, request.IsHistoryTab);
+
+    if (result == null)
+    {
+        return BadRequest($"Lot '{request.LotId}' is no data found !! 查無資料 !!");
+    }
+
+    return Ok(new { Success = true, Message = "", Data = result });
