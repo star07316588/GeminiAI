@@ -101,7 +101,6 @@
 
                     /* ── Lot Info 欄位定義 (20欄) ── */
                     colLotInfo: [
-                        { formatter: "rowSelection", titleFormatter: "rowSelection", hozAlign: "center", headerSort: false, width: 50 }, // 用於勾選 Resend SAP
                         { title: 'ParentLotID', field: 'ParentLotId', width: 'auto', sorter: "string" },
                         { title: 'SLotNo', field: 'SlotNo', width: 'auto', sorter: "string" },
                         { title: 'ChildLotID', field: 'ChildLotId', width: 'auto', sorter: "string" },
@@ -209,21 +208,21 @@
 
                         // 呼叫我們先前開發的 C# API
                         const response = await mesfetch(url, params);
-                        
-                        // ⚠️ 新增：檢查後端是否回傳成功
+
+                        // 新增：檢查後端是否回傳成功
                         if (response.Success) {
-                            
+
                             // 依據視窗塞入資料 (注意：這裡一定要加上 .Data)
                             if (this.currentView === 'LotInfo') {
-                                this.dataLotInfo = response.Data; 
+                                this.dataLotInfo = response.Data;
                                 this.$refs.resultLotInfo.setData(response.Data); // 只把陣列傳給 Tabulator
                             } else {
                                 this.dataSorter = response.Data;
                                 this.$refs.resultSorter.setData(response.Data);  // 只把陣列傳給 Tabulator
                             }
-                        
+
                             this.setStatus('QUERY SUCCESS', 'success');
-                        
+
                         } else {
                             // 處理後端回傳 Success: false (例如：查無資料)
                             VMessageBox.alert(response.Message || '查無資料或查詢失敗', '提示', {
@@ -246,10 +245,10 @@
                 /* ── Resend SAP (對應 cmdResendSAP_Click) ── */
                 async doResendSap() {
                     // 取得被勾選的資料列
-                    const selectedRows = this.$refs.resultLotInfo.getSelectedData();
+                    const allRows = this.dataLotInfo;
 
-                    if (!selectedRows || selectedRows.length === 0) {
-                        VMessageBox.alert(`Lot '${this.qry.lotId}' is no data selected !!<br>請先勾選要重送的資料列 !!`);
+                    if (!allRows || allRows.length === 0) {
+                        VMessageBox.alert(`Pls input Query Criteria !!<br> 請輸入查詢條件 !!`);
                         return;
                     }
 
@@ -260,7 +259,7 @@
                         // 組合傳給 API 的 Payload
                         const payload = {
                             LotId: this.qry.lotId,
-                            UserId: window.checkAuth ? window.checkAuth().userName : 'System', // 帶入當前登入者
+                            UserId: sessionStorage.getItem('mes_loginId'),
                             Items: selectedRows.map(row => ({
                                 UpdateTable: row.UpdateTable,
                                 RowId: row.RowId
@@ -268,11 +267,11 @@
                         };
 
                         const response = await mesfetch("/api/query/ws-merge-query/resend-sap", payload);
-                        
+
                         // 加上判斷
                         if (response.Success) {
                             VMessageBox.alert(response.Message || `Lot '${this.qry.lotId}' 資料已更新, 稍後將重傳給SAP !!`);
-                            this.doQuery(); 
+                            this.doQuery();
                         } else {
                             VMessageBox.alert(response.Message || '更新失敗');
                         }
