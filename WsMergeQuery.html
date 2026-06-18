@@ -35,20 +35,24 @@
                             :auto-add-close="true"
                             @action="onAction"></mes-action-bar>
 
-            <div v-show="currentView === 'LotInfo'">
+            <div v-show="currentView === 'LotInfo'" style="height: calc(100vh - 280px);">
                 <mes-query-result ref="resultLotInfo"
                                   title="Lot Information"
                                   :columns="colLotInfo"
                                   :summary="summaryLotInfo"
-                                  :data="dataLotInfo"></mes-query-result>
+                                  :data="dataLotInfo"
+                                  :tabulator-options="{ layout: 'fitDataFill' }">
+                </mes-query-result>
             </div>
-
-            <div v-show="currentView === 'Sorter'">
+            
+            <div v-show="currentView === 'Sorter'" style="height: calc(100vh - 280px);">
                 <mes-query-result ref="resultSorter"
                                   title="Sorter Control Information"
                                   :columns="colSorter"
                                   :summary="summarySorter"
-                                  :data="dataSorter"></mes-query-result>
+                                  :data="dataSorter"
+                                  :tabulator-options="{ layout: 'fitDataFill' }">
+                </mes-query-result>
             </div>
 
         </div><mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
