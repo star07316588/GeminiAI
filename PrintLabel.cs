@@ -1,6 +1,8 @@
-namespace MES.Net.Shared.DTOs.PrintLabel
+using System.Collections.Generic;
+
+namespace MES.Net.Shared.DTOs.Print
 {
-    // 1. 取得下拉選單的請求參數 (可共用，視查詢層級帶入不同參數)
+    // 連動下拉選單共用的請求物件
     public class DropdownRequest
     {
         public string CarrierType { get; set; }
@@ -8,31 +10,29 @@ namespace MES.Net.Shared.DTOs.PrintLabel
         public string Brand { get; set; }
     }
 
-    // 2. 執行列印(或查詢標籤資料)的 Request Payload
+    // 點擊 Print 按鈕時的請求物件
     public class PrintLabelRequest
     {
-        public string LotId { get; set; } // 假設有批號
+        public string LotId { get; set; }
         public string CarrierType { get; set; }
         public string BoxingSpecNo { get; set; }
         public string Brand { get; set; }
         public string PinCount { get; set; }
-        public string UserId { get; set; } 
-        // ... 其他畫面上需要送出的參數
+        public string UserId { get; set; }
     }
 }
-
-using MES.Net.Application.Services.Query;
+using MES.Net.Application.Services.Print;
 using MES.Net.Infrastructure.Logging;
 using MES.Net.Web.Filters;
+using MES.Net.Shared.DTOs.Print;
 using Newtonsoft.Json;
 using System;
 using System.Threading.Tasks;
 using System.Web.Http;
-using MES.Net.Shared.DTOs.PrintLabel;
 
-namespace MES.Net.Web.Controllers.Query
+namespace MES.Net.Web.Controllers.Print
 {
-    [RoutePrefix("api/query/print-label")]
+    [RoutePrefix("api/print/print-label")]
     public class PrintLabelController : ApiController
     {
         private readonly IPrintLabelService _printLabelService;
@@ -142,13 +142,13 @@ namespace MES.Net.Web.Controllers.Query
     }
 }
 
+using MES.Net.Infrastructure.Repository.Print;
+using MES.Net.Shared.DTOs.Print;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using MES.Net.Shared.DTOs.PrintLabel;
-using MES.Net.Infrastructure.Repository.Query;
 
-namespace MES.Net.Application.Services.Query
+namespace MES.Net.Application.Services.Print
 {
     public interface IPrintLabelService
     {
@@ -190,10 +190,7 @@ namespace MES.Net.Application.Services.Query
 
         public async Task ExecutePrintAsync(PrintLabelRequest request)
         {
-            // 💡 這裡對應原 VB6 的列印動作邏輯
-            // 可在此處加入廠內規定（例如：檢查該 LotID 在 MES 系統中是否處於 Hold 狀態）
-            
-            // 呼叫資料庫儲存程序 (Stored Procedure) 或是過往的列印系統機制
+            // 可在此加入廠內商業邏輯驗證（例如確認帳號列印權限等）
             bool printSuccess = await _printLabelRepo.SpPrintLabelActionAsync(request);
             
             if (!printSuccess)
@@ -205,12 +202,12 @@ namespace MES.Net.Application.Services.Query
 }
 
 using Dapper;
+using MES.Net.Shared.DTOs.Print;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
-using MES.Net.Shared.DTOs.PrintLabel;
 
-namespace MES.Net.Infrastructure.Repository.Query
+namespace MES.Net.Infrastructure.Repository.Print
 {
     public interface IPrintLabelRepository
     {
@@ -232,7 +229,6 @@ namespace MES.Net.Infrastructure.Repository.Query
 
         public async Task<IEnumerable<string>> GetCarrierTypesAsync()
         {
-            // 💡 假設標籤基礎設定儲存在 TBL_PACK_SPEC_MSTR 中
             string sql = @"SELECT DISTINCT CARRIER_TYPE FROM TBL_PACK_SPEC_MSTR WHERE DELETE_FLAG = 'N' ORDER BY CARRIER_TYPE";
             return await _dbConnection.QueryAsync<string>(sql);
         }
@@ -275,8 +271,6 @@ namespace MES.Net.Infrastructure.Repository.Query
 
         public async Task<bool> SpPrintLabelActionAsync(PrintLabelRequest request)
         {
-            // 💡 實務上自動自動包裝列印系統常使用 Stored Procedure 處理
-            // 這邊示範如何用 Dapper 執行預值程序
             var p = new DynamicParameters();
             p.Add("p_LotId", request.LotId);
             p.Add("p_CarrierType", request.CarrierType);
@@ -289,7 +283,7 @@ namespace MES.Net.Infrastructure.Repository.Query
             await _dbConnection.ExecuteAsync("SP_EXEC_PRINT_LABEL", p, commandType: CommandType.StoredProcedure);
 
             int result = p.Get<int>("p_Result");
-            return result == 0; // 假設 0 代表預存程序執行成功
+            return result == 0;
         }
     }
 }
