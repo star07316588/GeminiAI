@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRINT BARCODE LABEL</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        .msc-panel, .mab-bar {
+            margin-bottom: 10px;
+        }
+
+        /* 簡單的表單排版樣式 */
+        .form-panel {
+            background: var(--bg-surface, #ffffff);
+            border: 1px solid var(--border, #d1d5db);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .form-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--accent, #1565C0);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main, #333);
+        }
+
+        .form-control {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent, #1565C0);
+        }
+
+        .form-control:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="page-layout" data-app>
+
+        <mes-toolbar title="Print Barcode Label"></mes-toolbar>
+
+        <div class="page-body">
+
+            <mes-action-bar :buttons="actionButtons"
+                            :auto-add-close="true"
+                            @action="onAction"></mes-action-bar>
+
+            <div class="form-panel">
+                <div class="form-title">
+                    <i class="mdi mdi-printer"></i> Label Pack Information
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Lot ID</label>
+                        <input type="text" class="form-control" v-model="form.lotId" placeholder="請輸入欲列印之批號">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Carrier Type</label>
+                        <select class="form-control" v-model="form.carrierType" @change="onCarrierTypeChange">
+                            <option value="">-- Select Carrier Type --</option>
+                            <option v-for="opt in options.carrierTypes" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Boxing Spec NO.</label>
+                        <select class="form-control" v-model="form.boxingSpecNo" @change="onBoxingSpecChange" :disabled="!form.carrierType">
+                            <option value="">-- Select Boxing Spec --</option>
+                            <option v-for="opt in options.boxingSpecs" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Brand</label>
+                        <select class="form-control" v-model="form.brand" @change="onBrandChange" :disabled="!form.boxingSpecNo">
+                            <option value="">-- Select Brand --</option>
+                            <option v-for="opt in options.brands" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Pin Count</label>
+                        <select class="form-control" v-model="form.pinCount" :disabled="!form.brand">
+                            <option value="">-- Select Pin Count --</option>
+                            <option v-for="opt in options.pinCounts" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+        </div><mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
+
+    </div><script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+
+    <script>
+        Vue.use(VMessageBox);
+
+        var vapp = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    // 表單綁定的值
+                    form: {
+                        lotId: '',
+                        carrierType: '',
+                        boxingSpecNo: '',
+                        brand: '',
+                        pinCount: ''
+                    },
+                    
+                    // 下拉選單的選項來源
+                    options: {
+                        carrierTypes: [],
+                        boxingSpecs: [],
+                        brands: [],
+                        pinCounts: []
+                    },
+
+                    statusMsg: 'READY',
+                    statusMsgType: ''
+                };
+            },
+
+            computed: {
+                /* ── 動態變更按鈕 ── */
+                actionButtons() {
+                    return [
+                        { action: 'print', label: 'Print Label', icon: 'mdi-printer', color: 'primary' },
+                        { action: 'clear', label: 'Clear', icon: 'mdi-eraser' }
+                    ];
+                }
+            },
+
+            mounted() {
+                // 畫面載入時，主動撈取第一層選單 (Carrier Type)
+                this.loadCarrierTypes();
+            },
+
+            methods: {
+                /* ── API：撈取 Carrier Type ── */
+                async loadCarrierTypes() {
+                    try {
+                        const response = await mesfetch("/api/print/print-label/carrier-types", {});
+                        if (response.Success) {
+                            this.options.carrierTypes = response.Data;
+                        } else {
+                            VMessageBox.alert(response.Message);
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        this.setStatus('載入 Carrier Type 失敗', 'error');
+                    }
+                },
+
+                /* ── 第一層連動：Carrier Type 改變時 ── */
+                async onCarrierTypeChange() {
+                    // 1. 清空所有下層的選取值
+                    this.form.boxingSpecNo = '';
+                    this.form.brand = '';
+                    this.form.pinCount = '';
+
+                    // 2. 清空所有下層的選項清單
+                    this.options.boxingSpecs = [];
+                    this.options.brands = [];
+                    this.options.pinCounts = [];
+
+                    if (!this.form.carrierType) return;
+
+                    // 3. 呼叫 API 取得第二層 (Boxing Spec)
+                    try {
+                        const response = await mesfetch("/api/print/print-label/boxing-specs", { CarrierType: this.form.carrierType });
+                        if (response.Success) {
+                            this.options.boxingSpecs = response.Data;
+                        }
+                    } catch (error) {
+                        console.error(error);
+                    }
+                },
+
+                /* ── 第二層連動：Boxing Spec 改變時 ── */
+                async onBoxingSpecChange() {
+                    this.form.brand = '';
+                    this.form.pinCount = '';
+                    this.options.brands = [];
+                    this.options.pinCounts = [];
+
+                    if (!this.form.boxingSpecNo) return;
+
+                    try {
+                        const response = await mesfetch("/api/print/print-label/brands", { 
+                            CarrierType: this.form.carrierType,
+                            BoxingSpecNo: this.form.boxingSpecNo
+                        });
+                        if (response.Success) {
+                            this.options.brands = response.Data;
+                        }
+                    } catch (error) {
+                        console.error(error);
+                    }
+                },
+
+                /* ── 第三層連動：Brand 改變時 ── */
+                async onBrandChange() {
+                    this.form.pinCount = '';
+                    this.options.pinCounts = [];
+
+                    if (!this.form.brand) return;
+
+                    try {
+                        const response = await mesfetch("/api/print/print-label/pin-counts", { 
+                            CarrierType: this.form.carrierType,
+                            BoxingSpecNo: this.form.boxingSpecNo,
+                            Brand: this.form.brand
+                        });
+                        if (response.Success) {
+                            this.options.pinCounts = response.Data;
+                        }
+                    } catch (error) {
+                        console.error(error);
+                    }
+                },
+
+                /* ── 執行列印 ── */
+                async doPrint() {
+                    // 防呆：檢查必填欄位
+                    if (!this.form.lotId.trim() || !this.form.carrierType || !this.form.boxingSpecNo) {
+                        VMessageBox.alert('請輸入 Lot ID 並選擇完整的包裝規格條件！');
+                        return;
+                    }
+
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('PRINTING...', 'info');
+
+                    try {
+                        // 組合傳給 API 的 Payload
+                        const payload = {
+                            LotId: this.form.lotId.trim(),
+                            CarrierType: this.form.carrierType,
+                            BoxingSpecNo: this.form.boxingSpecNo,
+                            Brand: this.form.brand,
+                            PinCount: this.form.pinCount,
+                            UserId: window.checkAuth ? window.checkAuth().userName : 'System'
+                        };
+
+                        const response = await mesfetch("/api/print/print-label/print", payload);
+
+                        if (response.Success) {
+                            VMessageBox.alert(response.Message || '標籤列印指令已成功送出！', 'Success', {
+                                icon: 'mdi-check-circle-outline', color: '#4caf50', iconBg: 'rgba(76,175,80,.1)'
+                            });
+                            this.setStatus('PRINT SUCCESS', 'success');
+                        } else {
+                            VMessageBox.alert(response.Message || '列印失敗', 'Error', {
+                                icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                            });
+                            this.setStatus('PRINT FAILED', 'error');
+                        }
+
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert(error.Message || '列印發生預期外的錯誤', 'Error', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => { });
+                        this.setStatus('PRINT FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                /* ── 清空表單 ── */
+                doClear() {
+                    this.form.lotId = '';
+                    this.form.carrierType = '';
+                    this.onCarrierTypeChange(); // 呼叫這個會自動清空所有下層
+                    this.setStatus('CLEARED', '');
+                },
+
+                /* ── 關閉視窗 ── */
+                doClose() {
+                    window.location.href = '/Content/F5.html';
+                },
+
+                /* ── Action Bar 分派器 ── */
+                onAction(action) {
+                    const map = {
+                        print: this.doPrint,
+                        clear: this.doClear,
+                        close: this.doClose
+                    };
+                    if (map[action]) map[action].call(this);
+                },
+
+                setStatus(msg, type) {
+                    this.statusMsg = msg;
+                    this.statusMsgType = type || '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
