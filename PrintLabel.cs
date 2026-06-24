@@ -249,11 +249,6 @@ namespace MES.Net.Application.Services.Print
             return await _printLabelRepo.GetPrintersAsync(server);
         }
 
-        public PrintLabelService(IPrintLabelRepository printLabelRepo)
-        {
-            _printLabelRepo = printLabelRepo;
-        }
-
         public async Task<IEnumerable<string>> GetCarrierTypesAsync()
         {
             return await _printLabelRepo.GetCarrierTypesAsync();
