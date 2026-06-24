@@ -1,7 +1,5 @@
 using System.Collections.Generic;
 
-using System.Collections.Generic;
-
 namespace MES.Net.Shared.DTOs.Print
 {
     // 畫面初始化回傳的基礎資料
