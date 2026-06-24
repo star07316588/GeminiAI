@@ -394,23 +394,6 @@ namespace MES.Net.Infrastructure.Repository.Print
         public async Task<bool> SpPrintLabelActionAsync(PrintLabelRequest request)
         {
             var p = new DynamicParameters();
-            p.Add("p_LotId", request.LotId);
-            p.Add("p_CarrierType", request.CarrierType);
-            p.Add("p_BoxingSpecNo", request.BoxingSpecNo);
-            p.Add("p_Brand", request.Brand);
-            p.Add("p_PinCount", request.PinCount);
-            p.Add("p_UserId", request.UserId);
-            p.Add("p_Result", dbType: DbType.Int32, direction: ParameterDirection.Output);
-
-            await _dbConnection.ExecuteAsync("SP_EXEC_PRINT_LABEL", p, commandType: CommandType.StoredProcedure);
-
-            int result = p.Get<int>("p_Result");
-            return result == 0;
-        }
-
-        public async Task<bool> SpPrintLabelActionAsync(PrintLabelRequest request)
-        {
-            var p = new DynamicParameters();
             
             // 寫入完整參數，供 DB 預存程序或列印伺服器判斷
             p.Add("p_Stage", request.Stage);
