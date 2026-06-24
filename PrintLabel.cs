@@ -419,3 +419,180 @@ namespace MES.Net.Infrastructure.Repository.Print
         }
     }
 }
+
+namespace MES.Net.Infrastructure.Printing
+{
+    /// <summary>
+    /// 專屬存放所有 ZPL 標籤模板的統一集中區
+    /// </summary>
+    public static class ZplTemplates
+    {
+        // 1. FT_To_SubTR_Normal 標籤模板
+        // 注意：使用 C# 的 @ 逐字字串符號，可以讓 ZPL 保持原本的換行排版，極大提升可讀性
+        public static readonly string FT_To_SubTR_Normal = @"
+^XA^LH00,00^LL550
+^FO10,05^GB780,475,3^FS
+^FO435,327^GB355,70,3^FS
+^FO435,397^GB0,80,3^FS
+^FO580,30^GB200,75,3^FS
+^FO640,55^A0N,35,50^CI0^FDT&R^FS
+{PartialBlock}
+^FO40,58^A0N,33,28^FD(1T)LOT NO: {LotNo}^FS
+^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
+^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
+^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
+^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
+^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
+^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
+^FO445,420^A0N,36,30^FDQA:^FS
+^PQ1
+^XZ1";
+
+        // 這是 Partial 時要額外插入的區塊
+        public static readonly string PartialBlock = @"^FO580,102^GB200,75,3^FS
+^FO590,130^A0N,35,50^CI0^FDPARTIAL^FS";
+    }
+}
+
+using System.Threading.Tasks;
+
+namespace MES.Net.Infrastructure.Messaging
+{
+    public interface IMessageQueueService
+    {
+        /// <summary>
+        /// 對應原本的 moCwMbx.Send
+        /// </summary>
+        Task<bool> SendMessageAsync(string queueName, string message);
+    }
+    
+    // 實作細節會依據您廠內現在是用 RabbitMQ, MSMQ 還是 Socket 直連來寫
+    public class MessageBoxService : IMessageQueueService
+    {
+        public async Task<bool> SendMessageAsync(string queueName, string message)
+        {
+            // TODO: 實作您廠內的佇列或 Socket 傳輸機制
+            return true; 
+        }
+    }
+}
+
+namespace MES.Net.Infrastructure.Printing
+{
+    /// <summary>
+    /// 專屬存放所有 ZPL 標籤模板的統一集中區
+    /// </summary>
+    public static class ZplTemplates
+    {
+        // 1. FT_To_SubTR_Normal 標籤模板
+        // 注意：使用 C# 的 @ 逐字字串符號，可以讓 ZPL 保持原本的換行排版，極大提升可讀性
+        public static readonly string FT_To_SubTR_Normal = @"
+^XA^LH00,00^LL550
+^FO10,05^GB780,475,3^FS
+^FO435,327^GB355,70,3^FS
+^FO435,397^GB0,80,3^FS
+^FO580,30^GB200,75,3^FS
+^FO640,55^A0N,35,50^CI0^FDT&R^FS
+{PartialBlock}
+^FO40,58^A0N,33,28^FD(1T)LOT NO: {LotNo}^FS
+^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
+^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
+^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
+^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
+^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
+^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
+^FO445,420^A0N,36,30^FDQA:^FS
+^PQ1
+^XZ1";
+
+        // 這是 Partial 時要額外插入的區塊
+        public static readonly string PartialBlock = @"^FO580,102^GB200,75,3^FS
+^FO590,130^A0N,35,50^CI0^FDPARTIAL^FS";
+    }
+}
+
+using System.Threading.Tasks;
+
+namespace MES.Net.Infrastructure.Messaging
+{
+    public interface IMessageQueueService
+    {
+        /// <summary>
+        /// 對應原本的 moCwMbx.Send
+        /// </summary>
+        Task<bool> SendMessageAsync(string queueName, string message);
+    }
+    
+    // 實作細節會依據您廠內現在是用 RabbitMQ, MSMQ 還是 Socket 直連來寫
+    public class MessageBoxService : IMessageQueueService
+    {
+        public async Task<bool> SendMessageAsync(string queueName, string message)
+        {
+            // TODO: 實作您廠內的佇列或 Socket 傳輸機制
+            return true; 
+        }
+    }
+}
+
+using MES.Net.Infrastructure.Printing;
+using MES.Net.Infrastructure.Messaging;
+using System;
+using System.Threading.Tasks;
+
+namespace MES.Net.Application.Services.Print
+{
+    public class PrintLabelService : IPrintLabelService
+    {
+        private readonly IMessageQueueService _mqService;
+
+        public PrintLabelService(IMessageQueueService mqService)
+        {
+            _mqService = mqService;
+        }
+
+        /// <summary>
+        /// 完美翻寫 VB6 的 Prt_FT_To_SubTR_Normal
+        /// </summary>
+        public async Task Prt_FT_To_SubTR_Normal_Async(string lotNo, string prodNo, string qty, string packer, bool isPartial, string printerServer)
+        {
+            try
+            {
+                // 1. 取得 ZPL 模板
+                string zpl = ZplTemplates.FT_To_SubTR_Normal;
+
+                // 2. 處理條件判斷 (取代 {PartialBlock})
+                string partialZpl = isPartial ? ZplTemplates.PartialBlock : "";
+                zpl = zpl.Replace("{PartialBlock}", partialZpl);
+
+                // 3. 變數綁定與取代
+                zpl = zpl.Replace("{LotNo}", lotNo)
+                         .Replace("{ProdNo}", prodNo)
+                         .Replace("{Qty}", qty)
+                         .Replace("{Packer}", packer);
+
+                // 4. 處理 Printer Server 字串過濾 (對應 VB6 的 InStr 判斷)
+                // If InStr(1, sPrinterServer, "@") <> 0 Then ...
+                string parsedServer = printerServer;
+                if (parsedServer.Contains("@"))
+                {
+                    parsedServer = parsedServer.Substring(0, parsedServer.IndexOf("@"));
+                }
+
+                // 5. 組合 Queue 名稱並發送 (對應 moCwMbx.Send)
+                string queueName = $"MBX_{parsedServer}";
+                
+                bool isSent = await _mqService.SendMessageAsync(queueName, zpl);
+
+                if (!isSent)
+                {
+                    throw new Exception("發送至印表機佇列失敗！");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 錯誤捕捉對應原本的 ErrorHandler
+                throw new InvalidOperationException($"Fail to execute application, please call IT support!! 程式執行失敗: {ex.Message}", ex);
+            }
+        }
+    }
+}
