@@ -58,6 +58,13 @@ namespace MES.Net.Shared.DTOs.Print
         public string WaferId { get; set; }
         public string FabLotId { get; set; }
     }
+
+    public class InklessMergeItem
+    {
+        public string ChildLotId { get; set; }
+        public string WaferId { get; set; }
+        public string SlotNo { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -459,6 +466,16 @@ namespace MES.Net.Infrastructure.Repository.Print
                 WHERE A.LOT_ID = :p_LotNo";
 
             return await _dbConnection.QueryFirstOrDefaultAsync<WsSmallLabelDbData>(sql, new { p_LotNo = lotNo });
+        }
+        public async Task<IEnumerable<InklessMergeItem>> GetInklessMergeListAsync(string lotNo)
+        {
+            string sql = @"
+                SELECT childlotid AS ChildLotId, waferid AS WaferId, slotno AS SlotNo 
+                FROM tbl_inkless_merge_list 
+                WHERE parentlotid = :p_LotNo AND deleteflag = 'N' 
+                ORDER BY slotno";
+
+            return await _dbConnection.QueryAsync<InklessMergeItem>(sql, new { p_LotNo = lotNo });
         }
     }
     }
@@ -1247,6 +1264,210 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{ParCQTY}", parCQty)
                 .Replace("{UserName}", userName)
                 .Replace("{TimeStamp}", timeStamp);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+        /// <summary>
+        /// 1. 翻寫 Prt_FT_ETEST_MERGE (每 6 個 Lot/Qty 組合印一張標籤)
+        /// </summary>
+        public async Task Prt_FT_ETEST_MERGE_Async(string sLotsInfo, string printerServer)
+        {
+            var arrLotInfo = sLotsInfo.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            // VB6 Y 座標：15, 60, 105, 150, 195, 235
+            int[] yCoords = { 15, 60, 105, 150, 195, 235 };
+            
+            // 每次處理 12 個元素 (6 對 Lot 和 Qty)
+            for (int i = 0; i < arrLotInfo.Length; i += 12)
+            {
+                var sbBlock = new StringBuilder();
+                int currentYIndex = 0;
+
+                // 處理這一批次內的 12 個項目
+                for (int j = 0; j < 12 && (i + j) < arrLotInfo.Length; j++)
+                {
+                    string item = arrLotInfo[i + j];
+                    
+                    if (j % 2 == 0) // 偶數是 LotNo (X = 15)
+                    {
+                        sbBlock.AppendLine($"^FO15,{yCoords[currentYIndex]}^A0N,40,30^CI13^FR^FDLot No: {item}^FS");
+                    }
+                    else // 奇數是 QTY (X = 300)
+                    {
+                        sbBlock.AppendLine($"^FO300,{yCoords[currentYIndex]}^A0N,40,30^CI13^FR^FDQTY: {item}^FS");
+                        currentYIndex++; // 寫完一對，Y座標往下移動一列
+                    }
+                }
+
+                // 套入模板並發送
+                string zpl = ZplTemplates.FT_ETEST_MERGE_Base.Replace("{DynamicMergeBlock}", sbBlock.ToString());
+                await SendToPrinterAsync(printerServer, zpl);
+            }
+        }
+
+
+        /// <summary>
+        /// 2. 翻寫 Prt_WS_WS_DGRADE_SUMMARY 
+        /// (⚠️ 注意：這裡展示了如何解決 VB6 InputBox 的問題)
+        /// </summary>
+        public async Task Prt_WS_WS_DGRADE_SUMMARY_Async(string lotNo, string prodNo, string wQty, string cQty, string userName, string timeStamp, string printerServer)
+        {
+            var mergeList = (await _repo.GetInklessMergeListAsync(lotNo)).ToList();
+
+            // 若沒有撈到資料，且 LotNo 長度為 10 且後兩碼是數字
+            if (!mergeList.Any())
+            {
+                if (lotNo.Length == 10 && char.IsDigit(lotNo[8]) && char.IsDigit(lotNo[9]))
+                {
+                    // 🚨【解決 InputBox 問題】：
+                    // 在 Web API 中，我們不能暫停程式等待輸入。因此拋出一個特殊的例外或回傳代碼。
+                    // 前端收到這個特定的 Error Message 後，可以彈出 MessageBox.prompt 請 User 輸入原始批號，
+                    // 然後前端再重新呼叫一次這支 API，把 User 輸入的值當作 lotNo 傳進來。
+                    throw new ArgumentException("REQUIRE_ORIGINAL_LOT: 無母批merge資訊, 請輸入原始批號");
+                }
+                // 若連防呆都不符合，直接結束 (與 VB6 的 GoTo ExitHandler 行為一致)
+                return; 
+            }
+
+            // 初始化 25 個槽位
+            var items = Enumerable.Repeat("______-__", 25).ToArray();
+
+            bool hasSlotNo = !string.IsNullOrEmpty(mergeList.First().SlotNo);
+
+            if (!hasSlotNo)
+            {
+                // 邏輯一：沒有 SlotNo，把分號隔開的 waferId 展開依序填入
+                int index = 0;
+                foreach (var row in mergeList)
+                {
+                    var wafers = row.WaferId.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var w in wafers)
+                    {
+                        if (index >= 25) break;
+                        string prefix = row.ChildLotId.Length >= 6 ? row.ChildLotId.Substring(0, 6) : row.ChildLotId;
+                        items[index] = $"{prefix}-{w}";
+                        index++;
+                    }
+                }
+            }
+            else
+            {
+                // 邏輯二：有 SlotNo，直接依照位置放置
+                foreach (var row in mergeList)
+                {
+                    if (int.TryParse(row.SlotNo, out int sIndex) && sIndex >= 1 && sIndex <= 25)
+                    {
+                        string prefix = row.ChildLotId.Length >= 6 ? row.ChildLotId.Substring(0, 6) : row.ChildLotId;
+                        items[sIndex - 1] = $"{prefix}-{row.WaferId}";
+                    }
+                }
+            }
+
+            // 產生 25 個座標方塊
+            int[] xCoords = { 300, 480, 680, 880, 1080 };
+            int[] yCoords = { 108, 144, 180, 216, 252 };
+            var sbWafers = new StringBuilder();
+
+            for (int i = 0; i < 25; i++)
+            {
+                int col = i / 5; // X
+                int row = i % 5; // Y
+                sbWafers.AppendLine($"^FO{xCoords[col]},{yCoords[row]}^A0N,25,32^CI0^FR^FD {items[i]}^FS");
+            }
+
+            string zpl = ZplTemplates.WS_WS_DGRADE_SUMMARY
+                .Replace("{DynamicWaferBlock}", sbWafers.ToString())
+                .Replace("{LotNo}", lotNo)
+                .Replace("{ProdNo}", prodNo)
+                .Replace("{WQty}", wQty)
+                .Replace("{CQty}", cQty)
+                .Replace("{UserName}", userName)
+                .Replace("{TimeStamp}", timeStamp);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+
+        /// <summary>
+        /// 3. 翻寫 Prt_WSMULTILOT_TO_SFG
+        /// </summary>
+        public async Task Prt_WSMULTILOT_TO_SFG_Async(string userName, string timeStamp, string wQty, string cQty, string printerServer, List<string> colLotInfo)
+        {
+            var sbLots = new StringBuilder();
+
+            // 依序處理每一筆
+            for (int i = 0; i < colLotInfo.Count; i++)
+            {
+                var parts = colLotInfo[i].Split(';'); // childLotId;IPN;Code;CQty
+                string childLot = parts.Length > 0 ? parts[0] : "";
+                string ipn = parts.Length > 1 ? parts[1] : "";
+                string code = parts.Length > 2 ? parts[2] : "";
+                string qty = parts.Length > 3 ? parts[3] : "";
+
+                int currentY = 108 + 36 * i;
+
+                sbLots.AppendLine($"^FO56, {currentY}^A0N,25,32^CI0^FR^FD{childLot}^FS");
+                sbLots.AppendLine($"^FO296, {currentY}^A0N,25,32^CI0^FR^FD{ipn}^FS");
+                sbLots.AppendLine($"^FO655, {currentY}^A0N,25,32^CI0^FR^FD{qty}^FS");
+                sbLots.AppendLine($"^FO783, {currentY}^A0N,25,32^CI0^FR^FD{code}^FS");
+                sbLots.AppendLine($"^BY2, 2.0^FO875, {currentY}^B3N,N,30,N,Y^FR^FD{childLot}^FS");
+            }
+
+            string zpl = ZplTemplates.WSMULTILOT_TO_SFG
+                .Replace("{DynamicMultiLotBlock}", sbLots.ToString())
+                .Replace("{WQty}", wQty)
+                .Replace("{CQty}", cQty)
+                .Replace("{UserName}", userName)
+                .Replace("{TimeStamp}", timeStamp);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+
+        /// <summary>
+        /// 4. 翻寫 Prt_WS_RENESAS_SHIPPING
+        /// </summary>
+        public async Task Prt_WS_RENESAS_SHIPPING_Async(
+            string lotNo, string prodNo, string wQty, string qty, string partNo, 
+            string[] arrWaferId, string[] arrWaferIdChipQty, string printDate, string userId, string printerServer)
+        {
+            // Renesas 表單中，因為列印紙張是預先印好的表格，Y 座標間距是不規則的 (配合實體紙張格子)
+            int[] yCoords = { 16, 51, 87, 121, 157, 192, 227, 262, 298, 332 };
+            
+            // X 座標分三欄：1~10、11~20、21~25
+            var colsX = new[] { 
+                new { idX = 284, qtyX = 465 }, 
+                new { idX = 631, qtyX = 813 }, 
+                new { idX = 983, qtyX = 1164 } 
+            };
+
+            var sbWafers = new StringBuilder();
+
+            for (int i = 1; i <= 25; i++) // 陣列是 1-based 傳入
+            {
+                string wId = (arrWaferId != null && i < arrWaferId.Length) ? arrWaferId[i] : "";
+                string cQtyStr = (arrWaferIdChipQty != null && i < arrWaferIdChipQty.Length) ? arrWaferIdChipQty[i] : "";
+
+                int colIndex = (i - 1) / 10;          // 第幾欄 (0, 1, 2)
+                int rowIndex = (i - 1) % 10;          // 第幾列 (0~9)
+                
+                int labelX = colsX[colIndex].idX - 28; // 標籤號碼 "1:", "2:" 的 X 座標，比內容前面一點點
+                int currentY = yCoords[rowIndex];
+
+                sbWafers.AppendLine($"^FO{labelX},{currentY}^A0N,30,0^CI0^FR^FD{i}:^FS");
+                sbWafers.AppendLine($"^FO{colsX[colIndex].idX},{currentY}^A0N,30,0^CI0^FR^FD{wId}^FS");
+                sbWafers.AppendLine($"^FO{colsX[colIndex].qtyX},{currentY}^A0N,30,0^CI0^FR^FD{cQtyStr}^FS");
+            }
+
+            string zpl = ZplTemplates.WS_RENESAS_SHIPPING
+                .Replace("{DynamicWaferBlock}", sbWafers.ToString())
+                .Replace("{LotNo}", lotNo)
+                .Replace("{PartNo}", partNo)
+                .Replace("{ProdNo}", prodNo)
+                .Replace("{WQty}", wQty)
+                .Replace("{Qty}", qty)
+                .Replace("{UserID}", userId)
+                .Replace("{PrintDate}", printDate);
 
             await SendToPrinterAsync(printerServer, zpl);
         }
