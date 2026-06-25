@@ -471,65 +471,112 @@ namespace MES.Net.Infrastructure.Printing
 ^FO445,420^A0N,36,30^FDQA:^FS
 ^PQ1
 ^XZ1";
-}
 
-using System.Threading.Tasks;
-
-namespace MES.Net.Infrastructure.Messaging
-{
-    public interface IMessageQueueService
-    {
-        /// <summary>
-        /// 對應原本的 moCwMbx.Send
-        /// </summary>
-        Task<bool> SendMessageAsync(string queueName, string message);
-    }
-    
-    // 實作細節會依據您廠內現在是用 RabbitMQ, MSMQ 還是 Socket 直連來寫
-    public class MessageBoxService : IMessageQueueService
-    {
-        public async Task<bool> SendMessageAsync(string queueName, string message)
-        {
-            // TODO: 實作您廠內的佇列或 Socket 傳輸機制
-            return true; 
-        }
-    }
-}
-
-namespace MES.Net.Infrastructure.Printing
-{
-    /// <summary>
-    /// 專屬存放所有 ZPL 標籤模板的統一集中區
-    /// </summary>
-    public static class ZplTemplates
-    {
-        // 1. FT_To_SubTR_Normal 標籤模板
-        // 注意：使用 C# 的 @ 逐字字串符號，可以讓 ZPL 保持原本的換行排版，極大提升可讀性
-        public static readonly string FT_To_SubTR_Normal = @"
-^XA^LH00,00^LL550
-^FO10,05^GB780,475,3^FS
-^FO435,327^GB355,70,3^FS
-^FO435,397^GB0,80,3^FS
-^FO580,30^GB200,75,3^FS
-^FO640,55^A0N,35,50^CI0^FDT&R^FS
-{PartialBlock}
-^FO40,58^A0N,33,28^FD(1T)LOT NO: {LotNo}^FS
-^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
-^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
-^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
-^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
-^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
-^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
-^FO445,420^A0N,36,30^FDQA:^FS
+        // 1. WS_To_SFG 標籤模板
+        public static readonly string WS_WS_To_SFG = @"
+^XA^LH10,00^LL500
+^FO00,05^GB780,475,3^FS
+^FO30,20^A0,27,25^FDLOT NO: {LotNo}^FS
+^FO30,130^A0,27,25^FDPRODUCT NO: {ProdNo}^FS
+^FO30,235^A0,27,25^FDWAFER PCS:  {WQty}PCS^FS
+^FO30,340^A0,27,25^FDQUANTITY:  {Qty}EA^FS
+^FO30,445^A0,27,25^FDPART NO: {PartNo}^FS
+^FO30,55^BY2,2,55^B3,,,N^FD{LotNo}^FS
+^FO30,160^BY2,2,55^B3,,,N^FD{ProdNo}^FS
+^FO30,265^BY2,2,55^B3,,,N^FD{WQty}^FS
+^FO30,370^BY2,2,55^B3,,,N^FD{Qty}^FS
+^FO425,385^GB355,50,3^FS
+^FO425,425^GB0,50,3^FS
+^FO440,400^A0,27,25^FDDATE CODE:^FS
+^FO440,440^A0,27,25^FDQA:^FS
 ^PQ1
-^XZ1";
+^XZ";
 
-        // 這是 Partial 時要額外插入的區塊
-        public static readonly string PartialBlock = @"^FO580,102^GB200,75,3^FS
-^FO590,130^A0N,35,50^CI0^FDPARTIAL^FS";
-    }
+        // 2. WS_SUMMARY 標籤模板 (包含動態的 Component ID 列表)
+        public static readonly string WS_SUMMARY = @"
+^XA
+^LH0,0^FS
+^LL440
+^MD0
+^MNY
+^FO368,36^A0N,40.32^CI0^FR^FDLOT : {LotNo}^FS
+^FO48,10^A0B,30,30^CI0^FR^FDLOT : {LotNo}^FS
+^BY2,2.0^FO80,50^B3B,N,60,N,Y^FR^FD{LotNo}^FS
+^FO775,36^A0N,40,32^CI0^FR^FDPROD : {ProdNo}^FS
+^FO160,10^A0B,30,32^CI0^FR^FDPROD : {ProdNo}^FS
+^BY1, 3.0^FO192,50^B3B,N,60,N,Y^FR^FD{ProdNo}^FS
+{CompIdBlocks}
+^FO250,318^A0N,30,32^CI0^FR^FDTTL WQTY: {WQty} PCS ^FS
+^BY2,2.0^FO540,318^B3N,N,40,N,Y^FR^FD{WQty}^FS
+^FO250,370^A0N,30,32^CI0^FR^FDTTL CQTY: {CQty}EA ^FS
+^BY2,2.0^FO540,370^B3N,N,40,N,Y^FR^FD{CQty}^FS
+^FO690,318^A0N,30,32^CI0^FR^FDID No: {UserName}^FS
+^FO980,318^A0N,30,32^CI0^FR^FDTQA:        ACC^FS
+^FO790,370^A0N,30,32^CI0^FR^FDDATE: {TimeStamp}^FS
+^FO1070,284^GB190,140,4^FS
+^XZ";
+
+        // 3. FT_SMALL_LABEL 標籤模板群組
+        // 3-1. Location == FT 且 有 OriLotID
+        public static readonly string FT_SMALL_LABEL_FT_WithOriLot = @"
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+^FO30,5^A0N,35,27^CI13^FR^FDCarGradeFlag:{CargradeFlag}^FS
+^FO315,5^A0N,35,27^CI13^FR^FDFuSa:{FuSa}^FS
+^FO30,45^A0N,35,27^CI13^FR^FDLot:{LotNo}^FS
+^FO315,45^A0N,35,27^CI13^FR^FD{ProdLine}^FS
+^BY2,3.0^FO30,85^BCN,40,N,Y,N^FR^FD>:{LotNo}^FS
+^FO30,138^A0N,35,27^CI13^FR^FD{ProdNo}^FS
+^FO400,85^A0N,35,27^CI13^FR^FDGreen:{Green}^FS
+^FO30,178^A0N,35,27^CI13^FR^FD{CQty} EA^FS
+^FO265,178^A0N,35,27^CI13^FR^FDRoute:{RouteId}^FS
+^FO30,215^A0N,35,27^CI13^FR^FDOrg_Lotid:{OriLotID}^FS
+^PQ1,1,1,Y^XZ";
+
+        // 3-2. Location == FT 且 無 OriLotID
+        public static readonly string FT_SMALL_LABEL_FT_NoOriLot = @"
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+^FO30,11^A0N,37,33^CI13^FR^FDCarGradeFlag:{CargradeFlag}^FS
+^FO315,11^A0N,37,33^CI13^FR^FDFuSa:{FuSa}^FS
+^FO30,55^A0N,37,33^CI13^FR^FDLot:{LotNo}^FS
+^FO315,55^A0N,37,33^CI13^FR^FD{ProdLine}^FS
+^BY2,3.0^FO30,95^BCN,50,N,Y,N^FR^FD>:{LotNo}^FS
+^FO30,161^A0N,37,33^CI13^FR^FD{ProdNo}^FS
+^FO400,95^A0N,37,33^CI13^FR^FDGreen:{Green}^FS
+^FO30,206^A0N,37,33^CI13^FR^FD{CQty} EA^FS
+^FO265,206^A0N,37,33^CI13^FR^FDRoute:{RouteId}^FS
+^PQ1,1,1,Y^XZ";
+
+        // 3-3. Location != FT 且 有 OriLotID
+        public static readonly string FT_SMALL_LABEL_NonFT_WithOriLot = @"
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+^FO30,5^A0N,35,27^CI13^FR^FDCarGradeFlag:{CargradeFlag}^FS
+^FO315,5^A0N,35,27^CI13^FR^FD{ProdLine}^FS
+^FO30,45^A0N,35,27^CI13^FR^FDLot:{LotNo}^FS
+^FO315,45^A0N,35,27^CI13^FR^FDOwner:{Owner}^FS
+^BY2,3.0^FO30,85^BCN,40,N,Y,N^FR^FD>:{LotNo}^FS
+^FO350,91^A0N,35,27^CI13^FR^FDCsum:{Csum}^FS
+^FO30,138^A0N,35,27^CI13^FR^FD{ProdNo}^FS
+^FO400,138^A0N,35,27^CI13^FR^FDGreen:{Green}^FS
+^FO30,178^A0N,35,27^CI13^FR^FD{CQty} EA^FS
+^FO265,178^A0N,35,27^CI13^FR^FDRoute:{RouteId}^FS
+^FO30,215^A0N,35,27^CI13^FR^FDOrg_Lotid:{OriLotID}^FS
+^PQ1,1,1,Y^XZ";
+
+        // 3-4. Location != FT 且 無 OriLotID
+        public static readonly string FT_SMALL_LABEL_NonFT_NoOriLot = @"
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+^FO30,11^A0N,37,33^CI13^FR^FDCarGradeFlag:{CargradeFlag}^FS
+^FO315,11^A0N,37,33^CI13^FR^FD{ProdLine}^FS
+^FO30,55^A0N,37,33^CI13^FR^FDLot:{LotNo}^FS
+^FO315,55^A0N,37,33^CI13^FR^FDOwner:{Owner}^FS
+^BY2,3.0^FO30,95^BCN,50,N,Y,N^FR^FD>:{LotNo}^FS
+^FO350,106^A0N,37,33^CI13^FR^FDCsum:{Csum}^FS
+^FO30,161^A0N,37,33^CI13^FR^FD{ProdNo}^FS
+^FO400,161^A0N,37,33^CI13^FR^FDGreen:{Green}^FS
+^FO30,206^A0N,37,33^CI13^FR^FD{CQty} EA^FS
+^FO265,206^A0N,37,33^CI13^FR^FDRoute:{RouteId}^FS
+^PQ1,1,1,Y^XZ";
 }
-
 using System.Threading.Tasks;
 
 namespace MES.Net.Infrastructure.Messaging
@@ -655,6 +702,112 @@ namespace MES.Net.Application.Services.Print
                 // 統一格式的錯誤捕捉
                 throw new InvalidOperationException($"Fail to execute application, please call IT support!! 程式執行失敗: {ex.Message}", ex);
             }
+        }
+        // --- 共用的發送方法 ---
+        private async Task SendToPrinterAsync(string printerServer, string zplCommand)
+        {
+            string parsedServer = printerServer.Contains("@") 
+                ? printerServer.Substring(0, printerServer.IndexOf("@")) 
+                : printerServer;
+
+            string queueName = $"MBX_{parsedServer}";
+            bool isSent = await _mqService.SendMessageAsync(queueName, zplCommand);
+            if (!isSent) throw new Exception("發送至印表機佇列失敗！");
+        }
+
+
+        /// <summary>
+        /// 1. 翻寫 Prt_WS_WS_To_SFG
+        /// </summary>
+        public async Task Prt_WS_WS_To_SFG_Async(string lotNo, string prodNo, string wQty, string qty, string partNo, string printerServer)
+        {
+            string zpl = ZplTemplates.WS_WS_To_SFG
+                .Replace("{LotNo}", lotNo)
+                .Replace("{ProdNo}", prodNo)
+                .Replace("{WQty}", wQty)
+                .Replace("{Qty}", qty)
+                .Replace("{PartNo}", partNo);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+
+        /// <summary>
+        /// 2. 翻寫 Prt_WS_WS_SUMMARY (含動態 Component ID 座標運算)
+        /// </summary>
+        public async Task Prt_WS_WS_SUMMARY_Async(string lotNo, string prodNo, string wQty, string cQty, Dictionary<string, string> compIds, string userName, string timeStamp, string printerServer)
+        {
+            // 動態產生 25 個 Component ID 的 ZPL 座標字串
+            var sbComps = new StringBuilder();
+            
+            // 定義 VB6 中寫死的 X 座標陣列 (依據第1, 2, 3, 4, 5列)
+            int[] xCoords = { 304, 304, 304, 304, 304 }; // 這裡簡化對應，實際 VB6 是每 5 個換一次 X 座標
+            // (註: VB6 中 X = 304, 504, 703, 903, 1103)
+            int[] xBases = { 304, 504, 703, 903, 1103 };
+            int[] yBases = { 108, 144, 180, 216, 252 };
+
+            for (int i = 1; i <= 25; i++)
+            {
+                string key = i.ToString("D2"); // "01", "02"...
+                string val = compIds.ContainsKey(key) ? compIds[key] : "";
+                
+                int col = (i - 1) / 5; // 決定 X (第幾欄)
+                int row = (i - 1) % 5; // 決定 Y (第幾列)
+
+                sbComps.AppendLine($"^FO{xBases[col]},{yBases[row]}^A0N,25,32^CI0^FR^FD {i,2}:   {val}^FS");
+            }
+
+            string zpl = ZplTemplates.WS_SUMMARY
+                .Replace("{CompIdBlocks}", sbComps.ToString())
+                .Replace("{LotNo}", lotNo)
+                .Replace("{ProdNo}", prodNo)
+                .Replace("{WQty}", wQty)
+                .Replace("{CQty}", cQty)
+                .Replace("{UserName}", userName)
+                .Replace("{TimeStamp}", timeStamp);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+
+        /// <summary>
+        /// 3. 翻寫 Prt_FT_FT_SMALL_LABEL (複雜邏輯排版選擇)
+        /// </summary>
+        public async Task Prt_FT_FT_SMALL_LABEL_Async(
+            string lotNo, string prodNo, string cQty, string owner, string routeId, string customer, 
+            string cSum, string green, string printerServer, 
+            string carGradeFlag = "", string prodLine = "", string oriLotID = "", string fuSa = "", string location = "")
+        {
+            string zpl = "";
+
+            // 判斷採用哪一種 ZPL 模板
+            if (location == "FT")
+            {
+                zpl = !string.IsNullOrEmpty(oriLotID) 
+                    ? ZplTemplates.FT_SMALL_LABEL_FT_WithOriLot 
+                    : ZplTemplates.FT_SMALL_LABEL_FT_NoOriLot;
+            }
+            else
+            {
+                zpl = !string.IsNullOrEmpty(oriLotID) 
+                    ? ZplTemplates.FT_SMALL_LABEL_NonFT_WithOriLot 
+                    : ZplTemplates.FT_SMALL_LABEL_NonFT_NoOriLot;
+            }
+
+            // 執行變數替換 (因為模板裡的變數名稱一致，我們直接一口氣 Replace 全部可能出現的變數)
+            zpl = zpl.Replace("{LotNo}", lotNo)
+                     .Replace("{ProdNo}", prodNo)
+                     .Replace("{CQty}", cQty)
+                     .Replace("{Owner}", owner)
+                     .Replace("{RouteId}", routeId)
+                     .Replace("{Csum}", cSum)
+                     .Replace("{Green}", green)
+                     .Replace("{CargradeFlag}", carGradeFlag)
+                     .Replace("{ProdLine}", prodLine)
+                     .Replace("{OriLotID}", oriLotID)
+                     .Replace("{FuSa}", fuSa);
+
+            await SendToPrinterAsync(printerServer, zpl);
         }
     }
 }
