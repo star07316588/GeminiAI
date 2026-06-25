@@ -48,6 +48,16 @@ namespace MES.Net.Shared.DTOs.Print
         public string PinCount { get; set; }
         public string UserId { get; set; }
     }
+    // 定義回傳 WS_SMALL_LABEL 所需額外資料的 DTO
+    public class WsSmallLabelDbData
+    {
+        public string HotLotFlag { get; set; }
+        public string ErunTicNo { get; set; }
+        public string SapRwNo { get; set; }
+        public string MfgTicNo { get; set; }
+        public string WaferId { get; set; }
+        public string FabLotId { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -417,6 +427,40 @@ namespace MES.Net.Infrastructure.Repository.Print
             int result = p.Get<int>("p_Result");
             return result == 0; // 假設 0 代表成功
         }
+        public partial class PrintLabelRepository : IPrintLabelRepository
+    {
+        // 1. 翻寫 GetLabelPrintQty
+        public async Task<int> GetLabelPrintQtyAsync(string stage, string labelSpecNo)
+        {
+            string sql = @"
+                SELECT PRINT_QTY 
+                FROM TBL_LABEL_SPEC 
+                WHERE STAGE = :p_Stage AND LABEL_SPECNO = :p_LabelSpecNo";
+
+            int qty = await _dbConnection.QueryFirstOrDefaultAsync<int>(sql, new { p_Stage = stage, p_LabelSpecNo = labelSpecNo });
+            
+            return qty > 0 ? qty : 1; // 查無資料預設回傳 1
+        }
+
+        // 2. 獲取 WS_SMALL_LABEL 缺少的屬性資料
+        public async Task<WsSmallLabelDbData> GetWsSmallLabelDataAsync(string lotNo)
+        {
+            // 將原本 VB6 裡面的 gsCAT_TBL_LOT_INFO 等常數換成實體的 Table 與 Column
+            string sql = @"
+                SELECT 
+                    A.HOTLOTFLAG AS HotLotFlag, 
+                    B.ERUNTICNO AS ErunTicNo, 
+                    B.SAPRWNO AS SapRwNo, 
+                    B.MFGTICNO AS MfgTicNo, 
+                    B.WAFERID AS WaferId, 
+                    B.FABLOTID AS FabLotId
+                FROM TBL_LOT_ATTRIBUTE A
+                INNER JOIN TBL_LOT_INFO B ON A.LOT_ID = B.LOT_ID
+                WHERE A.LOT_ID = :p_LotNo";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<WsSmallLabelDbData>(sql, new { p_LotNo = lotNo });
+        }
+    }
     }
 }
 
@@ -575,6 +619,56 @@ namespace MES.Net.Infrastructure.Printing
 ^FO400,161^A0N,37,33^CI13^FR^FDGreen:{Green}^FS
 ^FO30,206^A0N,37,33^CI13^FR^FD{CQty} EA^FS
 ^FO265,206^A0N,37,33^CI13^FR^FDRoute:{RouteId}^FS
+^PQ1,1,1,Y^XZ";
+
+        // 💡 1. 擴充：FT_To_SubMK_Normal (REMARK 標籤)
+        public static readonly string FT_To_SubMK_Normal = @"
+^XA^LH00,00^LL550
+^FO10,05^GB780,475,3^FS
+^FO435,327^GB355,70,3^FS
+^FO435,397^GB0,80,3^FS
+^FO580,30^GB200,75,3^FS
+^FO590,55^A0N,35,50^CI0^FDREMARK^FS
+{PartialBlock}
+^FO40,58^A0N,33,28^FD(1T)LOT NO: {LotNo}^FS
+^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
+^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
+^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
+^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
+^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
+^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
+^FO445,420^A0N,36,30^FDQA:^FS
+^PQ1
+^XZ1";
+
+        // 💡 2. 擴充：WS_WS_SMALL_LABEL
+        public static readonly string WS_WS_SMALL_LABEL = @"
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+^FO15,15^AFN,10,10^CI13^FDLotNo:^FS
+^FO130,15^A0N,37,33^CI13^FD{LotNo}^FS
+^FO400,15^AFN,10,10^CI13^FDHotFlag:^FS
+^FO550,15^CF0N,37,33^CI13^FD{HotLotFlag}^FS
+^FO15,50^BY2,3.0^BCN,28,N,Y,N^FR^FD>:{LotNo}^FS
+^FO15,90^AFN,10,10^CI13^FDFabLotId:^FS
+^FO160,90^A0N,37,33^CI13^FD{PrintFabLotId}^FS
+^FO15,140^AFN,10,10^CI13^FDProdNo:^FS
+^FO145,140^A0N,37,33^CI13^FD{ProdNo}^FS
+^FO15,190^AFN,10,10^CI13^FDQTY:^FS
+^FO90,190^A0N,37,33^CI13^FR^FD{WQty} PCS^FS
+^FO300,190^BY2,3.0^BCN,28,N,Y,N^FR^FD{WQty}^FS
+^FO90,230^A0N,37,33^CI13^FR^FD{CQty} EA^FS
+^FO300,230^BY2,3.0^BCN,28,N,Y,N^FR^FD{CQty}^FS
+^FO15,270^AFN,10,10^CI13^FDErunTicNo:^FS
+^FO170,270^A0N,37,33^CI13^FD{ErunTicNo}^FS
+^FO400,270^AFN,10,10^CI13^FDProdType:^FS
+^FO600,270^A0N,37,33^CI13^FR^FD{BizType}^FS
+^FO15,320^AFN,10,10^CI13^FDSapRwNo:^FS
+^FO170,320^A0N,37,33^CI13^FD{SapRwNo}^FS
+^FO400,320^AFN,10,10^CI13^FDMfgTicNo:^FS
+^FO555,320^A0N,37,33^CI13^FD{MfgTicNo}^FS
+^FO15,370^AFN,10,10^CI13^FDID#:^FS
+^FO150,370^A0N,37,33^CI13^FD{WaferNo1}^FS
+^FO150,420^A0N,37,33^CI13^FD{WaferNo2}^FS
 ^PQ1,1,1,Y^XZ";
 }
 using System.Threading.Tasks;
