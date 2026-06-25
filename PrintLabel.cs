@@ -903,5 +903,84 @@ namespace MES.Net.Application.Services.Print
 
             await SendToPrinterAsync(printerServer, zpl);
         }
+        /// <summary>
+        /// 1. 翻寫 Prt_FT_To_SubMK_Normal (REMARK 標籤)
+        /// </summary>
+        public async Task Prt_FT_To_SubMK_Normal_Async(string lotNo, string prodNo, string qty, string packer, bool isPartial, string printerServer)
+        {
+            string zpl = ZplTemplates.FT_To_SubMK_Normal;
+
+            string partialZpl = isPartial ? ZplTemplates.PartialBlock : "";
+            zpl = zpl.Replace("{PartialBlock}", partialZpl)
+                     .Replace("{LotNo}", lotNo)
+                     .Replace("{ProdNo}", prodNo)
+                     .Replace("{Qty}", qty)
+                     .Replace("{Packer}", packer);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+        /// <summary>
+        /// 2. 翻寫 GetLabelPrintQty (直接呼叫 Repo)
+        /// </summary>
+        public async Task<int> GetLabelPrintQtyAsync(string stage, string labelSpecNo)
+        {
+            return await _repo.GetLabelPrintQtyAsync(stage, labelSpecNo);
+        }
+
+        /// <summary>
+        /// 3. 翻寫 Prt_WS_WS_SMALL_LABEL (包含資料庫查詢與複雜字串切割)
+        /// </summary>
+        public async Task Prt_WS_WS_SMALL_LABEL_Async(
+            string lotNo, string prodNo, string wQty, string cQty, string owner, string bizType, 
+            string printerServer, string inputWaferId = "", string inputFabLotId = "")
+        {
+            // 1. 去資料庫撈取其他資訊
+            var dbData = await _repo.GetWsSmallLabelDataAsync(lotNo);
+            if (dbData == null) dbData = new WsSmallLabelDbData(); // 防呆
+
+            string printFabLotId = !string.IsNullOrEmpty(inputFabLotId) ? inputFabLotId : dbData.FabLotId;
+            string rawWaferStr = !string.IsNullOrEmpty(inputWaferId) ? inputWaferId : dbData.WaferId;
+
+            // 2. 處理 Wafer 字串 (取代 VB6 落落長的迴圈與 Split)
+            // 將傳入的 "1;3;5" 轉為 int 陣列 [1, 3, 5]
+            var parsedWafers = (rawWaferStr ?? "")
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(w => int.TryParse(w, out int val) ? val : 0)
+                .ToList();
+
+            var waferList = new List<string>();
+            
+            // 產生 25 片的格式：若存在填入 "01", 不存在填入 "__"
+            for (int i = 1; i <= 25; i++)
+            {
+                waferList.Add(parsedWafers.Contains(i) ? i.ToString("D2") : "__");
+            }
+
+            // 用逗號串接，結果會長得像： "01,__,03,__,05..."
+            string fullWaferString = string.Join(",", waferList);
+
+            // 依照 VB6 邏輯：前 38 字元為 WaferNo1，第 40 字元以後為 WaferNo2 (剛好跳過第 39 個的逗號)
+            string waferNo1 = fullWaferString.Length > 38 ? fullWaferString.Substring(0, 38) : fullWaferString;
+            string waferNo2 = fullWaferString.Length > 39 ? fullWaferString.Substring(39) : "";
+
+            // 3. 模板變數替換
+            string zpl = ZplTemplates.WS_WS_SMALL_LABEL
+                .Replace("{LotNo}", lotNo)
+                .Replace("{HotLotFlag}", dbData.HotLotFlag ?? "")
+                .Replace("{PrintFabLotId}", printFabLotId ?? "")
+                .Replace("{ProdNo}", prodNo)
+                .Replace("{WQty}", wQty)
+                .Replace("{CQty}", cQty)
+                .Replace("{ErunTicNo}", dbData.ErunTicNo ?? "")
+                .Replace("{BizType}", bizType)
+                .Replace("{SapRwNo}", dbData.SapRwNo ?? "")
+                .Replace("{MfgTicNo}", dbData.MfgTicNo ?? "")
+                .Replace("{WaferNo1}", waferNo1)
+                .Replace("{WaferNo2}", waferNo2);
+
+            // 4. 發送至印表機
+            await SendToPrinterAsync(printerServer, zpl);
+        }
     }
 }
