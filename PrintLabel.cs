@@ -65,6 +65,14 @@ namespace MES.Net.Shared.DTOs.Print
         public string WaferId { get; set; }
         public string SlotNo { get; set; }
     }
+
+    public class EngLocMasterData
+    {
+        public string WQty { get; set; }
+        public string OwnerId { get; set; }
+        public string OwnerDep { get; set; }
+        public string LocId { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -477,7 +485,47 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return await _dbConnection.QueryAsync<InklessMergeItem>(sql, new { p_LotNo = lotNo });
         }
-    }
+        public async Task<EngLocMasterData> GetEngLocMasterDataAsync(string lotNo)
+        {
+            string sql = @"
+                SELECT WQTY AS WQty, OWNERID AS OwnerId, OWNERDEP AS OwnerDep, LOCID AS LocId
+                FROM TBL_WS_ENG_LOC_MASTER
+                WHERE LOT_ID = :p_LotNo";
+            
+            return await _dbConnection.QueryFirstOrDefaultAsync<EngLocMasterData>(sql, new { p_LotNo = lotNo });
+        }
+
+        // 2. 翻寫 RefreshPrinterServer (抽離 UI，轉化為純資料陣列)
+        public async Task<IEnumerable<string>> GetMappedPrinterServersAsync(string stage, string specNo)
+        {
+            // Step 1: 先找 LABEL_SPEC 是否有綁定特定的 Server (可能以逗號分隔)
+            string specSql = @"
+                SELECT SERVER_NAME 
+                FROM TBL_LABEL_SPEC 
+                WHERE STAGE = :p_Stage AND LABEL_SPECNO = :p_SpecNo";
+            
+            string mappedServers = await _dbConnection.QueryFirstOrDefaultAsync<string>(specSql, new { p_Stage = stage, p_SpecNo = specNo });
+
+            // Step 2: 查詢 PRINTER_SERVER，並組合出 "SERVER_NAME@DESCRIPTION"
+            string basePrinterSql = @"
+                SELECT SERVER_NAME || '@' || DESCRIPTION 
+                FROM TBL_PRINTER_SERVER 
+                WHERE DELETE_FLAG = 'N'";
+
+            if (!string.IsNullOrWhiteSpace(mappedServers))
+            {
+                // 如果有綁定，則只篩選出綁定的 Server
+                var serverList = mappedServers.Split(',').Select(s => s.Trim()).ToList();
+                string inClauseSql = basePrinterSql + " AND SERVER_NAME IN :p_Servers";
+                
+                return await _dbConnection.QueryAsync<string>(inClauseSql, new { p_Servers = serverList });
+            }
+            else
+            {
+                // 如果沒綁定，就把所有伺服器都查出來讓 User 選
+                return await _dbConnection.QueryAsync<string>(basePrinterSql);
+            }
+        }
     }
 }
 
@@ -852,6 +900,92 @@ namespace MES.Net.Infrastructure.Printing
 ^FO943,288^A0N,35,0^CI0^FR^FDTQA:^FS
 ^FO1030,284^GB190,140,4^FS
 ^PQ1,0,0,N^XZ";
+
+        // 💡 1-1. BIN_CARD_LABEL (Pass 變體)
+        public static readonly string FT_BIN_CARD_PASS = @"
+^XA^PRC ^LH0,0^FS^LL751^MD0^MNM^LH144,0^FS
+^FO109,50^A0N,48,71^CI13^FR^FDMacronix ^FS
+^FO16,258^A0N,27,28^CI13^FR^FDLOT_NO   :{LotNo}^FS
+^BY2,3.0^FO150,300^BCN,50,N,Y,N^FR^FD>:{LotNo}^FS
+^FO16,386^A0N,27,28^CI13^FR^FDTest Mode :{StepID} {TestMode}^FS
+^FO16,470^A0N,31,29^CI13^FR^FDTA-ID      :^FS
+^FO296,467^A0N,29,25^CI13^FR^FDDate   :^FS
+^FO16,533^A0N,26,37^CI13^FR^FDBIN ^FS
+^FO16,569^A0N,26,37^CI13^FR^FDMODE   :^FS
+^FO16,631^A0N,27,40^CI13^FR^FDQ'TY    :^FS
+^FO16,709^A0N,27,40^CI13^FR^FDNOTE   :^FS
+^FO88,109^A0N,48,60^CI13^FR^FDPASS BIN CARD^FS
+^FO16,184^A0N,27,32^CI13^FR^FDProd_ID  :{ProdNo}^FS
+^FO5,29^GB525,719,4^FS
+^FO11,234^GB512,0,4^FS
+^FO11,357^GB512,0,4^FS
+^FO11,437^GB512,0,4^FS
+^FO11,520^GB512,0,4^FS
+^FO13,599^GB512,0,4^FS
+^FO8,677^GB512,0,4^FS
+^PQ1,0,0,N^XZ
+^FX End of job
+^XA^IDR:ID*.*^XZ";
+
+        // 💡 1-2. BIN_CARD_LABEL (Fail 變體，多了填寫格)
+        public static readonly string FT_BIN_CARD_FAIL = @"
+^XA^PRC ^LH0,0^FS^LL751^MD0^MNM^LH128,0^FS
+^FO123,42^A0N,48,71^CI13^FR^FDMacronix ^FS
+^FO21,517^A0N,27,40^CI13^FR^FDBIN2:______^FS
+^FO21,562^A0N,27,40^CI13^FR^FDBIN4:______^FS
+^FO19,258^A0N,27,28^CI13^FR^FDLOT_NO    :{LotNo}^FS
+^BY2,3.0^FO150,300^BCN,50,N,Y,N^FR^FD>:{LotNo}^FS
+^FO19,368^A0N,27,28^CI13^FR^FDTest Mode :{StepID} {TestMode}^FS
+^FO19,445^A0N,27,31^CI13^FR^FDTA-ID    :^FS
+^FO264,446^A0N,31,28^CI13^FR^FDDate   :^FS
+^FO21,607^A0N,27,40^CI13^FR^FDBIN6:______^FS
+^FO21,647^A0N,27,40^CI13^FR^FDBIN_:______^FS
+^FO21,693^A0N,27,40^CI13^FR^FDNOTE   :^FS
+^FO88,109^A0N,48,60^CI13^FR^FDFAIL BIN CARD^FS
+^FO19,181^A0N,27,32^CI13^FR^FDProd_ID  :{ProdNo}^FS
+^FO282,647^A0N,27,40^CI13^FR^FDREJ :______^FS
+^FO282,607^A0N,27,40^CI13^FR^FDBIN7:______^FS
+^FO282,562^A0N,27,40^CI13^FR^FDBIN5:______^FS
+^FO282,517^A0N,27,40^CI13^FR^FDBIN3:______^FS
+^FO11,11^GB525,719,4^FS
+^FO13,237^GB520,0,4^FS
+^FO13,352^GB520,0,4^FS
+^FO13,415^GB520,0,4^FS
+^FO11,493^GB520,0,4^FS
+^PQ1,0,0,N^XZ
+^FX End of job
+^XA^IDR:ID*.*^XZ";
+
+        // 💡 2. ENG_LOC_LABEL (工程倉儲標籤)
+        public static readonly string WS_ENG_LOC_LABEL = @"
+^XA^PRC ^LH0,0^FS^LL480^MD0^MNY^LH0,0^FS
+^CWI,V10SPR_A.FNT^FS
+^FO29,37^AIN,45,0^CI0^FR^FDLOTID :{LotNo}^FS
+^CWJ,U10SPR_A.FNT^FS
+^FO29,176^AJN,45,0^CI0^FR^FDWQTY :{WQty}^FS
+^CWK,U1WSPR_A.FNT^FS
+^FO27,253^AKN,45,0^CI0^FR^FDOwnerID :{OwnerId}^FS
+^CWJ,U10SPR_A.FNT^FS
+^FO29,330^AJN,45,0^CI0^FR^FDOwnerDep :{OwnerDep}^FS
+^BY2,3.0^FO36,107^B3N,N,40,N,Y^FR^FD{LotNo}^FS
+^FO13,19^GB757,434,4^FS
+^PQ1,0,0,N^XZ
+^FX End of job
+^XA^IDR:ID*.*^XZ";
+
+        // 💡 3. BOX_COUNTING_LABEL (外箱計數標籤)
+        public static readonly string FT_BOX_COUNTING_LABEL = @"
+^XA^PRC ^LH0,0^FS^LL400^MD0^MNM^LH128,0^FS
+^FO168,30^A0N,43,37^CI13^FR^FDBox Counting^FS
+^FO24,129^A0N,31,28^CI13^FR^FDProd_ID:{IPN}^FS
+^FO27,217^A0N,31,28^CI13^FR^FDLOT_NO:{LotId}^FS
+^BY2,3.0^FO30,290^BCN,50,N,Y,N^FR^FD>:{LotId}^FS
+^FO290,196^A0N,69,61^CI13^FR^FDBOX:{PrintCount}^FS
+^FO11,8^GB528,360,4^FS
+^FO13,83^GB512,0,4^FS
+^PQ1,0,0,N^XZ
+^FX End of job
+^XA^IDR:ID*.*^XZ";
         
 }
 using System.Threading.Tasks;
@@ -1470,6 +1604,66 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{PrintDate}", printDate);
 
             await SendToPrinterAsync(printerServer, zpl);
+        }
+        /// <summary>
+        /// 1. 翻寫 Prt_FT_FT_BIN_CARD_LABEL (Pass / Fail 分流)
+        /// </summary>
+        public async Task Prt_FT_FT_BIN_CARD_LABEL_Async(
+            string lotNo, string prodNo, string testMode, string stepId, 
+            string printerServer, bool isPassBin, string carGradeFlag = "")
+        {
+            // 依據是否為 Pass Bin 選擇對應底圖
+            string zpl = isPassBin ? ZplTemplates.FT_BIN_CARD_PASS : ZplTemplates.FT_BIN_CARD_FAIL;
+
+            zpl = zpl.Replace("{LotNo}", lotNo)
+                     .Replace("{ProdNo}", prodNo)
+                     .Replace("{StepID}", stepId)
+                     .Replace("{TestMode}", testMode);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+        /// <summary>
+        /// 2. 翻寫 Prt_WS_WS_ENG_LOC_LABEL (包含資料庫查詢)
+        /// </summary>
+        public async Task Prt_WS_WS_ENG_LOC_LABEL_Async(string lotNo, string printerServer)
+        {
+            // 查詢資料庫屬性
+            var dbData = await _repo.GetEngLocMasterDataAsync(lotNo);
+            
+            // 若查無資料，給予預設空值以防報錯
+            if (dbData == null) dbData = new EngLocMasterData();
+
+            string zpl = ZplTemplates.WS_ENG_LOC_LABEL
+                .Replace("{LotNo}", lotNo)
+                .Replace("{WQty}", dbData.WQty ?? "")
+                .Replace("{OwnerId}", dbData.OwnerId ?? "")
+                .Replace("{OwnerDep}", dbData.OwnerDep ?? "");
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+        /// <summary>
+        /// 3. 翻寫 Prt_FT_BOX_COUNTING_LABEL
+        /// 註: VB6 中的 oLot (FwLot) 被轉換為獨立的欄位傳入，符合 Web API DTO 精神
+        /// </summary>
+        public async Task Prt_FT_BOX_COUNTING_LABEL_Async(string lotId, string ipn, string printCount, string printerServer)
+        {
+            string zpl = ZplTemplates.FT_BOX_COUNTING_LABEL
+                .Replace("{LotId}", lotId)
+                .Replace("{IPN}", ipn)
+                .Replace("{PrintCount}", printCount);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+        /// <summary>
+        /// 4. 翻寫 RefreshPrinterServer
+        /// 在 Controller 層中，您可以直接把這個方法包裝成 API 回傳給 Vue 的 DropdownList
+        /// </summary>
+        public async Task<IEnumerable<string>> GetMappedPrinterServersAsync(string stage, string specNo)
+        {
+            return await _repo.GetMappedPrinterServersAsync(stage, specNo);
         }
     }
 }
