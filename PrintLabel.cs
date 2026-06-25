@@ -451,6 +451,26 @@ namespace MES.Net.Infrastructure.Printing
         // 這是 Partial 時要額外插入的區塊
         public static readonly string PartialBlock = @"^FO580,102^GB200,75,3^FS
 ^FO590,130^A0N,35,50^CI0^FDPARTIAL^FS";
+
+        // 💡 新增：FT_To_SubFT_Normal 標籤模板
+        public static readonly string FT_To_SubFT_Normal = @"
+^XA^LH00,00^LL550
+^FO10,05^GB780,475,3^FS
+^FO435,327^GB355,70,3^FS
+^FO435,397^GB0,80,3^FS
+^FO580,30^GB200,75,3^FS
+^FO635,55^A0N,35,50^CI0^FDTEST^FS
+{PartialBlock}
+^FO40,58^A0N,33,28^FD(1T)LOT NO: {LotNo}^FS
+^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
+^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
+^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
+^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
+^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
+^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
+^FO445,420^A0N,36,30^FDQA:^FS
+^PQ1
+^XZ1";
     }
 }
 
@@ -591,6 +611,49 @@ namespace MES.Net.Application.Services.Print
             catch (Exception ex)
             {
                 // 錯誤捕捉對應原本的 ErrorHandler
+                throw new InvalidOperationException($"Fail to execute application, please call IT support!! 程式執行失敗: {ex.Message}", ex);
+            }
+        }
+        /// <summary>
+        /// 完美翻寫 VB6 的 Prt_FT_To_SubFT_Normal
+        /// </summary>
+        public async Task Prt_FT_To_SubFT_Normal_Async(string lotNo, string prodNo, string qty, string packer, bool isPartial, string printerServer)
+        {
+            try
+            {
+                // 1. 取得 ZPL 模板 (這次取用 FT_To_SubFT_Normal)
+                string zpl = ZplTemplates.FT_To_SubFT_Normal;
+
+                // 2. 處理條件判斷 (與 TR 標籤完美共用同一個 PartialBlock 字串)
+                string partialZpl = isPartial ? ZplTemplates.PartialBlock : "";
+                zpl = zpl.Replace("{PartialBlock}", partialZpl);
+
+                // 3. 變數綁定與取代
+                zpl = zpl.Replace("{LotNo}", lotNo)
+                         .Replace("{ProdNo}", prodNo)
+                         .Replace("{Qty}", qty)
+                         .Replace("{Packer}", packer);
+
+                // 4. 處理 Printer Server 字串過濾 (對應 VB6 的 InStr 判斷)
+                string parsedServer = printerServer;
+                if (parsedServer.Contains("@"))
+                {
+                    parsedServer = parsedServer.Substring(0, parsedServer.IndexOf("@"));
+                }
+
+                // 5. 組合 Queue 名稱並發送
+                string queueName = $"MBX_{parsedServer}";
+                
+                bool isSent = await _mqService.SendMessageAsync(queueName, zpl);
+
+                if (!isSent)
+                {
+                    throw new Exception("發送至印表機佇列失敗！");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 統一格式的錯誤捕捉
                 throw new InvalidOperationException($"Fail to execute application, please call IT support!! 程式執行失敗: {ex.Message}", ex);
             }
         }
