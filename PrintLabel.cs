@@ -704,10 +704,12 @@ namespace MES.Net.Application.Services.Print
     public class PrintLabelService : IPrintLabelService
     {
         private readonly IMessageQueueService _mqService;
+        private readonly IPrintLabelRepository _repo;
 
         public PrintLabelService(IMessageQueueService mqService)
         {
             _mqService = mqService;
+            _repo = repo;
         }
 
         /// <summary>
