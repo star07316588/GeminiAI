@@ -670,6 +670,97 @@ namespace MES.Net.Infrastructure.Printing
 ^FO150,370^A0N,37,33^CI13^FD{WaferNo1}^FS
 ^FO150,420^A0N,37,33^CI13^FD{WaferNo2}^FS
 ^PQ1,1,1,Y^XZ";
+
+        // 💡 1. 擴充：FT_To_SubFT_Eng_Sample
+        // 注意：忠實保留了原本程式碼中的 "123456789012345" 寫死字串
+        public static readonly string FT_To_SubFT_Eng_Sample = @"
+^XA^LH00,00^LL550
+^FO10,05^GB780,475,3^FS
+^FO435,327^GB355,70,3^FS
+^FO435,397^GB0,80,3^FS
+^FO580,30^GB200,75,3^FS
+^FO590,55^A0N,35,50^CI0^FDREMARK^FS
+{PartialBlock}
+^FO580,250^GB200,75,3^FS
+^FO640,275^A0N,35,50^CI0^FDENG^FS
+^FO40,58^A0N,33,28^FD(1T)LOT NO: 123456789012345^FS
+^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
+^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
+^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
+^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
+^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
+^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
+^FO445,420^A0N,36,30^FDQA:^FS
+^PQ1
+^XZ1";
+
+        // 💡 2. 擴充：FT_To_SubMK_Eng_Sample
+        public static readonly string FT_To_SubMK_Eng_Sample = @"
+^XA^LH00,00^LL550
+^FO10,05^GB780,475,3^FS
+^FO435,327^GB355,70,3^FS
+^FO435,397^GB0,80,3^FS
+^FO580,30^GB200,75,3^FS
+^FO590,55^A0N,35,50^CI0^FDREMARK^FS
+{PartialBlock}
+^FO580,250^GB200,75,3^FS
+^FO640,275^A0N,35,50^CI0^FDENG^FS
+^FO40,58^A0N,33,28^FD(1T)LOT NO: {LotNo}^FS
+^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
+^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
+^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
+^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
+^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
+^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
+^FO445,420^A0N,36,30^FDQA:^FS
+^PQ1
+^XZ1";
+
+        // 💡 3. 擴充：FT_To_SubTR_Eng_Sample
+        public static readonly string FT_To_SubTR_Eng_Sample = @"
+^XA^LH00,00^LL550
+^FO10,05^GB780,475,3^FS
+^FO435,327^GB355,70,3^FS
+^FO435,397^GB0,80,3^FS
+^FO580,30^GB200,75,3^FS
+^FO640,55^A0N,35,50^CI0^FDT&R^FS
+{PartialBlock}
+^FO580,250^GB200,75,3^FS
+^FO640,275^A0N,35,50^CI0^FDENG^FS
+^FO40,58^A0N,33,28^FD(1T)LOT NO: {LotNo}^FS
+^FO40,158^A0N,33,28^FD(1P)PRODUCT NO: {ProdNo}^FS
+^FO40,258^A0N,33,28^FD(Q)QUANTITY: {Qty}^FS
+^FO40,90^BY2,2,50^B3,,,N^FD1T{LotNo}^FS
+^FO40,190^BY2,2,50^B3,,,N^FD1P{ProdNo}^FS
+^FO40,290^BY2,2,50^B3,,,N^FDQ{Qty}^FS
+^FO445,350^A0N,36,30^FDPACKER: {Packer}^FS
+^FO445,420^A0N,36,30^FDQA:^FS
+^PQ1
+^XZ1";
+
+        // 💡 4. 擴充：WSMCD_TO_SFG
+        public static readonly string WSMCD_TO_SFG = @"
+^XA
+^LH0,0^FS
+^LL1441
+^MD0
+^MNY
+^FO30,50^A0N,30,30^CI0^FR^FDLOT : {ParLotNo}^FS
+^BY2, 2.0^FO25,85^B3N,N,60,N,Y^FR^FD{ParLotNo}^FS
+^FO30,160^A0N,30,32^CI0^FR^FDPROD : {ParIPN}^FS
+^BY1, 3.0^FO25,195^B3N,N,60,N,Y^FR^FD{ParIPN}^FS
+^FO360,300^A0R,40,32^CI0^FR^FDLOT^FS
+^FO360,500^A0R,40,32^CI0^FR^FDPROD^FS
+^FO360,900^A0R,40,32^CI0^FR^FDQTY^FS
+^FO360,1100^A0R,40,32^CI0^FR^FDCODE^FS
+{DynamicListBlock}
+^FO105,300^A0R,30,32^CI0^FR^FDTTL QTY: {ParWqty} PCS,   {ParCQTY}EA^FS
+^FO105,720^A0R,30,32^CI0^FR^FDID No: {UserName}^FS
+^FO105,950^A0R,30,32^CI0^FR^FDDG: 0^FS
+^FO50,300^A0R,30,32^CI0^FR^FDDATE: {TimeStamp}^FS
+^FO50,650^A0R,30,32^CI0^FR^FDSerial No: 0206000115^FS
+^FO50,1000^A0R,30,32^CI0^FR^FDTQA:^FS
+^XZ";
 }
 using System.Threading.Tasks;
 
@@ -982,6 +1073,106 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{WaferNo2}", waferNo2);
 
             // 4. 發送至印表機
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+        /// <summary>
+        /// 共用邏輯：處理三個 Eng_Sample 標籤的發送
+        /// </summary>
+        private async Task SendEngSampleAsync(string template, string lotNo, string prodNo, string qty, string packer, bool isPartial, string printerServer)
+        {
+            string partialZpl = isPartial ? ZplTemplates.PartialBlock : "";
+            
+            string zpl = template
+                     .Replace("{PartialBlock}", partialZpl)
+                     .Replace("{LotNo}", lotNo)
+                     .Replace("{ProdNo}", prodNo)
+                     .Replace("{Qty}", qty)
+                     .Replace("{Packer}", packer);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+        // 1. 翻寫 Prt_FT_To_SubFT_Eng_Sample
+        public async Task Prt_FT_To_SubFT_Eng_Sample_Async(string lotNo, string prodNo, string qty, string packer, bool isPartial, string printerServer)
+        {
+            await SendEngSampleAsync(ZplTemplates.FT_To_SubFT_Eng_Sample, lotNo, prodNo, qty, packer, isPartial, printerServer);
+        }
+
+        // 2. 翻寫 Prt_FT_To_SubMK_Eng_Sample
+        public async Task Prt_FT_To_SubMK_Eng_Sample_Async(string lotNo, string prodNo, string qty, string packer, bool isPartial, string printerServer)
+        {
+            await SendEngSampleAsync(ZplTemplates.FT_To_SubMK_Eng_Sample, lotNo, prodNo, qty, packer, isPartial, printerServer);
+        }
+
+        // 3. 翻寫 Prt_FT_To_SubTR_Eng_Sample
+        public async Task Prt_FT_To_SubTR_Eng_Sample_Async(string lotNo, string prodNo, string qty, string packer, bool isPartial, string printerServer)
+        {
+            await SendEngSampleAsync(ZplTemplates.FT_To_SubTR_Eng_Sample, lotNo, prodNo, qty, packer, isPartial, printerServer);
+        }
+
+        /// <summary>
+        /// 4. 翻寫 Prt_WSMCD_TO_SFG
+        /// 註: VB6 的 oWSMCDInfo (Collection) 這裡對應為 List<string> (格式 "Lot;IPN;Code;Qty")
+        /// </summary>
+        public async Task Prt_WSMCD_TO_SFG_Async(
+            string parLotNo, string parIpn, string parWQty, string parCQty, 
+            string userName, string timeStamp, string printerServer, List<string> wsmcdInfo = null)
+        {
+            // 初始化五組空資料
+            var lots = new string[5] { "", "", "", "", "" };
+            var ipns = new string[5] { "", "", "", "", "" };
+            var codes = new string[5] { "", "", "", "", "" };
+            var cQtys = new string[5] { "", "", "", "", "" };
+
+            // 條件1：沒有傳入集合
+            if (wsmcdInfo == null || wsmcdInfo.Count == 0)
+            {
+                lots[0] = parLotNo;
+                ipns[0] = parIpn;
+                cQtys[0] = parCQty;
+            }
+            else
+            {
+                // 條件2：有傳入集合 (VB6 邏輯是「從後面往前取」，且最多取 5 筆)
+                // VB6語法：oWSMCDInfo.Item(oWSMCDInfo.Count - iIdx + 1)
+                for (int i = 0; i < wsmcdInfo.Count && i < 5; i++)
+                {
+                    // C# 反向索引
+                    string item = wsmcdInfo[wsmcdInfo.Count - 1 - i]; 
+                    var parts = item.Split(';');
+                    
+                    if (parts.Length > 0) lots[i] = parts[0];
+                    if (parts.Length > 1) ipns[i] = parts[1];
+                    if (parts.Length > 2) codes[i] = parts[2];
+                    if (parts.Length > 3) cQtys[i] = parts[3];
+                }
+            }
+
+            // 動態組裝 5 列資料的 ZPL，初始 X 座標為 304，每一次遞減 36
+            var sbDynamicItems = new StringBuilder();
+            int currentX = 304;
+
+            for (int i = 0; i < 5; i++)
+            {
+                // 若陣列中有值，或者沒值(印出空字串，ZPL渲染時自然為空)
+                sbDynamicItems.AppendLine($"^FO{currentX},300^A0R,25,32^CI0^FR^FD{lots[i]}^FS");
+                sbDynamicItems.AppendLine($"^FO{currentX},500^A0R,25,32^CI0^FR^FD{ipns[i]}^FS");
+                sbDynamicItems.AppendLine($"^FO{currentX},900^A0R,25,32^CI0^FR^FD{cQtys[i]}^FS");
+                sbDynamicItems.AppendLine($"^FO{currentX},1100^A0R,25,32^CI0^FR^FD{codes[i]}^FS");
+
+                currentX -= 36; // 產生 304, 268, 232, 196, 160 序列
+            }
+
+            // 替換主模板變數
+            string zpl = ZplTemplates.WSMCD_TO_SFG
+                .Replace("{DynamicListBlock}", sbDynamicItems.ToString())
+                .Replace("{ParLotNo}", parLotNo)
+                .Replace("{ParIPN}", parIpn)
+                .Replace("{ParWqty}", parWQty)
+                .Replace("{ParCQTY}", parCQty)
+                .Replace("{UserName}", userName)
+                .Replace("{TimeStamp}", timeStamp);
+
             await SendToPrinterAsync(printerServer, zpl);
         }
     }
