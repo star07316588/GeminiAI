@@ -471,7 +471,6 @@ namespace MES.Net.Infrastructure.Printing
 ^FO445,420^A0N,36,30^FDQA:^FS
 ^PQ1
 ^XZ1";
-    }
 }
 
 using System.Threading.Tasks;
