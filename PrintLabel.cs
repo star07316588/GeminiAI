@@ -97,6 +97,20 @@ namespace MES.Net.Shared.DTOs.Print
         public string Desiccant { get; set; }
         public string Albag { get; set; }
     }
+
+    public class IpnWaferLevelData
+    {
+        public string WaferLevel { get; set; }
+        public string MaskOption { get; set; }
+        public string BeOption { get; set; }
+        public string BomLevel { get; set; }
+    }
+
+    public class VirtualMergeLotData
+    {
+        public string LotId { get; set; }
+        public string Pcs { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -591,6 +605,75 @@ namespace MES.Net.Infrastructure.Repository.Print
             return await _dbConnection.QueryFirstOrDefaultAsync<LabelBoxingInfoData>(sql, new { 
                 p_CarrierType = carrierType, p_BoxingSpecNo = boxingSpecNo, p_Brand = brand, p_PinCount = pinCount, p_PackageCode = packageCode
             });
+        }
+        // 1. 取得 ProdType (呼叫 Oracle Function)
+        public async Task<string> GetProdTypeAsync(string ipn, string criteriaString)
+        {
+            string sql = "SELECT GetProdType(:p_IPN, :p_Criteria) AS PRODTYPE FROM DUAL";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { p_IPN = ipn, p_Criteria = criteriaString });
+        }
+
+        // 2. 取得 WaferLevel 等 IPN 屬性
+        public async Task<IpnWaferLevelData> GetIpnWaferLevelDataAsync(string ipn)
+        {
+            string sql = @"
+                SELECT fun_get_waferlevel(IPN) AS WaferLevel, MASK_OPTION AS MaskOption, BE_OPTION AS BeOption, BOM_LEVEL AS BomLevel 
+                FROM TBL_IPN_MASTER 
+                WHERE IPN = :p_IPN AND DELETE_FLAG = 'N'";
+            return await _dbConnection.QueryFirstOrDefaultAsync<IpnWaferLevelData>(sql, new { p_IPN = ipn });
+        }
+
+        // 3. 取得 Rework Print Flag
+        public async Task<string> GetReworkPrintFlagAsync(string sapRwNo)
+        {
+            string sql = "SELECT PRINTFLAG FROM TBL_REWORK_REQ WHERE SAPRWNO = :p_SapRwNo AND DELETEFLAG = 'N'";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { p_SapRwNo = sapRwNo });
+        }
+
+        // 4. 取得 FuSa
+        public async Task<string> GetFusaAsync(string ipn)
+        {
+            string sql = "SELECT FUSA FROM TBL_IPN_MASTER WHERE IPN = :p_IPN";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { p_IPN = ipn });
+        }
+
+        // 5. Check CpHot (TRACKLOT 查詢)
+        public async Task<bool> CheckCpHotAsync(string lotNo)
+        {
+            string sql = "SELECT 1 FROM TBL_WS_TRACKLOT WHERE LOTID = :p_LotNo AND WSOUT IS NOT NULL";
+            return await _dbConnection.QueryFirstOrDefaultAsync<int?>(sql, new { p_LotNo = lotNo }) != null;
+        }
+
+        // 6. Check MainProd
+        public async Task<bool> CheckMainProdAsync(string prodCode, string ipn, string waferLevel)
+        {
+            // 完全重現 VB6 裡面的 REPLACE 萬用字元轉換邏輯
+            string sql = @"
+                SELECT 1 FROM TBL_PC_MAIN_PROD
+                WHERE :p_ProdCode LIKE REPLACE(REPLACE(PRODCODE, '%', '_'), '*', '%')
+                  AND :p_IPN LIKE REPLACE(REPLACE(IPN, '%', '_'), '*', '%')
+                  AND :p_WaferLevel LIKE REPLACE(WAFERLEVEL, '*', '%')
+                  AND DELETEFLAG = 'N'";
+            return await _dbConnection.QueryFirstOrDefaultAsync<int?>(sql, new { p_ProdCode = prodCode, p_IPN = ipn, p_WaferLevel = waferLevel }) != null;
+        }
+
+        // 7. 取得 LabelSpec (GetLabelSpecByStage)
+        public async Task<IEnumerable<string>> GetLabelSpecByStageAsync(string stage)
+        {
+            string sql = "SELECT DISTINCT LABEL_SPECNO FROM TBL_LABEL_SPEC WHERE STAGE = :p_Stage AND DELETE_FLAG = 'N' ORDER BY LABEL_SPECNO";
+            return await _dbConnection.QueryAsync<string>(sql, new { p_Stage = stage });
+        }
+
+        // 8. 取得 Virtual Merge 清單
+        public async Task<IEnumerable<VirtualMergeLotData>> GetVirtualMergeListAsync(string virtualLotId)
+        {
+            string sql = @"
+                SELECT DISTINCT a.LOTID AS LotId, fun_splitlen(tli.WAFERID, ';') AS Pcs  
+                FROM TBL_VIRTUAL_MERGE a 
+                INNER JOIN TBL_LOT_INFO tli ON a.LOTID = tli.LOT_ID 
+                WHERE a.DELETEFLAG = 'N' AND a.VIRTUALLOTID = :p_LotId 
+                ORDER BY a.LOTID";
+            return await _dbConnection.QueryAsync<VirtualMergeLotData>(sql, new { p_LotId = virtualLotId });
         }
     }
 }
@@ -1138,6 +1221,49 @@ namespace MES.Net.Infrastructure.Printing
 ^A0N,28,28^FO1094,265^FD{SpecialPositionBox_2}^FS
 ^PQ1,0,1,Y^XZ
 ^XA^IDR:TEMP_FMT.ZPL^XZ";
+
+// 💡 1. CP_SMALL_LABEL (一般版 / 虛擬併批單張)
+        public static readonly string WS_CP_SMALL_LABEL = @"
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+^FO15,15^AFN,10,10^CI13^FDLotNo:^FS
+^FO130,15^A0N,37,33^CI13^FD{LotNo}^FS
+^FO15,50^BY2,3.0^BCN,28,N,Y,N^FR^FD>:{LotNo}^FS
+^FO15,105^AFN,10,10^CI13^FDFabLotId:^FS
+^FO170,105^A0N,37,33^CI13^FD{PrintFabLotId}^FS
+^FO15,150^AFN,10,10^CI13^FDProdBody:^FS
+^FO170,150^A0N,37,33^CI13^FD{ProdBody}^FS
+^FO290,150^AFN,10,10^CI13^FDHot:^FS
+^FO360,150^CF0N,37,33^CI13^FD{HotLotFlag}^FS
+^FO290,195^AFN,10,10^CI13^FDQTY:^FS
+^FO360,195^A0N,37,33^CI13^FR^FD{WQty} PCS^FS
+^FO15,195^AFN,10,10^CI13^FDProdType:^FS
+^FO170,195^A0N,37,33^CI13^FR^FD{BizType}^FS
+^FO15,240^AFN,10,10^CI13^FDErunTicNo:^FS
+^FO170,240^A0N,37,33^CI13^FD{ErunTicNo}^FS
+^FO355,240^AFN,10,10^CI13^FDFuSa:^FS
+^FO435,240^A0N,37,33^CI13^FD{FuSa}^FS
+^FO15,285^AFN,10,10^CI13^FDSapRwNo:^FS
+^FO170,285^A0N,37,33^CI13^FD{SapRwNo}^FS
+^FO15,330^AFN,10,10^CI13^FDID#:^FS
+^FO80,330^A0N,37,33^CI13^FD{WaferNo1}^FS
+^FO80,380^A0N,37,33^CI13^FD{WaferNo2}^FS
+^FO80,430^A0N,37,33^CI13^FD{WaferNo3}^FS
+^PQ1,1,1,Y^XZ";
+
+        // 💡 2. CP_VIRTUAL_MERGE_LIST (虛擬併批清單版，印出長條表單)
+        public static readonly string WS_CP_VIRTUAL_MERGE_LIST = @"
+^XA^LH0,0^FS^LL1980^MD0^MNY
+^FO30,25^A0N,48.36^CI0^FR^FDVitualLotId : {LotNo}^FS
+^BY2,2.0^FO540,30^B3N,N,60,N,N^FD{LotNo}^FS
+^FO30,102^A0N,48.36^CI0^FR^FDProdBody : {ProdBody}^FS
+^FO405,102^A0N,48.36^CI0^FR^FDProdLevel : {WaferLevel}^FS
+^FO30,174^A0N,48.36^CI0^FR^FDWaferQty : {WQty}^FS
+^BY2,2.0^FO405,174^B3N,N,60,N,N^FD{WQty}^FS
+^FO30,246^A0N,48.36^CI0^FR^FDChipQty : {CQty}^FS
+^BY2,2.0^FO405,246^B3N,N,60,N,N^FD{CQty}^FS
+^FO30,318^A0N,48.36^CI0^FR^FDID# :^FS
+{DynamicLotListBlock}
+^XZ";
         
 }
 using System.Threading.Tasks;
@@ -1931,6 +2057,144 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{SpecialPositionBox_2}", specInfo.SpecialPositionBox_2 ?? "");
 
             // 發送至印表機
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+        // 1. 翻寫 GetLabelSpecByStage
+        public async Task<IEnumerable<string>> GetLabelSpecByStageAsync(string stage)
+        {
+            return await _repo.GetLabelSpecByStageAsync(stage);
+        }
+
+        // 2. 翻寫 GetProdType (解析逗號回傳 tuple)
+        public async Task<(string ProdType, string CriteriaData)> GetProdTypeAsync(string ipn, string criteriaString)
+        {
+            string rawData = await _repo.GetProdTypeAsync(ipn, criteriaString);
+            string prodType = "";
+            string criteriaData = "Y"; // 一切從嚴，沒有值預設為 Y
+
+            if (!string.IsNullOrEmpty(rawData) && rawData.Contains(","))
+            {
+                var parts = rawData.Split(',');
+                prodType = parts[0].Trim();
+                criteriaData = parts[1].Trim();
+            }
+            return (prodType, criteriaData);
+        }
+
+        // 3. 翻寫 GetCpHot / GetMainProd
+        public async Task<string> GetCpHotAsync(string lotId, string ipn)
+        {
+            bool isHot = await _repo.CheckCpHotAsync(lotId);
+            if (isHot) return "Y";
+
+            // 如果 TRACKLOT 找不到，去查 MAIN_PROD
+            var ipnData = await _repo.GetIpnWaferLevelDataAsync(ipn);
+            if (ipnData != null)
+            {
+                string prodCode = ipn.Substring(0, 4) + ipnData.MaskOption;
+                bool isMainProd = await _repo.CheckMainProdAsync(prodCode, ipn, ipnData.WaferLevel);
+                if (isMainProd) return "Y";
+            }
+            return "";
+        }
+
+        // 4. 翻寫 Prt_WS_CP_SMALL_LABEL
+        public async Task Prt_WS_CP_SMALL_LABEL_Async(
+            string lotNo, string prodNo, string wQty, string cQty, string owner, string bizType, 
+            string printerServer, string inputWaferId = "", string inputFabLotId = "", bool bPrintLotList = false)
+        {
+            // (1) 取得 BizType (若前端未傳，從後端補)
+            if (string.IsNullOrEmpty(bizType))
+            {
+                var typeData = await GetProdTypeAsync(prodNo, "");
+                bizType = typeData.ProdType;
+            }
+
+            // (2) 取得 IPN 基本資料
+            var ipnData = await _repo.GetIpnWaferLevelDataAsync(prodNo) ?? new IpnWaferLevelData();
+            string prodCode = prodNo.Length >= 4 ? prodNo.Substring(0, 4) : prodNo;
+            prodCode += ipnData.MaskOption;
+            string prodBody = prodNo.Length >= 4 ? prodNo.Substring(0, 4) : prodNo; // Left(sProdCode, 4)
+
+            // (3) 取得 Hot 標記
+            string hotLotFlag = await GetCpHotAsync(lotNo, prodNo);
+
+            // (4) 取得 Lot 詳細屬性
+            var lotAttrs = await _repo.GetWsSmallLabelDataAsync(lotNo) ?? new WsSmallLabelDbData();
+            
+            string printFlag = await _repo.GetReworkPrintFlagAsync(lotAttrs.SapRwNo);
+            string sapRwNo = printFlag == "Y" ? lotAttrs.SapRwNo : "";
+
+            string printFabLotId = !string.IsNullOrEmpty(inputFabLotId) ? inputFabLotId : lotAttrs.FabLotId;
+            string rawWaferStr = !string.IsNullOrEmpty(inputWaferId) ? inputWaferId : lotAttrs.WaferId;
+
+            // (5) Wafer 切片與分組邏輯 (重構 VB6 的 Mid 取代邏輯)
+            var parsedWafers = (rawWaferStr ?? "")
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(w => int.TryParse(w, out int val) ? val : 0)
+                .ToList();
+
+            var waferList = new List<string>();
+            for (int i = 1; i <= 25; i++)
+            {
+                waferList.Add(parsedWafers.Contains(i) ? i.ToString("D2") : "__");
+            }
+
+            // 將陣列依照 VB6 的數量切成三組 (第1~9, 10~18, 19~25 片)
+            string waferNo1 = string.Join(",", waferList.Take(9));
+            string waferNo2 = string.Join(",", waferList.Skip(9).Take(9));
+            string waferNo3 = string.Join(",", waferList.Skip(18).Take(7));
+
+            // (6) 解析 FuSa IPN
+            string fusaIpn = prodNo;
+            if (ipnData.BomLevel == "DB" && (ipnData.WaferLevel == "KGD-AEB" || ipnData.WaferLevel == "MXO1") && !string.IsNullOrEmpty(lotAttrs.FgIpn))
+            {
+                fusaIpn = lotAttrs.FgIpn;
+            }
+            string fusa = await _repo.GetFusaAsync(fusaIpn);
+
+            // (7) 根據 bPrintLotList 決定排版
+            string zpl;
+            if (bPrintLotList)
+            {
+                var mergeList = await _repo.GetVirtualMergeListAsync(lotNo);
+                var sbLotList = new StringBuilder();
+                int currentY = 480;
+
+                int listIndex = 1;
+                foreach (var item in mergeList)
+                {
+                    sbLotList.AppendLine($"^FO30,{currentY}^A0N,48.36^CI0^FR^FDLotId{listIndex:D2} : {item.LotId}   {item.Pcs} pc^FS");
+                    sbLotList.AppendLine($"^BY2,2.0^FO624,{currentY}^B3N,N,48,N,N^FD{item.LotId}^FS");
+                    currentY += 60;
+                    listIndex++;
+                }
+
+                zpl = ZplTemplates.WS_CP_VIRTUAL_MERGE_LIST
+                    .Replace("{DynamicLotListBlock}", sbLotList.ToString());
+            }
+            else
+            {
+                zpl = ZplTemplates.WS_CP_SMALL_LABEL;
+            }
+
+            // (8) 變數替換與發送
+            zpl = zpl.Replace("{LotNo}", lotNo)
+                     .Replace("{PrintFabLotId}", printFabLotId ?? "")
+                     .Replace("{ProdBody}", prodBody)
+                     .Replace("{WaferLevel}", ipnData.WaferLevel ?? "")
+                     .Replace("{HotLotFlag}", hotLotFlag)
+                     .Replace("{WQty}", wQty)
+                     .Replace("{CQty}", cQty)
+                     .Replace("{BizType}", bizType)
+                     .Replace("{ErunTicNo}", lotAttrs.ErunTicNo ?? "")
+                     .Replace("{FuSa}", fusa ?? "")
+                     .Replace("{SapRwNo}", sapRwNo ?? "")
+                     .Replace("{MfgTicNo}", lotAttrs.MfgTicNo ?? "")
+                     .Replace("{WaferNo1}", waferNo1)
+                     .Replace("{WaferNo2}", waferNo2)
+                     .Replace("{WaferNo3}", waferNo3);
+
             await SendToPrinterAsync(printerServer, zpl);
         }
     }
