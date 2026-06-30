@@ -73,6 +73,30 @@ namespace MES.Net.Shared.DTOs.Print
         public string OwnerDep { get; set; }
         public string LocId { get; set; }
     }
+
+    public class LabelSpecInfoData
+    {
+        public string LabelSpecNoVer { get; set; }
+        public string SpecialLabelSize { get; set; }
+        public string Serial { get; set; }
+        public string MergeLabelSpec { get; set; }
+        public string CopiesStdLabel { get; set; }
+        public string CopiesSpecialLabel { get; set; }
+        public string CopiesMergeLabel { get; set; }
+        public string SpecialStickReel { get; set; }
+        public string SpecialStickAlbag { get; set; }
+        public string SpecialPositionBox_1 { get; set; }
+        public string SpecialPositionBox_2 { get; set; }
+    }
+
+    public class LabelBoxingInfoData
+    {
+        public string BoxingSpecNoVer { get; set; }
+        public string Vacuum { get; set; }
+        public string Hic { get; set; }
+        public string Desiccant { get; set; }
+        public string Albag { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -525,6 +549,48 @@ namespace MES.Net.Infrastructure.Repository.Print
                 // 如果沒綁定，就把所有伺服器都查出來讓 User 選
                 return await _dbConnection.QueryAsync<string>(basePrinterSql);
             }
+        }
+        // 1. 查詢 Label Spec Info
+        public async Task<LabelSpecInfoData> GetLabelSpecInfoAsync(string labelSpecNo, string carrierType)
+        {
+            string sql = @"
+                SELECT 
+                    LABELSPECNOVER AS LabelSpecNoVer, SPECIALLABELSIZE AS SpecialLabelSize, SERIAL AS Serial, 
+                    COPIES_STD_LABEL AS CopiesStdLabel, COPIES_SPECIAL_LABEL AS CopiesSpecialLabel, COPIES_MERGE_LABEL AS CopiesMergeLabel, 
+                    MERGE_LABEL_SPEC AS MergeLabelSpec, SPECIAL_STICK_REEL AS SpecialStickReel, SPECIAL_STICK_ALBAG AS SpecialStickAlbag, 
+                    SPECIAL_POSITION_BOX_1 AS SpecialPositionBox_1, SPECIAL_POSITION_BOX_2 AS SpecialPositionBox_2
+                FROM TBL_FT_LABEL_SPEC_INFO 
+                WHERE LABELSPECNO = :p_SpecNo AND CARRIERTYPE = :p_CarrierType AND DELETEFLAG = 'N'";
+            
+            return await _dbConnection.QueryFirstOrDefaultAsync<LabelSpecInfoData>(sql, new { p_SpecNo = labelSpecNo, p_CarrierType = carrierType });
+        }
+
+        // 2. 查詢 IPN_MASTER 取得 Grade 與 BizType
+        public async Task<(string Grade, string BizType)> GetIpnMasterForLabelSpecAsync(string ipn)
+        {
+            string sql = @"
+                SELECT GRADE AS Grade, BIZTYPE AS BizType 
+                FROM TBL_IPN_MASTER 
+                WHERE IPN = :p_IPN AND DELETE_FLAG = 'N'";
+            
+            return await _dbConnection.QueryFirstOrDefaultAsync<(string, string)>(sql, new { p_IPN = ipn });
+        }
+
+        // 3. 查詢 Boxing Info
+        public async Task<LabelBoxingInfoData> GetLabelBoxingInfoAsync(string carrierType, string boxingSpecNo, string brand, string pinCount, string packageCode)
+        {
+            string sql = @"
+                SELECT 
+                    BOXINGSPECNOVER AS BoxingSpecNoVer, VACUUM AS Vacuum, HIC AS Hic, 
+                    DESICCANT AS Desiccant, ALBAG AS Albag
+                FROM TBL_FT_LABEL_BOXING_INFO 
+                WHERE CARRIERTYPE = :p_CarrierType AND BOXINGSPECNO = :p_BoxingSpecNo 
+                  AND BRAND = :p_Brand AND PINCOUNT = :p_PinCount 
+                  AND PACKAGECODE = :p_PackageCode AND DELETEFLAG = 'N'";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<LabelBoxingInfoData>(sql, new { 
+                p_CarrierType = carrierType, p_BoxingSpecNo = boxingSpecNo, p_Brand = brand, p_PinCount = pinCount, p_PackageCode = packageCode
+            });
         }
     }
 }
@@ -986,6 +1052,92 @@ namespace MES.Net.Infrastructure.Printing
 ^PQ1,0,0,N^XZ
 ^FX End of job
 ^XA^IDR:ID*.*^XZ";
+
+// 💡 擴充：FT_Label_PACK_INFO 標籤 (非常龐大的多欄位表格標籤)
+        public static readonly string FT_Label_PACK_INFO = @"
+^XA^MCY^XZ
+^XA^FWN^CFD,24^LH0,0^CI0^PR2^MNY^MTT^MMT^MD0^PON^PMN^LRN^XZ
+^XA^DFR:TEMP_FMT.ZPL^LRN^XZ
+^XA^XFR:TEMP_FMT.ZPL
+^FO15,17^GB1167,112,2,B,0^FS
+^FO15,71^GB1165,2,2,B,0^FS
+^FO191,18^GB2,110,2,B,0^FS
+^FO247,16^GB2,110,2,B,0^FS
+^FO799,18^GB2,110,2,B,0^FS
+^FO709,18^GB2,110,2,B,0^FS
+^FO988,15^GB2,110,2,B,0^FS
+^A0N,23,24^FO40,33^FDLabel Spec.^FS
+^A0N,23,24^FO425,33^FDLabel Size^FS
+^A0N,23,24^FO199,33^FDVer.^FS
+^A0N,23,24^FO723,33^FDSerial^FS
+^A0N,23,24^FO858,33^FDSource^FS
+^A0N,23,24^FO1047,33^FDLotNo.^FS
+^A0N,28,28^FO255,89^FD{SpecialLabelSize}^FS
+^A0N,28,28^FO199,89^FD{LabelSpecNoVer}^FS
+^A0N,28,28^FO20,89^FD{LabelSpecNo}^FS
+^A0N,28,28^FO998,89^FD{PrintLotNO}^FS
+^A0N,28,28^FO859,89^FD{PrintMode}^FS
+^A0N,28,28^FO741,89^FD{Serial}^FS
+^FO13,315^GB1167,112,2,B,0^FS
+^FO15,368^GB1165,2,2,B,0^FS
+^FO519,315^GB2,110,2,B,0^FS
+^FO799,314^GB2,110,2,B,0^FS
+^FO398,314^GB2,110,2,B,0^FS
+^FO247,314^GB2,110,2,B,0^FS
+^FO191,316^GB2,110,2,B,0^FS
+^FO988,312^GB2,110,2,B,0^FS
+^A0N,23,24^FO36,333^FDBoxing Spec.^FS
+^A0N,23,24^FO198,333^FDVer.^FS
+^A0N,23,24^FO294,333^FDBrand^FS
+^A0N,23,24^FO419,333^FDPackage^FS
+^A0N,23,24^FO594,333^FDCarrier Type^FS
+^A0N,23,24^FO808,333^FDVacuum^FS
+^A0N,23,24^FO921,333^FDHIC^FS
+^A0N,23,24^FO992,333^FDDesiccant^FS
+^A0N,23,24^FO1093,333^FDAl. bag^FS
+^FO895,314^GB2,110,2,B,0^FS
+^FO1087,314^GB2,110,2,B,0^FS
+^A0N,28,28^FO19,387^FD{BoxingSpecNo}^FS
+^A0N,28,28^FO199,388^FD{BoxingSpecNoVer}^FS
+^A0N,28,28^FO296,388^FD{Brand}^FS
+^A0N,28,28^FO411,388^FD{PackageCodePinCount}^FS
+^A0N,28,28^FO527,388^FD{CarrierType}^FS
+^A0N,28,28^FO832,388^FD{Vacuum}^FS
+^A0N,28,28^FO934,388^FD{Hic}^FS
+^A0N,28,28^FO1032,388^FD{Desiccant}^FS
+^A0N,28,28^FO1108,387^FD{Albag}^FS
+^FO13,136^GB1167,168,2,B,0^FS
+^FO13,190^GB1165,2,2,B,0^FS
+^FO14,248^GB1165,2,2,B,0^FS
+^FO190,190^GB2,110,2,B,0^FS
+^FO400,190^GB2,110,2,B,0^FS
+^FO520,140^GB2,162,2,B,0^FS
+^FO802,140^GB2,162,2,B,0^FS
+^FO988,137^GB2,162,2,B,0^FS
+^A0N,23,24^FO214,153^FDLabel  Copies^FS
+^A0N,23,24^FO69,209^FDSTD^FS
+^A0N,23,24^FO251,209^FDSpecial^FS
+^A0N,23,24^FO422,209^FDMerge^FS
+^A0N,23,24^FO578,153^FDMerge Label^FS
+^A0N,23,24^FO621,209^FDSpec.^FS
+^A0N,23,24^FO825,153^FDSpecial Stick^FS
+^A0N,23,24^FO1018,153^FDSpecial Pos.^FS
+^A0N,23,24^FO822,209^FDReel^FS
+^FO895,192^GB2,110,2,B,0^FS
+^FO1088,193^GB2,110,2,B,0^FS
+^A0N,23,24^FO903,209^FDAl. Bag^FS
+^A0N,23,24^FO1007,209^FDBox_1^FS
+^A0N,23,24^FO1098,208^FDBox_2^FS
+^A0N,28,28^FO78,265^FD{CopiesStdLabel}^FS
+^A0N,28,28^FO270,265^FD{CopiesSpecialLabel}^FS
+^A0N,28,28^FO442,265^FD{CopiesMergeLabel}^FS
+^A0N,28,28^FO535,265^FD{MergeLabelSpec}^FS
+^A0N,28,28^FO837,265^FD{SpecialStickReel}^FS
+^A0N,28,28^FO926,265^FD{SpecialStickAlbag}^FS
+^A0N,28,28^FO1000,265^FD{SpecialPositionBox_1}^FS
+^A0N,28,28^FO1094,265^FD{SpecialPositionBox_2}^FS
+^PQ1,0,1,Y^XZ
+^XA^IDR:TEMP_FMT.ZPL^XZ";
         
 }
 using System.Threading.Tasks;
@@ -1664,6 +1816,122 @@ namespace MES.Net.Application.Services.Print
         public async Task<IEnumerable<string>> GetMappedPrinterServersAsync(string stage, string specNo)
         {
             return await _repo.GetMappedPrinterServersAsync(stage, specNo);
+        }
+
+        /// <summary>
+        /// 翻寫 Prt_FT_Label_PACK_INFO (包含複雜的 Auto Fallback 查詢機制)
+        /// </summary>
+        public async Task Prt_FT_Label_PACK_INFO_Async(
+            string lotId, string labelSpecNo, string carrierType, string boxingSpecNo, 
+            string brand, string pinCount, string packageCode, bool isAutoPrint, 
+            string printerServer, string ipn)
+        {
+            // 1. 初始化列印變數
+            string printLotNo = isAutoPrint ? lotId : "NA";
+            string printMode = isAutoPrint ? "Auto" : "Manual";
+            string packageCodePinCount = pinCount + packageCode;
+
+            // -------------------------------------------------------------
+            // [Check-Item-1] : 查詢 Label Spec Info
+            // -------------------------------------------------------------
+            var specInfo = await _repo.GetLabelSpecInfoAsync(labelSpecNo, carrierType);
+
+            // 如果第一輪沒查到
+            if (specInfo == null)
+            {
+                if (!isAutoPrint) 
+                {
+                    throw new Exception("FT_Label_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // Auto Mode 的退回機制：查 IPN_MASTER 重配 labelSpecNo
+                var ipnData = await _repo.GetIpnMasterForLabelSpecAsync(ipn);
+                if (ipnData.Grade != null) // C# Tuples fallback check
+                {
+                    string grade = ipnData.Grade;
+                    string bizType = ipnData.BizType;
+                    bool isHOrW = packageCode == "H" || packageCode == "W";
+
+                    if (brand == "KH" && grade == "Y" && !isHOrW) 
+                        labelSpecNo = "6130K-0807.1";
+                    else if (brand == "KH" && bizType == "D" && isHOrW) 
+                        labelSpecNo = "6130K-0807.1";
+                    else if (brand == "KH" && !isHOrW) 
+                        labelSpecNo = "6130K-0807";
+                    else 
+                        labelSpecNo = "6130-0807";
+                }
+
+                // 重新查第二次
+                specInfo = await _repo.GetLabelSpecInfoAsync(labelSpecNo, carrierType);
+                if (specInfo == null)
+                {
+                    throw new Exception("FT_Label_Info(Default) 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+            }
+
+            // -------------------------------------------------------------
+            // [Check-Item-2] : 查詢 Label Boxing Info
+            // -------------------------------------------------------------
+            var boxingInfo = await _repo.GetLabelBoxingInfoAsync(carrierType, boxingSpecNo, brand, pinCount, packageCode);
+
+            // 如果第一輪沒查到
+            if (boxingInfo == null)
+            {
+                if (!isAutoPrint) 
+                {
+                    throw new Exception("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // Auto Mode 的退回機制：強制設定 PinCount = ALL, PackageCode = ALL 重查
+                boxingInfo = await _repo.GetLabelBoxingInfoAsync(carrierType, boxingSpecNo, brand, "ALL", "ALL");
+                if (boxingInfo == null)
+                {
+                    throw new Exception("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // 如果重查成功，設定值要變成 ALL
+                packageCodePinCount = "ALL";
+            }
+            else
+            {
+                // 如果第一次就查到，且兩者原本就是 ALL，也要設定為 ALL
+                if (pinCount == "ALL" && packageCode == "ALL")
+                {
+                    packageCodePinCount = "ALL";
+                }
+            }
+
+            // -------------------------------------------------------------
+            // 組裝 ZPL 模板
+            // -------------------------------------------------------------
+            string zpl = ZplTemplates.FT_Label_PACK_INFO
+                .Replace("{SpecialLabelSize}", specInfo.SpecialLabelSize ?? "")
+                .Replace("{LabelSpecNoVer}", specInfo.LabelSpecNoVer ?? "")
+                .Replace("{LabelSpecNo}", labelSpecNo ?? "")
+                .Replace("{PrintLotNO}", printLotNo)
+                .Replace("{PrintMode}", printMode)
+                .Replace("{Serial}", specInfo.Serial ?? "")
+                .Replace("{BoxingSpecNo}", boxingSpecNo ?? "")
+                .Replace("{BoxingSpecNoVer}", boxingInfo.BoxingSpecNoVer ?? "")
+                .Replace("{Brand}", brand ?? "")
+                .Replace("{PackageCodePinCount}", packageCodePinCount)
+                .Replace("{CarrierType}", carrierType ?? "")
+                .Replace("{Vacuum}", boxingInfo.Vacuum ?? "")
+                .Replace("{Hic}", boxingInfo.Hic ?? "")
+                .Replace("{Desiccant}", boxingInfo.Desiccant ?? "")
+                .Replace("{Albag}", boxingInfo.Albag ?? "")
+                .Replace("{CopiesStdLabel}", specInfo.CopiesStdLabel ?? "")
+                .Replace("{CopiesSpecialLabel}", specInfo.CopiesSpecialLabel ?? "")
+                .Replace("{CopiesMergeLabel}", specInfo.CopiesMergeLabel ?? "")
+                .Replace("{MergeLabelSpec}", specInfo.MergeLabelSpec ?? "")
+                .Replace("{SpecialStickReel}", specInfo.SpecialStickReel ?? "")
+                .Replace("{SpecialStickAlbag}", specInfo.SpecialStickAlbag ?? "")
+                .Replace("{SpecialPositionBox_1}", specInfo.SpecialPositionBox_1 ?? "")
+                .Replace("{SpecialPositionBox_2}", specInfo.SpecialPositionBox_2 ?? "");
+
+            // 發送至印表機
+            await SendToPrinterAsync(printerServer, zpl);
         }
     }
 }
