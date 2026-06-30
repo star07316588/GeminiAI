@@ -57,6 +57,7 @@ namespace MES.Net.Shared.DTOs.Print
         public string MfgTicNo { get; set; }
         public string WaferId { get; set; }
         public string FabLotId { get; set; }
+        public string FgIpn { get; set; } 
     }
 
     public class InklessMergeItem
@@ -498,7 +499,6 @@ namespace MES.Net.Infrastructure.Repository.Print
         // 2. 獲取 WS_SMALL_LABEL 缺少的屬性資料
         public async Task<WsSmallLabelDbData> GetWsSmallLabelDataAsync(string lotNo)
         {
-            // 將原本 VB6 裡面的 gsCAT_TBL_LOT_INFO 等常數換成實體的 Table 與 Column
             string sql = @"
                 SELECT 
                     A.HOTLOTFLAG AS HotLotFlag, 
@@ -506,7 +506,8 @@ namespace MES.Net.Infrastructure.Repository.Print
                     B.SAPRWNO AS SapRwNo, 
                     B.MFGTICNO AS MfgTicNo, 
                     B.WAFERID AS WaferId, 
-                    B.FABLOTID AS FabLotId
+                    B.FABLOTID AS FabLotId,
+                    B.FG_IPN AS FgIpn
                 FROM TBL_LOT_ATTRIBUTE A
                 INNER JOIN TBL_LOT_INFO B ON A.LOT_ID = B.LOT_ID
                 WHERE A.LOT_ID = :p_LotNo";
