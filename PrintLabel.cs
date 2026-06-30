@@ -112,6 +112,22 @@ namespace MES.Net.Shared.DTOs.Print
         public string LotId { get; set; }
         public string Pcs { get; set; }
     }
+
+    // 彙總後的 IPN 與數量模型
+    public class VirtualLotAggregateData
+    {
+        public string Ipn { get; set; }
+        public string WQty { get; set; }
+        public string CQty { get; set; }
+    }
+
+    // 虛擬批 Slot 槽位模型
+    public class VirtualMergeSlotData
+    {
+        public string SlotNo { get; set; }
+        public string LotId { get; set; }
+        public string Pcs { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -675,6 +691,41 @@ namespace MES.Net.Infrastructure.Repository.Print
                 WHERE a.DELETEFLAG = 'N' AND a.VIRTUALLOTID = :p_LotId 
                 ORDER BY a.LOTID";
             return await _dbConnection.QueryAsync<VirtualMergeLotData>(sql, new { p_LotId = virtualLotId });
+        }
+
+        // 1. (2022 Phase II) 取得聚合後的 IPN 與數量
+        public async Task<VirtualLotAggregateData> GetVirtualLotAggregateDataAsync(string virtualLotId)
+        {
+            string sql = @"
+                SELECT 
+                    tla.IPN AS Ipn, 
+                    SUM(tla.WAFERQTY) AS WQty, 
+                    SUM(tla.CHIPQTY) AS CQty 
+                FROM (
+                    SELECT DISTINCT VIRTUALLOTID, LOTID 
+                    FROM TBL_VIRTUAL_MERGE 
+                    WHERE DELETEFLAG = 'N' AND VIRTUALLOTID = :p_VirtualLotId
+                ) a 
+                INNER JOIN TBL_LOT_ATTRIBUTE tla ON a.LOTID = tla.LOTID 
+                GROUP BY tla.IPN";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<VirtualLotAggregateData>(sql, new { p_VirtualLotId = virtualLotId });
+        }
+
+        // 2. 取得虛擬批內的實體批號與槽位資訊
+        public async Task<IEnumerable<VirtualMergeSlotData>> GetVirtualMergeSlotInfoAsync(string virtualLotId)
+        {
+            string sql = @"
+                SELECT 
+                    a.SLOTNO AS SlotNo, 
+                    a.LOTID AS LotId, 
+                    fun_splitlen(tli.WAFERID, ';') AS Pcs  
+                FROM TBL_VIRTUAL_MERGE a 
+                INNER JOIN TBL_LOT_INFO tli ON a.LOTID = tli.LOT_ID 
+                WHERE a.DELETEFLAG = 'N' AND a.VIRTUALLOTID = :p_VirtualLotId 
+                ORDER BY a.SLOTNO";
+
+            return await _dbConnection.QueryAsync<VirtualMergeSlotData>(sql, new { p_VirtualLotId = virtualLotId });
         }
     }
 }
@@ -1265,6 +1316,41 @@ namespace MES.Net.Infrastructure.Printing
 ^FO30,318^A0N,48.36^CI0^FR^FDID# :^FS
 {DynamicLotListBlock}
 ^XZ";
+
+        // 💡 1. FT_TR_LABEL (2022 年新增的 T&R 標籤)
+        public static readonly string FT_TR_LABEL = @"
+^XA^LL440^LH0,0^FS
+^FO40,40^A0N,37,33^FH\^FDLOTID:{LotId}^FS
+^BY2,3.0^FO 40,75^BCN,56,N,Y,N^FR^FD>:{LotId}^FS
+^FO40,180^A0N,37,33^FH\^FDQty/Reel:{QtyReel}^FS
+^FO40,220^A0N,37,33^FH\^FDEQID:{EqID}^FS
+^FO320,220^A0N,37,33^FH\^FDReel ID:{ReelId}^FS
+^FO40,140^A0N,37,33^FH\^FDIPN Info:{IPN}^FS
+^PQ1,0,1,Y^XZ";
+
+        // 💡 2. WS_CP_VIRTUAL_LOT_LABEL (Phase II 改版的 1980 長條標籤)
+        public static readonly string WS_CP_VIRTUAL_LOT_LABEL = @"
+^XA^LH0,0^FS^LL1980^MD0^MNY
+{TitleBlock}
+^FO30,102^A0N,48.36^CI0^FR^FDProdBody : {ProdBody}^FS
+^FO405,102^A0N,48.36^CI0^FR^FDProdLevel : {WaferLevel}^FS
+^FO30,174^A0N,48.36^CI0^FR^FDWaferQty : {WQty}^FS
+^BY2,2.0^FO405,174^B3N,N,60,N,N^FD{WQty}^FS
+^FO30,246^A0N,48.36^CI0^FR^FDChipQty : {CQty}^FS
+^BY2,2.0^FO405,246^B3N,N,60,N,N^FD{CQty}^FS
+^FO30,318^A0N,48.36^CI0^FR^FDID# :^FS
+{DynamicListBlock}
+^XZ";
+
+        // 虛擬併批：印出清單模式的 Title
+        public static readonly string VIRTUAL_TITLE_LIST_MODE = @"
+^FO30,25^A0N,48.36^CI0^FR^FDVitualLotId : {LotNo}^FS
+^BY2,2.0^FO540,30^B3N,N,60,N,N^FD{LotNo}^FS";
+
+        // 虛擬併批：印出 Slot 模式的 Title
+        public static readonly string VIRTUAL_TITLE_SLOT_MODE = @"
+^FO20,25^A0N,32.24^CI0^FR^FDVLotId:{LotNo}^FS
+^BY2,2.0^FO270,20^BAN,40,N,N,N^FD{LotNo}^FS";
         
 }
 using System.Threading.Tasks;
@@ -2195,6 +2281,90 @@ namespace MES.Net.Application.Services.Print
                      .Replace("{WaferNo1}", waferNo1)
                      .Replace("{WaferNo2}", waferNo2)
                      .Replace("{WaferNo3}", waferNo3);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+        /// <summary>
+        /// 1. 翻寫 Prt_FT_TR_LABEL (Tape & Reel 簡單標籤)
+        /// </summary>
+        public async Task Prt_FT_TR_LABEL_Async(string lotId, string ipn, string qtyReel, string eqId, string reelId, string printerServer)
+        {
+            string zpl = ZplTemplates.FT_TR_LABEL
+                .Replace("{LotId}", lotId)
+                .Replace("{IPN}", ipn)
+                .Replace("{QtyReel}", qtyReel)
+                .Replace("{EqID}", eqId)
+                .Replace("{ReelId}", reelId);
+
+            await SendToPrinterAsync(printerServer, zpl);
+        }
+
+        /// <summary>
+        /// 2. 翻寫 Prt_WS_CP_VIRTUAL_LOT_LABEL (Phase II 虛擬併批長條標籤)
+        /// </summary>
+        public async Task Prt_WS_CP_VIRTUAL_LOT_LABEL_Async(string virtualLotNo, string printerServer, bool bPrintLotList = false)
+        {
+            // (1) 取得彙總資料 (取代傳入的 IPN、WQty、CQty)
+            var aggData = await _repo.GetVirtualLotAggregateDataAsync(virtualLotNo);
+            if (aggData == null) return; // 若查無資料即終止
+
+            // (2) 取得 IPN 基本資料以計算 ProdBody 與 WaferLevel
+            var ipnData = await _repo.GetIpnWaferLevelDataAsync(aggData.Ipn) ?? new IpnWaferLevelData();
+            string prodBody = aggData.Ipn.Length >= 4 ? aggData.Ipn.Substring(0, 4) : aggData.Ipn;
+
+            // (3) 取得 Slot 清單資料
+            var slotList = (await _repo.GetVirtualMergeSlotInfoAsync(virtualLotNo)).ToList();
+
+            string titleBlock = bPrintLotList ? ZplTemplates.VIRTUAL_TITLE_LIST_MODE : ZplTemplates.VIRTUAL_TITLE_SLOT_MODE;
+            var sbDynamicBlock = new StringBuilder();
+
+            // (4) 根據列印模式決定排版內容
+            if (bPrintLotList)
+            {
+                // 模式 A：印出所有的 LotId 與片數 (Y 座標從 480 開始，每次 +60)
+                int currentY = 480;
+                int listIndex = 1;
+
+                foreach (var item in slotList)
+                {
+                    sbDynamicBlock.AppendLine($"^FO30,{currentY}^A0N,48.36^CI0^FR^FDLotId{listIndex:D2} : {item.LotId}   {item.Pcs} pc^FS");
+                    sbDynamicBlock.AppendLine($"^BY2,2.0^FO624,{currentY}^B3N,N,48,N,N^FD{item.LotId}^FS");
+                    currentY += 60;
+                    listIndex++;
+                }
+            }
+            else
+            {
+                // 模式 B：印出 Slot 槽位 1~25，切分為兩行 (1~13, 14~25)
+                // 取得有佔用的 SlotNo 清單 (過濾掉無法轉數字的異常值)
+                var validSlots = slotList
+                    .Where(x => !string.IsNullOrEmpty(x.SlotNo))
+                    .Select(x => int.TryParse(x.SlotNo, out int s) ? s : 0)
+                    .ToList();
+
+                var list1 = new List<string>(); // 1~13
+                var list2 = new List<string>(); // 14~25
+
+                for (int i = 1; i <= 25; i++)
+                {
+                    string slotStr = validSlots.Contains(i) ? i.ToString("D2") : "__";
+                    if (i <= 13) list1.Add(slotStr);
+                    else list2.Add(slotStr);
+                }
+
+                sbDynamicBlock.AppendLine($"^FO136,318^A0N,48.36^CI0^FR^FD{string.Join(",", list1)}^FS");
+                sbDynamicBlock.AppendLine($"^FO136,378^A0N,48.36^CI0^FR^FD{string.Join(",", list2)}^FS");
+            }
+
+            // (5) 替換變數並發送 ZPL
+            string zpl = ZplTemplates.WS_CP_VIRTUAL_LOT_LABEL
+                .Replace("{TitleBlock}", titleBlock)
+                .Replace("{DynamicListBlock}", sbDynamicBlock.ToString())
+                .Replace("{LotNo}", virtualLotNo)
+                .Replace("{ProdBody}", prodBody)
+                .Replace("{WaferLevel}", ipnData.WaferLevel ?? "")
+                .Replace("{WQty}", aggData.WQty ?? "0")
+                .Replace("{CQty}", aggData.CQty ?? "0");
 
             await SendToPrinterAsync(printerServer, zpl);
         }
