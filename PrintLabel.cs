@@ -892,6 +892,96 @@ namespace MES.Net.Infrastructure.Repository.Print
             var result = await _dbConnection.QueryAsync(sql, new { p_LotId = lotId });
             return result.ToDictionary(row => (string)row.COMP_ID, row => (string)row.CHIP_QTY);
         }
+        // 1. 查詢 FT_LOT_INFO 的巨型 Join
+        public async Task<FtLotInfoDbData> GetFtLotInfoDataAsync(string lotId)
+        {
+            string sql = @"
+                SELECT 
+                    a.VENDORCODE AS VendorCode, b.IPN AS LotIpn, b.CHIPQTY AS CQty, b.ROUTE AS RouteId, 
+                    b.LOTOWNER AS LotOwner, b.DATECODE AS DateCode, c.CARGRADEFLAG AS IpnCarGradeFlag, 
+                    e.PROD_LINE AS IpnProdLine, c.CARRIER_TYPE AS CarrierType, c.EXTRAROMFLAG AS ExtraRomFlag, 
+                    c.BRAND AS Brand, c.ICDRAWING AS IcDrawing, c.MARKING_SPEC_NO AS MarkingSpecNo, 
+                    DECODE(c.GPTYPE, NULL, NULL, 'XX', 'N', 'Y') AS IpnGreen, c.CHECKSUM AS IpnCsum, 
+                    DECODE(d.CUSTOMER_NO, '0000010750', 'Y', 'N') AS NFlag 
+                FROM TBL_LOT_INFO a
+                INNER JOIN TBL_LOT_ATTRIBUTE b ON a.LOT_ID = b.LOTID
+                LEFT JOIN TBL_IPN_MASTER c ON b.IPN = c.IPN
+                LEFT JOIN TBL_PRM_BE_SPEC d ON c.IPN = d.IPN AND d.DEFAULTS = 'Y'
+                LEFT JOIN TBL_PROD_BODY e ON SUBSTR(b.IPN, 1, 4) = e.PROD_BODY
+                WHERE a.LOT_ID = :p_LotId AND ROWNUM = 1";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<FtLotInfoDbData>(sql, new { p_LotId = lotId });
+        }
+
+        // 2. 查詢 FT_SMALL_LABEL 的關聯資料
+        public async Task<FtSmallLabelDbData> GetFtSmallLabelDataAsync(string lotId, string ipn)
+        {
+            var data = new FtSmallLabelDbData();
+
+            // 查 Customer 與 初步的 Green (IPN)
+            string sqlCust = @"
+                SELECT cm.CUSTOMERNAME AS Customer, pbs.IPN AS Green 
+                FROM TBL_LOT_ATTRIBUTE la
+                INNER JOIN TBL_PRM_BACKEND_SPEC pbs ON la.IPN = pbs.IPN
+                INNER JOIN TBL_CUSTOMER_MASTER cm ON pbs.CUSTOMERNO = cm.CUSTOMERNO
+                WHERE pbs.DEFAULTS = 'Y' AND la.LOTID = :p_LotId AND ROWNUM = 1";
+            var custResult = await _dbConnection.QueryFirstOrDefaultAsync<FtSmallLabelDbData>(sqlCust, new { p_LotId = lotId });
+            
+            if (custResult != null)
+            {
+                data.Customer = custResult.Customer;
+                data.Green = custResult.Green; // 這裡被當作查 IPN Master 的 Key
+            }
+
+            // 查 Location
+            string sqlLoc = @"
+                SELECT tsl.LOCATION AS Location 
+                FROM TBL_STEP_LOCATION tsl
+                INNER JOIN TBL_LOT_ATTRIBUTE tlatt ON tsl.STEPID = tlatt.STEPID 
+                WHERE tlatt.LOTID = :p_LotId AND ROWNUM = 1";
+            data.Location = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlLoc, new { p_LotId = lotId });
+
+            // 查 IPN_MASTER 詳細屬性
+            if (!string.IsNullOrEmpty(data.Green))
+            {
+                string sqlIpn = @"
+                    SELECT 
+                        CHECKSUM AS Csum, GPTYPE AS GPType, CARGRADEFLAG AS CarGradeFlag, FUSA AS FuSa,
+                        PRODBODY AS ProdBody, PINCOUNT AS PinCount, PACKAGE_CODE AS PackageCode, BODY_SIZE AS BodySize
+                    FROM TBL_IPN_MASTER WHERE IPN = :p_Ipn";
+                var ipnResult = await _dbConnection.QueryFirstOrDefaultAsync<FtSmallLabelDbData>(sqlIpn, new { p_Ipn = data.Green });
+                
+                if (ipnResult != null)
+                {
+                    data.Csum = ipnResult.Csum;
+                    data.GPType = ipnResult.GPType;
+                    data.CarGradeFlag = ipnResult.CarGradeFlag;
+                    data.FuSa = ipnResult.FuSa;
+                    data.ProdBody = ipnResult.ProdBody;
+                    data.PinCount = ipnResult.PinCount;
+                    data.PackageCode = ipnResult.PackageCode;
+                    data.BodySize = ipnResult.BodySize;
+                }
+            }
+
+            // 查 ProdLine
+            string sqlLine = "SELECT PROD_LINE AS ProdLine FROM TBL_PROD_BODY WHERE PROD_BODY = SUBSTR(:p_Ipn, 1, 4)";
+            data.ProdLine = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlLine, new { p_Ipn = ipn });
+
+            return data;
+        }
+
+        // 3. 查詢 WS_SUMMARY 的 Component List (取代 oFwWIP.LotById(sLotID).Components)
+        public async Task<Dictionary<string, string>> GetLotComponentsAsync(string lotId)
+        {
+            string sql = @"
+                SELECT COMP_ID, CHIP_QTY 
+                FROM TBL_COMP_ATTRIBUTE 
+                WHERE LOTID = :p_LotId AND STATUS <> 'Scrapped'"; // 替換為貴廠的實際 Schema
+            
+            var result = await _dbConnection.QueryAsync(sql, new { p_LotId = lotId });
+            return result.ToDictionary(row => (string)row.COMP_ID, row => (string)row.CHIP_QTY);
+        }
     }
 }
 
