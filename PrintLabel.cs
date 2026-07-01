@@ -26,27 +26,64 @@ namespace MES.Net.Shared.DTOs.Print
         public string PrinterServer { get; set; }
     }
 
-    // 點擊 Print 按鈕時的完整請求物件 (對應前端的 payload)
+    /// <summary>
+    /// 點擊 Print 按鈕時的完整請求物件 (對應前端的 payload 以及後端 Master Dispatcher)
+    /// </summary>
     public class PrintLabelRequest
     {
+        // ==========================================
+        // 1. 基礎列印條件 (Main Settings)
+        // ==========================================
         public string Stage { get; set; }
         public string LabelType { get; set; }
         public string LabelFormat { get; set; }
-        public string LotId { get; set; }           // 對應前端的 labelData
-        public string PrintMode { get; set; }
+        public string LotId { get; set; }           // 對應畫面的 Label Data 或主批號
+        public string IPN { get; set; }             // 產品料號 (通常在前端輸入 LotId 後帶出，或後端補查)
+        public string PrintMode { get; set; }       // Normal, Reprint, Modify
+
+        // ==========================================
+        // 2. 印表機與數量設定 (Printer & Qty)
+        // ==========================================
         public string PrinterServer { get; set; }
         public string Printer { get; set; }
-        public int BoxQty { get; set; }
-        public int PrintQty { get; set; }
-        
-        public string ReprintType { get; set; }
+        public int BoxQty { get; set; }             // 每箱數量 (取代 VB6 的 frmBoxQty 彈窗)
+        public int PrintQty { get; set; }           // 列印份數 (對應某些固定印 1 張或自訂張數的標籤)
+
+        // ==========================================
+        // 3. 數量與站點資訊 (Lot Info)
+        // ==========================================
+        public string WQty { get; set; }            // Wafer 數量 (Wafer Pcs)
+        public string CQty { get; set; }            // Chip 數量 (Quantity EA)
+        public string LotOwner { get; set; }        // 批號擁有者
+        public string RouteId { get; set; }         // 流程代碼
+
+        // ==========================================
+        // 4. Reprint 補印模式專用條件
+        // ==========================================
+        public string ReprintType { get; set; }     // LastLabel 或 SearchData
         public string SearchData { get; set; }
 
+        // ==========================================
+        // 5. Label Pack Info (包裝規格連動選單)
+        // ==========================================
         public string CarrierType { get; set; }
         public string BoxingSpecNo { get; set; }
         public string Brand { get; set; }
         public string PinCount { get; set; }
-        public string UserId { get; set; }
+        public string PackageCode { get; set; }     // 封裝代碼
+
+        // ==========================================
+        // 6. 特殊標籤外部傳入參數 (Optional)
+        // ==========================================
+        public string WaferId { get; set; }         // 外部指定 WaferID (例如 CP_SMALL_LABEL)
+        public string FabLotId { get; set; }        // 外部指定 FabLotId
+        public string OriLotID { get; set; }        // 原始母批批號 (用於併批/降級標籤)
+        public List<string> WSMCDInfoList { get; set; } // WSMCD 併批清單 (格式: "ChildLot;IPN;Code;Qty")
+
+        // ==========================================
+        // 7. 系統/使用者資訊
+        // ==========================================
+        public string UserId { get; set; }          // 登入者工號
     }
     // 定義回傳 WS_SMALL_LABEL 所需額外資料的 DTO
     public class WsSmallLabelDbData
