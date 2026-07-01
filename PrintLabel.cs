@@ -1807,7 +1807,7 @@ namespace MES.Net.Application.Services.Print
         /// 3. 翻寫 Prt_FT_FT_SMALL_LABEL (複雜邏輯排版選擇)
         /// </summary>
         public async Task Prt_FT_FT_SMALL_LABEL_Async(
-            string lotNo, string prodNo, string cQty, string owner, string routeId, string customer, 
+            string lotNo, string prodNo, string wQty, string cQty, string owner, string routeId, string customer, 
             string cSum, string green, string printerServer, 
             string carGradeFlag = "", string prodLine = "", string oriLotID = "", string fuSa = "", string location = "")
         {
@@ -1827,9 +1827,10 @@ namespace MES.Net.Application.Services.Print
                     : ZplTemplates.FT_SMALL_LABEL_NonFT_NoOriLot;
             }
 
-            // 執行變數替換 (因為模板裡的變數名稱一致，我們直接一口氣 Replace 全部可能出現的變數)
+            // 執行變數替換
             zpl = zpl.Replace("{LotNo}", lotNo)
                      .Replace("{ProdNo}", prodNo)
+                     .Replace("{WQty}", wQty)   // 💡 雖然 ZPL 模板裡目前沒用到，但預防未來擴充，我們一樣加上替換邏輯
                      .Replace("{CQty}", cQty)
                      .Replace("{Owner}", owner)
                      .Replace("{RouteId}", routeId)
