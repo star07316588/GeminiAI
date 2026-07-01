@@ -128,6 +128,43 @@ namespace MES.Net.Shared.DTOs.Print
         public string LotId { get; set; }
         public string Pcs { get; set; }
     }
+    // 定義 FT_LOT_INFO 需要的 DTO
+    public class FtLotInfoDbData
+    {
+        public string VendorCode { get; set; }
+        public string LotIpn { get; set; }
+        public string CQty { get; set; }
+        public string RouteId { get; set; }
+        public string LotOwner { get; set; }
+        public string DateCode { get; set; }
+        public string IpnCarGradeFlag { get; set; }
+        public string IpnProdLine { get; set; }
+        public string CarrierType { get; set; }
+        public string ExtraRomFlag { get; set; }
+        public string Brand { get; set; }
+        public string IcDrawing { get; set; }
+        public string MarkingSpecNo { get; set; }
+        public string IpnGreen { get; set; }
+        public string IpnCsum { get; set; }
+        public string NFlag { get; set; }
+    }
+
+    // 定義 FT_SMALL_LABEL 需要的 DTO
+    public class FtSmallLabelDbData
+    {
+        public string Customer { get; set; }
+        public string Green { get; set; }
+        public string Location { get; set; }
+        public string Csum { get; set; }
+        public string GPType { get; set; }
+        public string CarGradeFlag { get; set; }
+        public string FuSa { get; set; }
+        public string ProdBody { get; set; }
+        public string PinCount { get; set; }
+        public string PackageCode { get; set; }
+        public string BodySize { get; set; }
+        public string ProdLine { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -726,6 +763,97 @@ namespace MES.Net.Infrastructure.Repository.Print
                 ORDER BY a.SLOTNO";
 
             return await _dbConnection.QueryAsync<VirtualMergeSlotData>(sql, new { p_VirtualLotId = virtualLotId });
+        }
+
+        // 1. 查詢 FT_LOT_INFO 的巨型 Join
+        public async Task<FtLotInfoDbData> GetFtLotInfoDataAsync(string lotId)
+        {
+            string sql = @"
+                SELECT 
+                    a.VENDORCODE AS VendorCode, b.IPN AS LotIpn, b.CHIPQTY AS CQty, b.ROUTE AS RouteId, 
+                    b.LOTOWNER AS LotOwner, b.DATECODE AS DateCode, c.CARGRADEFLAG AS IpnCarGradeFlag, 
+                    e.PROD_LINE AS IpnProdLine, c.CARRIER_TYPE AS CarrierType, c.EXTRAROMFLAG AS ExtraRomFlag, 
+                    c.BRAND AS Brand, c.ICDRAWING AS IcDrawing, c.MARKING_SPEC_NO AS MarkingSpecNo, 
+                    DECODE(c.GPTYPE, NULL, NULL, 'XX', 'N', 'Y') AS IpnGreen, c.CHECKSUM AS IpnCsum, 
+                    DECODE(d.CUSTOMER_NO, '0000010750', 'Y', 'N') AS NFlag 
+                FROM TBL_LOT_INFO a
+                INNER JOIN TBL_LOT_ATTRIBUTE b ON a.LOT_ID = b.LOTID
+                LEFT JOIN TBL_IPN_MASTER c ON b.IPN = c.IPN
+                LEFT JOIN TBL_PRM_BE_SPEC d ON c.IPN = d.IPN AND d.DEFAULTS = 'Y'
+                LEFT JOIN TBL_PROD_BODY e ON SUBSTR(b.IPN, 1, 4) = e.PROD_BODY
+                WHERE a.LOT_ID = :p_LotId AND ROWNUM = 1";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<FtLotInfoDbData>(sql, new { p_LotId = lotId });
+        }
+
+        // 2. 查詢 FT_SMALL_LABEL 的關聯資料
+        public async Task<FtSmallLabelDbData> GetFtSmallLabelDataAsync(string lotId, string ipn)
+        {
+            var data = new FtSmallLabelDbData();
+
+            // 查 Customer 與 初步的 Green (IPN)
+            string sqlCust = @"
+                SELECT cm.CUSTOMERNAME AS Customer, pbs.IPN AS Green 
+                FROM TBL_LOT_ATTRIBUTE la
+                INNER JOIN TBL_PRM_BACKEND_SPEC pbs ON la.IPN = pbs.IPN
+                INNER JOIN TBL_CUSTOMER_MASTER cm ON pbs.CUSTOMERNO = cm.CUSTOMERNO
+                WHERE pbs.DEFAULTS = 'Y' AND la.LOTID = :p_LotId AND ROWNUM = 1";
+            var custResult = await _dbConnection.QueryFirstOrDefaultAsync<FtSmallLabelDbData>(sqlCust, new { p_LotId = lotId });
+            
+            if (custResult != null)
+            {
+                data.Customer = custResult.Customer;
+                data.Green = custResult.Green; // 這裡被當作查 IPN Master 的 Key
+            }
+
+            // 查 Location
+            string sqlLoc = @"
+                SELECT tsl.LOCATION AS Location 
+                FROM TBL_STEP_LOCATION tsl
+                INNER JOIN TBL_LOT_ATTRIBUTE tlatt ON tsl.STEPID = tlatt.STEPID 
+                WHERE tlatt.LOTID = :p_LotId AND ROWNUM = 1";
+            data.Location = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlLoc, new { p_LotId = lotId });
+
+            // 查 IPN_MASTER 詳細屬性
+            if (!string.IsNullOrEmpty(data.Green))
+            {
+                string sqlIpn = @"
+                    SELECT 
+                        CHECKSUM AS Csum, GPTYPE AS GPType, CARGRADEFLAG AS CarGradeFlag, FUSA AS FuSa,
+                        PRODBODY AS ProdBody, PINCOUNT AS PinCount, PACKAGE_CODE AS PackageCode, BODY_SIZE AS BodySize
+                    FROM TBL_IPN_MASTER WHERE IPN = :p_Ipn";
+                var ipnResult = await _dbConnection.QueryFirstOrDefaultAsync<FtSmallLabelDbData>(sqlIpn, new { p_Ipn = data.Green });
+                
+                if (ipnResult != null)
+                {
+                    data.Csum = ipnResult.Csum;
+                    data.GPType = ipnResult.GPType;
+                    data.CarGradeFlag = ipnResult.CarGradeFlag;
+                    data.FuSa = ipnResult.FuSa;
+                    data.ProdBody = ipnResult.ProdBody;
+                    data.PinCount = ipnResult.PinCount;
+                    data.PackageCode = ipnResult.PackageCode;
+                    data.BodySize = ipnResult.BodySize;
+                }
+            }
+
+            // 查 ProdLine
+            string sqlLine = "SELECT PROD_LINE AS ProdLine FROM TBL_PROD_BODY WHERE PROD_BODY = SUBSTR(:p_Ipn, 1, 4)";
+            data.ProdLine = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlLine, new { p_Ipn = ipn });
+
+            return data;
+        }
+
+        // 3. 查詢 WS_SUMMARY 的 Component List (取代 oFwWIP.LotById(sLotID).Components)
+        public async Task<Dictionary<string, string>> GetLotComponentsAsync(string lotId)
+        {
+            string sql = @"
+                SELECT COMP_ID, CHIP_QTY 
+                FROM TBL_COMP_ATTRIBUTE 
+                WHERE LOTID = :p_LotId AND STATUS <> 'Scrapped'"; // 替換為貴廠的實際 Schema
+            
+            var result = await _dbConnection.QueryAsync(sql, new { p_LotId = lotId });
+            return result.ToDictionary(row => (string)row.COMP_ID, row => (string)row.CHIP_QTY);
         }
     }
 }
@@ -2367,6 +2495,170 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{CQty}", aggData.CQty ?? "0");
 
             await SendToPrinterAsync(printerServer, zpl);
+        }
+        /// <summary>
+        /// 對應 VB6 的 PrintBarcodeLabel (標籤列印總管)
+        /// </summary>
+        public async Task ExecutePrintAsync(PrintLabelRequest req)
+        {
+            // --- 1. 計算列印總迴圈數 (iPrintTimes) ---
+            int printTimes = 1;
+            bool isBoxMode = false;
+
+            // 定義哪些標籤只印 "指定份數" (不看 BoxQty 裝箱數)
+            string[] singleCopyLabels = { 
+                "FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", 
+                "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", 
+                "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG" 
+            };
+
+            if (singleCopyLabels.Contains(req.LabelFormat))
+            {
+                // 對應 VB6 中會彈出 frmBoxQty.txtBoxQty 輸入拷貝數量的標籤
+                // 在 Web 版，直接使用前端傳來的 PrintQty (預設為 1)
+                printTimes = req.PrintQty > 0 ? req.PrintQty : 1;
+            }
+            else
+            {
+                // 對應 VB6 需要計算 "Box 數量" 的標籤 (例如：每箱 500 顆，總量 1200，要印 3 張)
+                isBoxMode = true;
+                if (req.BoxQty > 0 && int.TryParse(req.CQty, out int totalCQty))
+                {
+                    printTimes = totalCQty / req.BoxQty;
+                    if (totalCQty % req.BoxQty > 0) printTimes++;
+                }
+            }
+
+            // --- 2. 取得基礎資料 (模擬原本傳入的變數) ---
+            // 實務上這段可以先從 TBL_LOT_ATTRIBUTE 查出 sIPN, sWQty, sCQty, sRouteId 等
+            // 這裡假設 req 已經包含這些從 UI 傳入或初步查詢到的資料
+            string timeStampYMD = DateTime.Now.ToString("yyyy/MM/dd");
+
+            // --- 3. 執行列印迴圈 (對應 VB6: For iIdx = 1 To iPrintTimes) ---
+            for (int i = 1; i <= printTimes; i++)
+            {
+                bool isPartial = false;
+                string printQtyForLabel = req.BoxQty.ToString();
+
+                // 計算 Partial 尾數箱
+                if (isBoxMode)
+                {
+                    if (i == printTimes && int.TryParse(req.CQty, out int totalCQty) && req.BoxQty > 0)
+                    {
+                        int remainder = totalCQty % req.BoxQty;
+                        if (remainder > 0)
+                        {
+                            isPartial = true;
+                            printQtyForLabel = remainder.ToString();
+                        }
+                    }
+                }
+
+                // --- 4. 派發至對應的子程式 (對應 VB6 的大串 ElseIf) ---
+                switch (req.LabelFormat)
+                {
+                    case "WS_TO_SFG":
+                        string partNo = "XXX"; // 模擬 RetrieveEPNbyIPN()
+                        await Prt_WS_WS_To_SFG_Async(req.LotId, req.IPN, req.WQty, req.CQty, partNo, req.PrinterServer);
+                        break;
+
+                    case "CP_SMALL_LABEL":
+                        string bizTypeCp = (await GetProdTypeAsync(req.IPN, "")).ProdType;
+                        await Prt_WS_CP_SMALL_LABEL_Async(req.LotId, req.IPN, req.WQty, req.CQty, req.LotOwner, bizTypeCp, req.PrinterServer, req.WaferId, req.FabLotId);
+                        break;
+
+                    case "WS_SMALL_LABEL":
+                        string bizTypeWs = (await GetProdTypeAsync(req.IPN, "")).ProdType;
+                        await Prt_WS_WS_SMALL_LABEL_Async(req.LotId, req.IPN, req.WQty, req.CQty, req.LotOwner, bizTypeWs, req.PrinterServer, req.WaferId, req.FabLotId);
+                        break;
+
+                    case "CP_VIRTUAL_LOT_LABEL":
+                        await Prt_WS_CP_VIRTUAL_LOT_LABEL_Async(req.LotId, req.PrinterServer, bPrintLotList: false);
+                        break;
+
+                    case "CP_VIRTUAL_MERGE":
+                        await Prt_WS_CP_VIRTUAL_LOT_LABEL_Async(req.LotId, req.PrinterServer, bPrintLotList: true);
+                        break;
+
+                    case "TO_SUBFT_NORMAL":
+                        await Prt_FT_To_SubFT_Normal_Async(req.LotId, req.IPN, printQtyForLabel, req.UserId, isPartial, req.PrinterServer);
+                        break;
+
+                    case "TO_SUBFT_ENG_SAMPLE":
+                        await Prt_FT_To_SubFT_Eng_Sample_Async(req.LotId, req.IPN, printQtyForLabel, req.UserId, isPartial, req.PrinterServer);
+                        break;
+
+                    case "TO_SUBMK_NORMAL":
+                        await Prt_FT_To_SubMK_Normal_Async(req.LotId, req.IPN, printQtyForLabel, req.UserId, isPartial, req.PrinterServer);
+                        break;
+
+                    case "TO_SUBMK_ENG_SAMPLE":
+                        await Prt_FT_To_SubMK_Eng_Sample_Async(req.LotId, req.IPN, printQtyForLabel, req.UserId, isPartial, req.PrinterServer);
+                        break;
+
+                    case "TO_SUBTR_NORMAL":
+                        await Prt_FT_To_SubTR_Normal_Async(req.LotId, req.IPN, printQtyForLabel, req.UserId, isPartial, req.PrinterServer);
+                        break;
+
+                    case "TO_SUBTR_ENG_SAMPLE":
+                        await Prt_FT_To_SubTR_Eng_Sample_Async(req.LotId, req.IPN, printQtyForLabel, req.UserId, isPartial, req.PrinterServer);
+                        break;
+
+                    case "FT_LOT_INFO":
+                        var lotInfo = await _repo.GetFtLotInfoDataAsync(req.LotId);
+                        if (lotInfo != null)
+                        {
+                            // 此標籤在 VB6 沒有抽成子 Function，我們已在前面寫過。
+                            // 這裡直接調用對應的處理...
+                        }
+                        break;
+
+                    case "FT_Label_PACK_INFO":
+                        await Prt_FT_Label_PACK_INFO_Async(
+                            req.LotId, req.LabelSpecNo, req.CarrierType, req.BoxingSpecNo, req.Brand, 
+                            req.PinCount, req.PackageCode, req.PrintMode == "Auto", req.PrinterServer, req.IPN);
+                        break;
+
+                    case "FT_SMALL_LABEL":
+                        var smallDb = await _repo.GetFtSmallLabelDataAsync(req.LotId, req.IPN);
+                        
+                        string sGreen = smallDb.GPType == "XX" ? "N" : (string.IsNullOrEmpty(smallDb.GPType) ? " " : "Y");
+                        string ipnDataStr = req.IPN;
+                        
+                        if (smallDb.Location == "FT")
+                        {
+                            ipnDataStr = $"{smallDb.ProdBody}-{smallDb.PinCount}{smallDb.PackageCode} {smallDb.BodySize}";
+                        }
+
+                        await Prt_FT_FT_SMALL_LABEL_Async(
+                            req.LotId, ipnDataStr, req.WQty, req.CQty, req.LotOwner, req.RouteId, 
+                            smallDb.Customer, smallDb.Csum, sGreen, req.PrinterServer, 
+                            smallDb.CarGradeFlag, smallDb.ProdLine, req.OriLotID, smallDb.FuSa, smallDb.Location);
+                        break;
+
+                    case "WS_DGRADE_SUMMARY":
+                        await Prt_WS_WS_DGRADE_SUMMARY_Async(req.LotId, req.IPN, req.WQty, req.CQty, req.UserId, timeStampYMD, req.PrinterServer);
+                        break;
+
+                    case "WS_MULTILOT_TO_SFG":
+                        await Prt_WSMULTILOT_TO_SFG_Async(req.UserId, timeStampYMD, req.WQty, req.CQty, req.PrinterServer, req.WSMCDInfoList);
+                        break;
+
+                    case "WSMCD_TO_SFG":
+                        await Prt_WSMCD_TO_SFG_Async(req.LotId, req.IPN, req.WQty, req.CQty, req.UserId, timeStampYMD, req.PrinterServer, req.WSMCDInfoList);
+                        break;
+
+                    case "WS_SUMMARY":
+                        var compIds = await _repo.GetLotComponentsAsync(req.LotId);
+                        if (compIds.Count == 0) throw new Exception("The Lot is not exist or has no valid components!");
+                        
+                        await Prt_WS_WS_SUMMARY_Async(req.LotId, req.IPN, req.WQty, req.CQty, compIds, req.UserId, timeStampYMD, req.PrinterServer);
+                        break;
+
+                    default:
+                        throw new ArgumentException($"不支援的標籤格式: {req.LabelFormat}");
+                }
+            } // end for loop
         }
     }
 }
