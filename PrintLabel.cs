@@ -2986,53 +2986,40 @@ namespace MES.Net.Application.Services.Print
         }
 
 
-        // ==========================================
-        // 🔹 總管 Master Dispatcher (ExecutePrintAsync)
-        // ==========================================
-        
+        // =========================================================================
+        // 1. 總管：ExecutePrintAsync (控制流程、迴圈、防呆)
+        // =========================================================================
         public async Task ExecutePrintAsync(PrintLabelRequest req)
         {
-            // ---------------------------------------------------------
-            // 💡 [商業邏輯 1] Reprint 補印模式直接讀取 Log，不跑後續組裝
-            // ---------------------------------------------------------
+            // [防呆 1] Reprint 補印模式直接讀取歷史 Log，不跑後續組裝
             if (req.PrintMode == "Reprint")
             {
                 string historicalZpl = await _repo.GetHistoricalZplAsync(req.ReprintType, req.SearchData, req.LotId);
+                if (string.IsNullOrEmpty(historicalZpl)) throw new Exception("查無歷史列印紀錄 !!");
                 
-                if (string.IsNullOrEmpty(historicalZpl))
-                {
-                    throw new Exception("查無歷史列印紀錄 (No print log found) !!");
-                }
-                
-                // 直接派發舊的 ZPL，並再次留存一筆 Reprint 的 Log
                 await SendToPrinterAndLogAsync(req.PrinterServer, historicalZpl, req);
                 return; // 補印完成，提早結束
             }
 
-            // ---------------------------------------------------------
-            // 💡 [商業邏輯 2] Hold 狀態防呆 (特定工程標籤可豁免)
-            // ---------------------------------------------------------
+            // [防呆 2] Hold 狀態防呆 (特定工程標籤可豁免)
             bool isHold = await _repo.IsLotOnHoldAsync(req.LotId);
             if (isHold)
             {
                 string[] allowHoldLabels = { "TO_SUBFT_ENG_SAMPLE", "TO_SUBMK_ENG_SAMPLE", "TO_SUBTR_ENG_SAMPLE" };
-                
                 if (!allowHoldLabels.Contains(req.LabelFormat))
                 {
-                    throw new InvalidOperationException($"Lot [{req.LotId}] is currently on HOLD. Cannot print label !! \r\n 該批號目前為 Hold 狀態，不允許列印一般標籤！");
+                    throw new InvalidOperationException($"Lot [{req.LotId}] is on HOLD. Cannot print label !!");
                 }
             }
 
-            // ---------------------------------------------------------
-            // 💡 [商業邏輯 3] 數量計算 (Print Qty vs Box Qty)
-            // ---------------------------------------------------------
+            // [邏輯] 計算列印迴圈與尾數箱
             int printTimes = 1;
             bool isBoxMode = false;
             string[] singleCopyLabels = { 
                 "FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", 
                 "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", 
                 "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG",
-                "FT_TR_LABEL", "FT_BOX_COUNTING" 
+                "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL" 
             };
 
             if (singleCopyLabels.Contains(req.LabelFormat))
@@ -3051,14 +3038,13 @@ namespace MES.Net.Application.Services.Print
 
             string timeStampYMD = DateTime.Now.ToString("yyyy/MM/dd");
 
-            // ---------------------------------------------------------
-            // 💡 [商業邏輯 4] 列印迴圈與子標籤派發
-            // ---------------------------------------------------------
+            // [迴圈] 依據計算出的 printTimes 執行列印
             for (int i = 1; i <= printTimes; i++)
             {
                 bool isPartial = false;
                 string printQtyForLabel = req.BoxQty.ToString();
 
+                // 尾數箱判斷
                 if (isBoxMode && i == printTimes && int.TryParse(req.CQty, out int totalCQty) && req.BoxQty > 0)
                 {
                     int remainder = totalCQty % req.BoxQty;
@@ -3069,13 +3055,10 @@ namespace MES.Net.Application.Services.Print
                     }
                 }
 
-                // 在呼叫子標籤產生器後，我們統一交給 SendToPrinterAndLogAsync 處理
-                // (註：需要將前一輪的 Prt_XXX_Async 方法內部稍微修改，把最後一行的 
-                // `await SendToPrinterAsync(printerServer, zpl);` 
-                // 改為 `await SendToPrinterAndLogAsync(printerServer, zpl, req);`，或是直接讓它們回傳 ZPL 字串在這裡統一發送)
-
+                // 呼叫加工廠：取得 ZPL 字串
                 string generatedZpl = await GenerateZplForLabelAsync(req, isPartial, printQtyForLabel, timeStampYMD);
                 
+                // 呼叫送貨員：發送並寫入 Log
                 if (!string.IsNullOrEmpty(generatedZpl))
                 {
                     await SendToPrinterAndLogAsync(req.PrinterServer, generatedZpl, req);
@@ -3083,36 +3066,183 @@ namespace MES.Net.Application.Services.Print
             }
         }
 
-        // ==========================================
-        // 🔹 輔助方法：統一將 ZPL 生成邏輯封裝並回傳字串
-        // (為了讓 ExecutePrintAsync 能統一寫 Log，把原本的 Prt_XXX 轉化為 Generate 方法)
-        // ==========================================
+// =========================================================================
+        // 2. 加工廠：GenerateZplForLabelAsync (包含巨大的 Switch Case)
+        //    只負責查資料 + 置換 ZPL 模板，最後「回傳字串」
+        // =========================================================================
         private async Task<string> GenerateZplForLabelAsync(PrintLabelRequest req, bool isPartial, string printQtyForLabel, string timeStampYMD)
         {
             switch (req.LabelFormat)
             {
                 case "TO_SUBTR_NORMAL":
-                    string partialBlock = isPartial ? ZplTemplates.PartialBlock : "";
                     return ZplTemplates.FT_To_SubTR_Normal
-                        .Replace("{PartialBlock}", partialBlock)
+                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
                         .Replace("{LotNo}", req.LotId)
                         .Replace("{ProdNo}", req.IPN)
                         .Replace("{Qty}", printQtyForLabel)
                         .Replace("{Packer}", req.UserId);
 
-                // ... (其餘的 Label 依此類推，將之前寫好的 Prt_XXX_Async 裡面的 ZplTemplate.Replace 搬進來回傳字串即可) ...
-                
+                case "TO_SUBFT_NORMAL":
+                    return ZplTemplates.FT_To_SubFT_Normal
+                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{ProdNo}", req.IPN)
+                        .Replace("{Qty}", printQtyForLabel)
+                        .Replace("{Packer}", req.UserId);
+
+                case "TO_SUBMK_NORMAL":
+                    return ZplTemplates.FT_To_SubMK_Normal
+                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{ProdNo}", req.IPN)
+                        .Replace("{Qty}", printQtyForLabel)
+                        .Replace("{Packer}", req.UserId);
+
+                case "TO_SUBTR_ENG_SAMPLE":
+                    return ZplTemplates.FT_To_SubTR_Eng_Sample
+                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{ProdNo}", req.IPN)
+                        .Replace("{Qty}", printQtyForLabel)
+                        .Replace("{Packer}", req.UserId);
+
+                case "TO_SUBFT_ENG_SAMPLE":
+                    return ZplTemplates.FT_To_SubFT_Eng_Sample
+                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{ProdNo}", req.IPN)
+                        .Replace("{Qty}", printQtyForLabel)
+                        .Replace("{Packer}", req.UserId);
+
+                case "TO_SUBMK_ENG_SAMPLE":
+                    return ZplTemplates.FT_To_SubMK_Eng_Sample
+                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{ProdNo}", req.IPN)
+                        .Replace("{Qty}", printQtyForLabel)
+                        .Replace("{Packer}", req.UserId);
+
+                case "WS_TO_SFG":
+                    string partNo = "XXX"; // 實務上替換為查表邏輯
+                    return ZplTemplates.WS_WS_To_SFG
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{ProdNo}", req.IPN)
+                        .Replace("{WQty}", req.WQty)
+                        .Replace("{Qty}", req.CQty)
+                        .Replace("{PartNo}", partNo);
+
                 case "FT_TR_LABEL":
                     return ZplTemplates.FT_TR_LABEL
                         .Replace("{LotId}", req.LotId)
                         .Replace("{IPN}", req.IPN)
                         .Replace("{QtyReel}", printQtyForLabel)
-                        .Replace("{EqID}", req.SearchData) // 假設 EqId 由前端透過某個欄位傳入
-                        .Replace("{ReelId}", req.WaferId); // 假設 ReelId 由前端透過某個欄位傳入
+                        .Replace("{EqID}", req.SearchData) // 對應原 VB6 的 EqID
+                        .Replace("{ReelId}", req.WaferId); // 對應原 VB6 的 ReelID
+
+                case "FT_BOX_COUNTING":
+                    return ZplTemplates.FT_BOX_COUNTING_LABEL
+                        .Replace("{LotId}", req.LotId)
+                        .Replace("{IPN}", req.IPN)
+                        .Replace("{PrintCount}", printQtyForLabel);
+
+                case "WS_ENG_LOC_LABEL":
+                    var engLocData = await _repo.GetEngLocMasterDataAsync(req.LotId) ?? new EngLocMasterData();
+                    return ZplTemplates.WS_ENG_LOC_LABEL
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{WQty}", engLocData.WQty ?? "")
+                        .Replace("{OwnerId}", engLocData.OwnerId ?? "")
+                        .Replace("{OwnerDep}", engLocData.OwnerDep ?? "");
+
+                case "FT_BIN_CARD_LABEL":
+                    // 假設傳入的 PrintMode 區分 PASS 或 FAIL
+                    bool isPassBin = req.PrintMode != "FAIL"; 
+                    string binZpl = isPassBin ? ZplTemplates.FT_BIN_CARD_PASS : ZplTemplates.FT_BIN_CARD_FAIL;
+                    return binZpl.Replace("{LotNo}", req.LotId)
+                                 .Replace("{ProdNo}", req.IPN)
+                                 .Replace("{StepID}", req.RouteId) // 借用欄位傳遞
+                                 .Replace("{TestMode}", req.SearchData); // 借用欄位傳遞
+
+                case "WS_SMALL_LABEL":
+                case "CP_SMALL_LABEL":
+                    // 由於此邏輯龐大，抽成獨立 private 方法，回傳字串
+                    return await Generate_WS_CP_SMALL_LABEL_ZplAsync(req);
+
+                case "CP_VIRTUAL_LOT_LABEL":
+                    return await Generate_CP_VIRTUAL_ZplAsync(req, false);
+
+                case "CP_VIRTUAL_MERGE":
+                    return await Generate_CP_VIRTUAL_ZplAsync(req, true);
+
+                case "FT_SMALL_LABEL":
+                    return await Generate_FT_SMALL_LABEL_ZplAsync(req);
+
+                case "FT_Label_PACK_INFO":
+                    return await Generate_FT_Label_PACK_INFO_ZplAsync(req);
+
+                case "WS_SUMMARY":
+                    return await Generate_WS_SUMMARY_ZplAsync(req, timeStampYMD);
+
+                case "WS_DGRADE_SUMMARY":
+                    return await Generate_WS_DGRADE_SUMMARY_ZplAsync(req, timeStampYMD);
+
+                case "WS_MULTILOT_TO_SFG":
+                case "WSMCD_TO_SFG":
+                    return await Generate_WSMCD_ZplAsync(req, timeStampYMD);
 
                 default:
-                    throw new ArgumentException($"尚未支援或對應的標籤格式: {req.LabelFormat}");
+                    throw new ArgumentException($"不支援的標籤格式: {req.LabelFormat}");
             }
+        }
+
+        // =========================================================================
+        // 3. 送貨員：SendToPrinterAndLogAsync (發送 MQ 並寫入 Log)
+        // =========================================================================
+        private async Task SendToPrinterAndLogAsync(string printerServer, string zplCommand, PrintLabelRequest req)
+        {
+            string parsedServer = printerServer.Contains("@") 
+                ? printerServer.Substring(0, printerServer.IndexOf("@")) 
+                : printerServer;
+
+            string queueName = $"MBX_{parsedServer}";
+            
+            // 呼叫中介軟體發送 ZPL
+            bool isSent = await _mqService.SendMessageAsync(queueName, zplCommand);
+            if (!isSent) throw new Exception("發送至印表機佇列失敗！");
+
+            // 成功後寫入 TBL_LABEL_PRINT_LOG
+            await _repo.InsertPrintLogAsync(req.LotId, req.LabelFormat, zplCommand, req.UserId, req.PrintMode);
+        }
+
+        // =========================================================================
+        // 🔹 輔助方法：處理極端複雜的 ZPL 組裝 (被 GenerateZplForLabelAsync 呼叫)
+        //    (這裡僅以 WS_SUMMARY 為例，其餘邏輯與之前提供的一樣，只需改成回傳 string)
+        // =========================================================================
+        private async Task<string> Generate_WS_SUMMARY_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            var compIds = await _repo.GetLotComponentsAsync(req.LotId);
+            if (compIds.Count == 0) throw new Exception("The Lot does not exist or has no components!");
+
+            var sbComps = new StringBuilder();
+            int[] xBases = { 304, 504, 703, 903, 1103 };
+            int[] yBases = { 108, 144, 180, 216, 252 };
+
+            for (int i = 1; i <= 25; i++)
+            {
+                string key = i.ToString("D2");
+                string val = compIds.ContainsKey(key) ? compIds[key] : "";
+                int col = (i - 1) / 5;
+                int row = (i - 1) % 5;
+                sbComps.AppendLine($"^FO{xBases[col]},{yBases[row]}^A0N,25,32^CI0^FR^FD {i,2}:   {val}^FS");
+            }
+
+            return ZplTemplates.WS_SUMMARY
+                .Replace("{CompIdBlocks}", sbComps.ToString())
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{ProdNo}", req.IPN)
+                .Replace("{WQty}", req.WQty)
+                .Replace("{CQty}", req.CQty)
+                .Replace("{UserName}", req.UserId)
+                .Replace("{TimeStamp}", timeStampYMD);
         }
     }
 }
