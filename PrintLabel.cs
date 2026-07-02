@@ -3337,5 +3337,73 @@ namespace MES.Net.Application.Services.Print
                       .Replace("{WaferNo2}", waferNo2)
                       .Replace("{WaferNo3}", waferNo3);
         }
+private async Task<string> Generate_CP_VIRTUAL_ZplAsync(PrintLabelRequest req, bool bPrintLotList)
+        {
+            // (1) 取得虛擬批的彙總資料 (取代原先 VB6 傳入但被 SQL 覆蓋掉的 WQty / CQty)
+            var aggData = await _repo.GetVirtualLotAggregateDataAsync(req.LotId);
+            if (aggData == null) 
+            {
+                throw new Exception($"查無虛擬批號 [{req.LotId}] 的彙總資訊 (Virtual Lot Aggregate Data Not Found)！");
+            }
+
+            // (2) 取得 IPN 基本資料，計算 ProdBody 與 WaferLevel
+            var ipnData = await _repo.GetIpnWaferLevelDataAsync(aggData.Ipn) ?? new IpnWaferLevelData();
+            string prodBody = aggData.Ipn.Length >= 4 ? aggData.Ipn.Substring(0, 4) : aggData.Ipn;
+
+            // (3) 取得 Slot 槽位與子批號清單
+            var slotList = (await _repo.GetVirtualMergeSlotInfoAsync(req.LotId)).ToList();
+
+            // (4) 根據列印模式決定 Title 區塊
+            string titleBlock = bPrintLotList ? ZplTemplates.VIRTUAL_TITLE_LIST_MODE : ZplTemplates.VIRTUAL_TITLE_SLOT_MODE;
+            var sbDynamicBlock = new StringBuilder();
+
+            // (5) 根據 bPrintLotList 決定下方動態清單排版
+            if (bPrintLotList)
+            {
+                // 模式 A (CP_VIRTUAL_MERGE)：印出所有的 LotId 與片數 (Y 座標從 480 開始，每次 +60)
+                int currentY = 480;
+                int listIndex = 1;
+
+                foreach (var item in slotList)
+                {
+                    sbDynamicBlock.AppendLine($"^FO30,{currentY}^A0N,48.36^CI0^FR^FDLotId{listIndex:D2} : {item.LotId}   {item.Pcs} pc^FS");
+                    sbDynamicBlock.AppendLine($"^BY2,2.0^FO624,{currentY}^B3N,N,48,N,N^FD{item.LotId}^FS");
+                    currentY += 60;
+                    listIndex++;
+                }
+            }
+            else
+            {
+                // 模式 B (CP_VIRTUAL_LOT_LABEL)：印出 Slot 槽位 1~25，切分為兩行 (1~13, 14~25)
+                // 過濾並轉換有佔用的 SlotNo
+                var validSlots = slotList
+                    .Where(x => !string.IsNullOrEmpty(x.SlotNo))
+                    .Select(x => int.TryParse(x.SlotNo, out int s) ? s : 0)
+                    .ToList();
+
+                var list1 = new List<string>(); // 儲存 1~13 槽位
+                var list2 = new List<string>(); // 儲存 14~25 槽位
+
+                for (int i = 1; i <= 25; i++)
+                {
+                    string slotStr = validSlots.Contains(i) ? i.ToString("D2") : "__";
+                    if (i <= 13) list1.Add(slotStr);
+                    else list2.Add(slotStr);
+                }
+
+                sbDynamicBlock.AppendLine($"^FO136,318^A0N,48.36^CI0^FR^FD{string.Join(",", list1)}^FS");
+                sbDynamicBlock.AppendLine($"^FO136,378^A0N,48.36^CI0^FR^FD{string.Join(",", list2)}^FS");
+            }
+
+            // (6) 💡 變數替換並直接 Return 字串 (交回給 ExecutePrintAsync 總管去發送與寫 Log)
+            return ZplTemplates.WS_CP_VIRTUAL_LOT_LABEL
+                .Replace("{TitleBlock}", titleBlock)
+                .Replace("{DynamicListBlock}", sbDynamicBlock.ToString())
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{ProdBody}", prodBody)
+                .Replace("{WaferLevel}", ipnData.WaferLevel ?? "")
+                .Replace("{WQty}", aggData.WQty ?? "0")
+                .Replace("{CQty}", aggData.CQty ?? "0");
+        }
     }
 }
