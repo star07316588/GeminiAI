@@ -3573,5 +3573,160 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{SpecialPositionBox_1}", specInfo.SpecialPositionBox_1 ?? "")
                 .Replace("{SpecialPositionBox_2}", specInfo.SpecialPositionBox_2 ?? "");
         }
+// =========================================================================
+        // 🔹 輔助方法：產生 WS_DGRADE_SUMMARY 標籤 
+        //    (包含解決 VB6 InputBox 問題與 25 槽位動態排版)
+        // =========================================================================
+        private async Task<string> Generate_WS_DGRADE_SUMMARY_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            // (1) 查詢墨水合併清單
+            var mergeList = (await _repo.GetInklessMergeListAsync(req.LotId)).ToList();
+
+            // (2) 若沒有撈到資料，且 LotNo 長度為 10 且後兩碼是數字
+            if (!mergeList.Any())
+            {
+                if (req.LotId.Length == 10 && char.IsDigit(req.LotId[8]) && char.IsDigit(req.LotId[9]))
+                {
+                    // 🚨【解決 InputBox 問題】：
+                    // 在 Web API 中不能暫停等待輸入。拋出特定例外，讓前端攔截並彈出 Prompt 請 User 輸入原始批號，
+                    // 前端拿到輸入值後，將其賦值給 req.LotId 再重新打一次 Print API。
+                    throw new ArgumentException("REQUIRE_ORIGINAL_LOT: 無母批merge資訊, 請輸入原始批號");
+                }
+                
+                // 若連防呆都不符合，直接結束 (回傳 null，外層 ExecutePrintAsync 判斷為 null 就不會發送印表機)
+                return null; 
+            }
+
+            // (3) 初始化 25 個槽位
+            var items = Enumerable.Repeat("______-__", 25).ToArray();
+            bool hasSlotNo = !string.IsNullOrEmpty(mergeList.First().SlotNo);
+
+            if (!hasSlotNo)
+            {
+                // 邏輯一：沒有 SlotNo，把分號隔開的 waferId 展開依序填入
+                int index = 0;
+                foreach (var row in mergeList)
+                {
+                    var wafers = row.WaferId.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var w in wafers)
+                    {
+                        if (index >= 25) break;
+                        string prefix = row.ChildLotId.Length >= 6 ? row.ChildLotId.Substring(0, 6) : row.ChildLotId;
+                        items[index] = $"{prefix}-{w}";
+                        index++;
+                    }
+                }
+            }
+            else
+            {
+                // 邏輯二：有 SlotNo，直接依照位置放置
+                foreach (var row in mergeList)
+                {
+                    if (int.TryParse(row.SlotNo, out int sIndex) && sIndex >= 1 && sIndex <= 25)
+                    {
+                        string prefix = row.ChildLotId.Length >= 6 ? row.ChildLotId.Substring(0, 6) : row.ChildLotId;
+                        items[sIndex - 1] = $"{prefix}-{row.WaferId}";
+                    }
+                }
+            }
+
+            // (4) 產生 25 個座標方塊 ZPL
+            int[] xCoords = { 300, 480, 680, 880, 1080 };
+            int[] yCoords = { 108, 144, 180, 216, 252 };
+            var sbWafers = new StringBuilder();
+
+            for (int i = 0; i < 25; i++)
+            {
+                int col = i / 5; // X 座標索引
+                int row = i % 5; // Y 座標索引
+                sbWafers.AppendLine($"^FO{xCoords[col]},{yCoords[row]}^A0N,25,32^CI0^FR^FD {items[i]}^FS");
+            }
+
+            // (5) 💡 變數替換並直接 Return 字串 (不再呼叫 MQ Send)
+            return ZplTemplates.WS_WS_DGRADE_SUMMARY
+                .Replace("{DynamicWaferBlock}", sbWafers.ToString())
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{ProdNo}", req.IPN)
+                .Replace("{WQty}", req.WQty ?? "0")
+                .Replace("{CQty}", req.CQty ?? "0")
+                .Replace("{UserName}", req.UserId)
+                .Replace("{TimeStamp}", timeStampYMD);
+        }
+// =========================================================================
+        // 🔹 輔助方法：產生 WSMCD_TO_SFG 與 WS_MULTILOT_TO_SFG 標籤
+        // =========================================================================
+        private async Task<string> Generate_WSMCD_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            var mcdInfoList = req.WSMCDInfoList ?? new List<string>();
+            int totalWQty = 0;
+            int totalCQty = 0;
+
+            // 💡 如果前端沒有預先準備好子批號清單，我們就在後端自己查 (對應 VB6 cmdOK_Click 裡的大量 SQL)
+            if (mcdInfoList.Count == 0)
+            {
+                // 1. 查出 MCD_PARENT 與 MCP_FLAG
+                var mcpInfo = await _repo.GetMcpFlagAndParentAsync(req.LotId); 
+                
+                if (mcpInfo != null)
+                {
+                    // 2. 依照 VB6 邏輯，依據 F, C, D 查出子批號清單 (封裝在 Repo 內)
+                    var childLots = await _repo.GetWsmcdChildLotsAsync(req.LotId, mcpInfo.McdParent, mcpInfo.McpFlag);
+
+                    foreach (var child in childLots)
+                    {
+                        // 組裝格式： "LotId;IPN;BIN/RANK;Qty"
+                        mcdInfoList.Add($"{child.LotId};{child.Ipn};{child.BinOrRank};{child.CQty}");
+                        totalWQty += child.WQty;
+                        totalCQty += child.CQty;
+                    }
+                }
+            }
+            else
+            {
+                // 如果前端有傳入，則解析字串計算總量
+                foreach(var info in mcdInfoList)
+                {
+                    var parts = info.Split(';');
+                    if (parts.Length >= 4)
+                    {
+                        int.TryParse(parts[3], out int parsedCqty);
+                        totalCQty += parsedCqty;
+                        // 若前端有傳第5個參數 WQty 可在此解析
+                    }
+                }
+            }
+
+            // -------------------------------------------------------------
+            // 💡 組裝動態的 ZPL 子批號清單 (DynamicChildList)
+            // -------------------------------------------------------------
+            var sbChildLots = new StringBuilder();
+            int currentY = 320; // 起始 Y 座標
+
+            foreach (var info in mcdInfoList)
+            {
+                var parts = info.Split(';'); // parts: [LotId, IPN, Code, Qty]
+                if (parts.Length >= 4)
+                {
+                    // 每一行往下偏移 40
+                    sbChildLots.AppendLine($"^FO30,{currentY}^A0N,25,25^CI0^FR^FD{parts[0]}    {parts[1]}    {parts[2]}    {parts[3]}^FS");
+                    currentY += 40;
+                }
+            }
+
+            // -------------------------------------------------------------
+            // 💡 變數替換並直接 Return 字串
+            // -------------------------------------------------------------
+            // 共用同一個模板 (或依據 LabelFormat 切換不同的 ZplTemplates)
+            string zplTemplate = ZplTemplates.WSMCD_TO_SFG;
+
+            return zplTemplate
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{ProdNo}", req.IPN)
+                .Replace("{TotalWQty}", totalWQty > 0 ? totalWQty.ToString() : req.WQty)
+                .Replace("{TotalCQty}", totalCQty > 0 ? totalCQty.ToString() : req.CQty)
+                .Replace("{UserId}", req.UserId)
+                .Replace("{TimeStamp}", timeStampYMD)
+                .Replace("{DynamicChildList}", sbChildLots.ToString());
+        }
     }
 }
