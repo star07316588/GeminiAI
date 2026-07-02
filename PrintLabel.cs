@@ -3337,7 +3337,7 @@ namespace MES.Net.Application.Services.Print
                       .Replace("{WaferNo2}", waferNo2)
                       .Replace("{WaferNo3}", waferNo3);
         }
-private async Task<string> Generate_CP_VIRTUAL_ZplAsync(PrintLabelRequest req, bool bPrintLotList)
+        private async Task<string> Generate_CP_VIRTUAL_ZplAsync(PrintLabelRequest req, bool bPrintLotList)
         {
             // (1) 取得虛擬批的彙總資料 (取代原先 VB6 傳入但被 SQL 覆蓋掉的 WQty / CQty)
             var aggData = await _repo.GetVirtualLotAggregateDataAsync(req.LotId);
@@ -3404,6 +3404,61 @@ private async Task<string> Generate_CP_VIRTUAL_ZplAsync(PrintLabelRequest req, b
                 .Replace("{WaferLevel}", ipnData.WaferLevel ?? "")
                 .Replace("{WQty}", aggData.WQty ?? "0")
                 .Replace("{CQty}", aggData.CQty ?? "0");
+        }
+        // =========================================================================
+        // 🔹 輔助方法：產生 FT_SMALL_LABEL ZPL 字串 (因包含 DB 查詢，保留 async Task<string>)
+        // =========================================================================
+        private async Task<string> Generate_FT_SMALL_LABEL_ZplAsync(PrintLabelRequest req)
+        {
+            // (1) 查詢該批號與 IPN 相關的詳細屬性 (Customer, GPType, Location, FuSa, 等)
+            var smallDb = await _repo.GetFtSmallLabelDataAsync(req.LotId, req.IPN) ?? new FtSmallLabelDbData();
+
+            // (2) 判斷 Green 環保標章標記 (對應 VB6 的 GPType 判斷邏輯)
+            string sGreen = smallDb.GPType == "XX" ? "N" : (string.IsNullOrEmpty(smallDb.GPType) ? " " : "Y");
+
+            // (3) 判斷 IPN 顯示格式
+            string ipnDataStr = req.IPN; // 預設使用傳入的 IPN
+
+            // 💡 若 Location 為 "FT"，則採用特定拼接格式 (對應 VB6 的 2022 年改版邏輯)
+            if (smallDb.Location == "FT")
+            {
+                ipnDataStr = $"{smallDb.ProdBody}-{smallDb.PinCount}{smallDb.PackageCode} {smallDb.BodySize}";
+            }
+            
+            // 若上方拼接完為空，或者原本就無值，確保 Fallback 回原 IPN
+            if (string.IsNullOrWhiteSpace(ipnDataStr))
+            {
+                ipnDataStr = req.IPN;
+            }
+
+            // (4) 根據 Location 與是否具有 OriLotID (原始母批) 決定套用的 ZPL 模板
+            string zplTemplate = "";
+            bool hasOriLot = !string.IsNullOrEmpty(req.OriLotID);
+
+            if (smallDb.Location == "FT")
+            {
+                zplTemplate = hasOriLot ? ZplTemplates.FT_SMALL_LABEL_FT_WithOriLot : ZplTemplates.FT_SMALL_LABEL_FT_NoOriLot;
+            }
+            else
+            {
+                zplTemplate = hasOriLot ? ZplTemplates.FT_SMALL_LABEL_NonFT_WithOriLot : ZplTemplates.FT_SMALL_LABEL_NonFT_NoOriLot;
+            }
+
+            // (5) 💡 變數替換並直接 Return 字串 (交回給 ExecutePrintAsync 總管)
+            return zplTemplate
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{ProdNo}", ipnDataStr)
+                .Replace("{WQty}", req.WQty ?? "") 
+                .Replace("{CQty}", req.CQty ?? "")
+                .Replace("{Owner}", req.LotOwner ?? "")
+                .Replace("{RouteId}", req.RouteId ?? "")
+                .Replace("{Customer}", smallDb.Customer ?? "")
+                .Replace("{Csum}", smallDb.Csum ?? "")
+                .Replace("{Green}", sGreen)
+                .Replace("{CargradeFlag}", smallDb.CarGradeFlag ?? "")
+                .Replace("{ProdLine}", smallDb.ProdLine ?? "")
+                .Replace("{OriLotID}", req.OriLotID ?? "")
+                .Replace("{FuSa}", smallDb.FuSa ?? "");
         }
     }
 }
