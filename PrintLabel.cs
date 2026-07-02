@@ -3244,5 +3244,98 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{UserName}", req.UserId)
                 .Replace("{TimeStamp}", timeStampYMD);
         }
+// =========================================================================
+        // 🔹 輔助方法：產生 WS_CP_SMALL_LABEL ZPL 字串 (因包含 DB 查詢，保留 async Task<string>)
+        // =========================================================================
+        private async Task<string> Generate_WS_CP_SMALL_LABEL_ZplAsync(PrintLabelRequest req, bool bPrintLotList = false)
+        {
+            // (1) 取得 BizType
+            var typeData = await GetProdTypeAsync(req.IPN, "");
+            string bizType = typeData.ProdType;
+
+            // (2) 取得 IPN 基本資料
+            var ipnData = await _repo.GetIpnWaferLevelDataAsync(req.IPN) ?? new IpnWaferLevelData();
+            string prodCode = req.IPN.Length >= 4 ? req.IPN.Substring(0, 4) : req.IPN;
+            prodCode += ipnData.MaskOption;
+            string prodBody = req.IPN.Length >= 4 ? req.IPN.Substring(0, 4) : req.IPN;
+
+            // (3) 取得 Hot 標記
+            string hotLotFlag = await GetCpHotAsync(req.LotId, req.IPN);
+
+            // (4) 取得 Lot 詳細屬性 (使用前面已加上 FgIpn 的 DTO)
+            var lotAttrs = await _repo.GetWsSmallLabelDataAsync(req.LotId) ?? new WsSmallLabelDbData();
+            
+            string printFlag = await _repo.GetReworkPrintFlagAsync(lotAttrs.SapRwNo);
+            string sapRwNo = printFlag == "Y" ? lotAttrs.SapRwNo : "";
+
+            // 優先使用外部傳入的參數，若無則使用 DB 查出的資料
+            string printFabLotId = !string.IsNullOrEmpty(req.FabLotId) ? req.FabLotId : lotAttrs.FabLotId;
+            string rawWaferStr = !string.IsNullOrEmpty(req.WaferId) ? req.WaferId : lotAttrs.WaferId;
+
+            // (5) Wafer 切片與分組邏輯 (使用 LINQ 取代 VB6 的 Mid)
+            var parsedWafers = (rawWaferStr ?? "")
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(w => int.TryParse(w, out int val) ? val : 0)
+                .ToList();
+
+            var waferList = new List<string>();
+            for (int i = 1; i <= 25; i++)
+            {
+                waferList.Add(parsedWafers.Contains(i) ? i.ToString("D2") : "__");
+            }
+
+            string waferNo1 = string.Join(",", waferList.Take(9));
+            string waferNo2 = string.Join(",", waferList.Skip(9).Take(9));
+            string waferNo3 = string.Join(",", waferList.Skip(18).Take(7));
+
+            // (6) 解析 FuSa IPN
+            string fusaIpn = req.IPN;
+            if (ipnData.BomLevel == "DB" && (ipnData.WaferLevel == "KGD-AEB" || ipnData.WaferLevel == "MXO1") && !string.IsNullOrEmpty(lotAttrs.FgIpn))
+            {
+                fusaIpn = lotAttrs.FgIpn;
+            }
+            string fusa = await _repo.GetFusaAsync(fusaIpn);
+
+            // (7) 根據 bPrintLotList 決定排版
+            string zpl;
+            if (bPrintLotList)
+            {
+                var mergeList = await _repo.GetVirtualMergeListAsync(req.LotId);
+                var sbLotList = new StringBuilder();
+                int currentY = 480;
+                int listIndex = 1;
+
+                foreach (var item in mergeList)
+                {
+                    sbLotList.AppendLine($"^FO30,{currentY}^A0N,48.36^CI0^FR^FDLotId{listIndex:D2} : {item.LotId}   {item.Pcs} pc^FS");
+                    sbLotList.AppendLine($"^BY2,2.0^FO624,{currentY}^B3N,N,48,N,N^FD{item.LotId}^FS");
+                    currentY += 60;
+                    listIndex++;
+                }
+
+                zpl = ZplTemplates.WS_CP_VIRTUAL_MERGE_LIST.Replace("{DynamicLotListBlock}", sbLotList.ToString());
+            }
+            else
+            {
+                zpl = ZplTemplates.WS_CP_SMALL_LABEL;
+            }
+
+            // (8) 💡 變數替換並直接 Return 字串 (不再呼叫 MQ Send)
+            return zpl.Replace("{LotNo}", req.LotId)
+                      .Replace("{PrintFabLotId}", printFabLotId ?? "")
+                      .Replace("{ProdBody}", prodBody)
+                      .Replace("{WaferLevel}", ipnData.WaferLevel ?? "")
+                      .Replace("{HotLotFlag}", hotLotFlag)
+                      .Replace("{WQty}", req.WQty)
+                      .Replace("{CQty}", req.CQty)
+                      .Replace("{BizType}", bizType)
+                      .Replace("{ErunTicNo}", lotAttrs.ErunTicNo ?? "")
+                      .Replace("{FuSa}", fusa ?? "")
+                      .Replace("{SapRwNo}", sapRwNo ?? "")
+                      .Replace("{MfgTicNo}", lotAttrs.MfgTicNo ?? "")
+                      .Replace("{WaferNo1}", waferNo1)
+                      .Replace("{WaferNo2}", waferNo2)
+                      .Replace("{WaferNo3}", waferNo3);
+        }
     }
 }
