@@ -1012,6 +1012,120 @@ namespace MES.Net.Infrastructure.Repository.Print
             var result = await _dbConnection.QueryAsync(sql, new { p_LotId = lotId });
             return result.ToDictionary(row => (string)row.COMP_ID, row => (string)row.CHIP_QTY);
         }
+
+        // ==========================================
+        // 💡 1. 第五層連動：取得 Package Code
+        // 對應 VB6: GetLPI_PackageCode
+        // ==========================================
+        public async Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request)
+        {
+            string sql = @"
+                SELECT DISTINCT PACKAGECODE 
+                FROM TBL_FT_LABEL_BOXING_INFO 
+                WHERE CARRIERTYPE = :p_CarrierType 
+                  AND BOXINGSPECNO = :p_BoxingSpecNo 
+                  AND BRAND = :p_Brand 
+                  AND PINCOUNT = :p_PinCount 
+                  AND DELETEFLAG = 'N'
+                ORDER BY PACKAGECODE";
+
+            return await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                p_CarrierType = request.CarrierType,
+                p_BoxingSpecNo = request.BoxingSpecNo,
+                p_Brand = request.Brand,
+                p_PinCount = request.PinCount
+            });
+        }
+
+        // ==========================================
+        // 💡 2. 補印機制：取得歷史 ZPL 字串
+        // 解決 VB6 中 If optReprint.Value = True 時的行為
+        // ==========================================
+        public async Task<string> GetHistoricalZplAsync(string reprintType, string searchData, string lotId)
+        {
+            string sql = "";
+            object param = null;
+
+            if (reprintType == "SearchData" && !string.IsNullOrWhiteSpace(searchData))
+            {
+                // 狀況 A：依據特定條件 (例如輸入特定 Box No 或流水號) 找尋最後一次的 ZPL
+                sql = @"
+                    SELECT LABEL_STRING 
+                    FROM TBL_LABEL_PRINT_LOG 
+                    WHERE SEARCH_KEY = :p_SearchData 
+                    ORDER BY PRINT_TIME DESC"; 
+                
+                param = new { p_SearchData = searchData };
+            }
+            else 
+            {
+                // 狀況 B：預設行為 (LastLabel)，取得該 LotId 最新的一筆列印紀錄
+                sql = @"
+                    SELECT LABEL_STRING 
+                    FROM TBL_LABEL_PRINT_LOG 
+                    WHERE LOT_ID = :p_LotId 
+                    ORDER BY PRINT_TIME DESC";
+
+                param = new { p_LotId = lotId };
+            }
+
+            // Dapper 的 QueryFirstOrDefaultAsync 搭配 ORDER BY DESC，即可精準命中最新的一筆紀錄
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, param);
+        }
+
+        // ==========================================
+        // 💡 3. 防呆機制：檢查批號是否被 Hold
+        // 對應 VB6: moFwWIP.IsLotOnHold(sLot)
+        // ==========================================
+        public async Task<bool> IsLotOnHoldAsync(string lotId)
+        {
+            // 實務上需配合貴廠 MES 的 Schema (此處假設以 TBL_LOT_INFO 內的 HOLD_FLAG 判斷)
+            string sql = @"
+                SELECT 1 
+                FROM TBL_LOT_INFO 
+                WHERE LOT_ID = :p_LotId 
+                  AND HOLD_FLAG = 'Y'"; 
+
+            var result = await _dbConnection.QueryFirstOrDefaultAsync<int?>(sql, new { p_LotId = lotId });
+            return result.HasValue;
+        }
+
+        // ==========================================
+        // 💡 4. 稽核機制：寫入列印紀錄
+        // 這是讓 GetHistoricalZplAsync 能夠運作的關鍵核心
+        // ==========================================
+        public async Task InsertPrintLogAsync(string lotId, string labelFormat, string zplCommand, string userId, string printMode)
+        {
+            string sql = @"
+                INSERT INTO TBL_LABEL_PRINT_LOG 
+                (
+                    LOT_ID, 
+                    LABEL_FORMAT, 
+                    LABEL_STRING, 
+                    PRINT_USER, 
+                    PRINT_TIME, 
+                    PRINT_MODE
+                ) 
+                VALUES 
+                (
+                    :p_LotId, 
+                    :p_LabelFormat, 
+                    :p_ZplCommand, 
+                    :p_UserId, 
+                    SYSDATE, 
+                    :p_PrintMode
+                )";
+
+            await _dbConnection.ExecuteAsync(sql, new 
+            {
+                p_LotId = lotId ?? "NA",             // 防止 null 造成 DB constraint error
+                p_LabelFormat = labelFormat ?? "",
+                p_ZplCommand = zplCommand,
+                p_UserId = userId ?? "SYSTEM",
+                p_PrintMode = printMode ?? "Normal"
+            });
+        }
     }
 }
 
