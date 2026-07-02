@@ -3460,5 +3460,118 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{OriLotID}", req.OriLotID ?? "")
                 .Replace("{FuSa}", smallDb.FuSa ?? "");
         }
+        // =========================================================================
+        // 🔹 輔助方法：產生 FT_Label_PACK_INFO ZPL 字串 (因包含複雜 Fallback 查詢，保留 async Task<string>)
+        // =========================================================================
+        private async Task<string> Generate_FT_Label_PACK_INFO_ZplAsync(PrintLabelRequest req)
+        {
+            // 判斷是否為自動模式 (對應 VB6 的 bIsAutoPrint)
+            bool isAutoPrint = req.PrintMode == "Auto";
+            
+            // 1. 初始化列印變數
+            string printLotNo = isAutoPrint ? req.LotId : "NA";
+            string printMode = isAutoPrint ? "Auto" : "Manual";
+            string packageCodePinCount = req.PinCount + req.PackageCode;
+            string currentLabelSpecNo = req.LabelSpecNo; // 使用區域變數，因為 Fallback 時可能會被重新指派
+
+            // -------------------------------------------------------------
+            // [Check-Item-1] : 查詢 Label Spec Info
+            // -------------------------------------------------------------
+            var specInfo = await _repo.GetLabelSpecInfoAsync(currentLabelSpecNo, req.CarrierType);
+
+            // 如果第一輪沒查到
+            if (specInfo == null)
+            {
+                if (!isAutoPrint) 
+                {
+                    throw new Exception("FT_Label_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // Auto Mode 的退回機制：查 IPN_MASTER 重新決定 LabelSpecNo
+                var ipnData = await _repo.GetIpnMasterForLabelSpecAsync(req.IPN);
+                if (ipnData.Grade != null) 
+                {
+                    string grade = ipnData.Grade;
+                    string bizType = ipnData.BizType;
+                    bool isHOrW = req.PackageCode == "H" || req.PackageCode == "W";
+
+                    if (req.Brand == "KH" && grade == "Y" && !isHOrW) 
+                        currentLabelSpecNo = "6130K-0807.1";
+                    else if (req.Brand == "KH" && bizType == "D" && isHOrW) 
+                        currentLabelSpecNo = "6130K-0807.1";
+                    else if (req.Brand == "KH" && !isHOrW) 
+                        currentLabelSpecNo = "6130K-0807";
+                    else 
+                        currentLabelSpecNo = "6130-0807";
+                }
+
+                // 以新的 LabelSpecNo 重新查第二次
+                specInfo = await _repo.GetLabelSpecInfoAsync(currentLabelSpecNo, req.CarrierType);
+                if (specInfo == null)
+                {
+                    throw new Exception("FT_Label_Info(Default) 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+            }
+
+            // -------------------------------------------------------------
+            // [Check-Item-2] : 查詢 Label Boxing Info
+            // -------------------------------------------------------------
+            var boxingInfo = await _repo.GetLabelBoxingInfoAsync(req.CarrierType, req.BoxingSpecNo, req.Brand, req.PinCount, req.PackageCode);
+
+            // 如果第一輪沒查到
+            if (boxingInfo == null)
+            {
+                if (!isAutoPrint) 
+                {
+                    throw new Exception("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // Auto Mode 的退回機制：強制設定 PinCount = ALL, PackageCode = ALL 重新查詢
+                boxingInfo = await _repo.GetLabelBoxingInfoAsync(req.CarrierType, req.BoxingSpecNo, req.Brand, "ALL", "ALL");
+                if (boxingInfo == null)
+                {
+                    throw new Exception("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // 如果重查成功，標籤顯示值要變成 ALL
+                packageCodePinCount = "ALL";
+            }
+            else
+            {
+                // 如果第一次就查到，且兩者原本就是傳入 ALL，標籤顯示值也要設為 ALL
+                if (req.PinCount == "ALL" && req.PackageCode == "ALL")
+                {
+                    packageCodePinCount = "ALL";
+                }
+            }
+
+            // -------------------------------------------------------------
+            // 💡 變數替換並直接 Return 字串 (交回給 ExecutePrintAsync 總管)
+            // -------------------------------------------------------------
+            return ZplTemplates.FT_Label_PACK_INFO
+                .Replace("{SpecialLabelSize}", specInfo.SpecialLabelSize ?? "")
+                .Replace("{LabelSpecNoVer}", specInfo.LabelSpecNoVer ?? "")
+                .Replace("{LabelSpecNo}", currentLabelSpecNo ?? "")
+                .Replace("{PrintLotNO}", printLotNo)
+                .Replace("{PrintMode}", printMode)
+                .Replace("{Serial}", specInfo.Serial ?? "")
+                .Replace("{BoxingSpecNo}", req.BoxingSpecNo ?? "")
+                .Replace("{BoxingSpecNoVer}", boxingInfo.BoxingSpecNoVer ?? "")
+                .Replace("{Brand}", req.Brand ?? "")
+                .Replace("{PackageCodePinCount}", packageCodePinCount)
+                .Replace("{CarrierType}", req.CarrierType ?? "")
+                .Replace("{Vacuum}", boxingInfo.Vacuum ?? "")
+                .Replace("{Hic}", boxingInfo.Hic ?? "")
+                .Replace("{Desiccant}", boxingInfo.Desiccant ?? "")
+                .Replace("{Albag}", boxingInfo.Albag ?? "")
+                .Replace("{CopiesStdLabel}", specInfo.CopiesStdLabel ?? "")
+                .Replace("{CopiesSpecialLabel}", specInfo.CopiesSpecialLabel ?? "")
+                .Replace("{CopiesMergeLabel}", specInfo.CopiesMergeLabel ?? "")
+                .Replace("{MergeLabelSpec}", specInfo.MergeLabelSpec ?? "")
+                .Replace("{SpecialStickReel}", specInfo.SpecialStickReel ?? "")
+                .Replace("{SpecialStickAlbag}", specInfo.SpecialStickAlbag ?? "")
+                .Replace("{SpecialPositionBox_1}", specInfo.SpecialPositionBox_1 ?? "")
+                .Replace("{SpecialPositionBox_2}", specInfo.SpecialPositionBox_2 ?? "");
+        }
     }
 }
