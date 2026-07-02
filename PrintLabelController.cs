@@ -133,6 +133,27 @@ namespace MES.Net.Web.Controllers.Print
             }
         }
 
+        // 5. 依據前四項條件取得 PackageCode
+        [HttpPost, Route("package-codes"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetPackageCodes([FromBody] DropdownRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.PinCount))
+            {
+                return BadRequest("參數缺失，無法取得 Package Code");
+            }
+            try
+            {
+                // 需在 Service 與 Repo 補上 GetPackageCodesAsync 方法
+                var result = await _printLabelService.GetPackageCodesAsync(request);
+                return Ok(new { Success = true, Message = "", Data = result });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error(this, ex.Message, ex);
+                return Ok(new { Success = false, Message = ex.Message });
+            }
+        }
+
         [HttpPost, Route("print"), AuthorizeToken]
         public async Task<IHttpActionResult> Print([FromBody] PrintLabelRequest request)
         {
@@ -155,6 +176,21 @@ namespace MES.Net.Web.Controllers.Print
                     return Ok(new { Success = false, Message = ex.Message });
                 }
                 return Ok(new { Success = false, Message = "列印發生預期外的系統錯誤" });
+            }
+        }
+
+        [HttpPost, Route("mapped-servers"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetMappedPrinterServers([FromBody] MappedServerRequest request)
+        {
+            try
+            {
+                var result = await _printLabelService.GetMappedPrinterServersAsync(request.Stage, request.LabelFormat);
+                return Ok(new { Success = true, Message = "", Data = result });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error(this, ex.Message, ex);
+                return Ok(new { Success = false, Message = "取得 Printer Server 失敗" });
             }
         }
     }
