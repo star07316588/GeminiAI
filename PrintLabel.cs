@@ -221,6 +221,24 @@ namespace MES.Net.Shared.DTOs.Print
         public string Stage { get; set; }
         public string LabelFormat { get; set; }
     }
+
+    // 查詢母批與 MCP 旗標的 DTO
+    public class McpInfoData
+    {
+        public string McdParent { get; set; }
+        public string McpFlag { get; set; }
+        public string ParentIpn { get; set; }
+    }
+
+    // 子批號明細資料 DTO
+    public class WsmcdChildLotData
+    {
+        public string LotId { get; set; }
+        public string Ipn { get; set; }
+        public string BinOrRank { get; set; }
+        public int CQty { get; set; }
+        public int WQty { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -489,6 +507,11 @@ namespace MES.Net.Infrastructure.Repository.Print
 
         // 💡 4. 稽核機制：寫入列印紀錄
         Task InsertPrintLogAsync(string lotId, string labelFormat, string zplCommand, string userId, string printMode);
+        // 取得母批資訊與 MCP_FLAG
+        Task<McpInfoData> GetMcpFlagAndParentAsync(string lotId);
+
+        // 依據 MCP_FLAG 取得關聯的子批號明細
+        Task<IEnumerable<WsmcdChildLotData>> GetWsmcdChildLotsAsync(string lotId, string parentLotId, string mcpFlag);
     }
 
     public class PrintLabelRepository : IPrintLabelRepository
@@ -1125,6 +1148,174 @@ namespace MES.Net.Infrastructure.Repository.Print
                 p_UserId = userId ?? "SYSTEM",
                 p_PrintMode = printMode ?? "Normal"
             });
+        }
+        // ==========================================
+        // 💡 取得母批號與 MCP_FLAG
+        // ==========================================
+        public async Task<McpInfoData> GetMcpFlagAndParentAsync(string lotId)
+        {
+            var result = new McpInfoData();
+
+            // 第一段：先查出基本 Flag
+            string sql1 = @"
+                SELECT 
+                    MCDPARENT AS McdParent, 
+                    MCP_FLAG AS McpFlag 
+                FROM TBL_LOT_INFO 
+                WHERE LOT_ID = :p_LotId";
+
+            var basicInfo = await _dbConnection.QueryFirstOrDefaultAsync<McpInfoData>(sql1, new { p_LotId = lotId });
+            
+            if (basicInfo != null)
+            {
+                result.McdParent = basicInfo.McdParent;
+                result.McpFlag = basicInfo.McpFlag;
+
+                // 若 McpFlag 為 'F' 或 'D'，依據 VB6 邏輯需進一步查出 ParentIPN
+                if (result.McpFlag == "F" || result.McpFlag == "D")
+                {
+                    string sql2 = @"
+                        SELECT C.VALDATA AS ParentIpn
+                        FROM TBL_LOT_INFO A
+                        INNER JOIN FWLOT B ON A.MCDPARENT = B.APPID
+                        INNER JOIN FWLOT_PN2M C ON B.SYSID = C.FROMID AND C.KEYDATA = 'IPN'
+                        WHERE A.LOT_ID = :p_LotId";
+                    
+                    result.ParentIpn = await _dbConnection.QueryFirstOrDefaultAsync<string>(sql2, new { p_LotId = lotId });
+                }
+            }
+
+            return result;
+        }
+
+        // ==========================================
+        // 💡 取得 WSMCD 關聯子批號
+        // ==========================================
+        public async Task<IEnumerable<WsmcdChildLotData>> GetWsmcdChildLotsAsync(string lotId, string parentLotId, string mcpFlag)
+        {
+            var list = new List<WsmcdChildLotData>();
+
+            // (1) 邏輯一：McpFlag = 'F' 或 'C' (F13S Prod)
+            if (mcpFlag == "F" || mcpFlag == "C")
+            {
+                string sql = @"
+                    SELECT 
+                        A.LOT_ID AS LotId, 
+                        C.VALDATA AS Ipn, 
+                        B.COMPONENTQTY AS CQty, 
+                        C2.VALDATA AS WQty
+                    FROM TBL_LOT_INFO A
+                    INNER JOIN FWLOT B ON A.LOT_ID = B.APPID
+                    INNER JOIN FWLOT_PN2M C ON B.SYSID = C.FROMID AND C.KEYDATA = 'IPN'
+                    INNER JOIN FWLOT_PN2M C2 ON B.SYSID = C2.FROMID AND C2.KEYDATA = 'WaferQty'
+                    WHERE A.MCDPARENT = :p_ParentLotId 
+                      AND B.PROCESSINGSTATUS <> 'Terminated'";
+
+                var rows = await _dbConnection.QueryAsync(sql, new { p_ParentLotId = parentLotId });
+
+                foreach (var row in rows)
+                {
+                    string binRank = "BIN3"; // 預設值
+                    if ((string)row.LotId == parentLotId) 
+                    {
+                        binRank = "BIN1";
+                    }
+                    else if (mcpFlag == "C") 
+                    {
+                        binRank = "BIN7";
+                    }
+
+                    list.Add(new WsmcdChildLotData
+                    {
+                        LotId = row.LotId,
+                        Ipn = row.Ipn,
+                        CQty = int.TryParse(row.CQty?.ToString(), out int c) ? c : 0,
+                        WQty = int.TryParse(row.WQty?.ToString(), out int w) ? w : 0,
+                        BinOrRank = binRank
+                    });
+                }
+            }
+            // (2) 邏輯二：McpFlag = 'D' (Dgrade)
+            else if (mcpFlag == "D")
+            {
+                // 先取得 Parent IPN (這在總管的 GetMcpFlagAndParentAsync 已經查好了，如果為了單純這裡也可以重查或透過參數傳入)
+                // 為了程式碼內聚，我們利用傳入的 lotId 查詢
+                var parentData = await GetMcpFlagAndParentAsync(lotId);
+                string parentIpn = parentData.ParentIpn;
+
+                string sql = @"
+                    SELECT 
+                        A.LOT_ID AS LotId, 
+                        C.VALDATA AS Ipn, 
+                        B.COMPONENTQTY AS CQty, 
+                        D.RANK AS RankCode, 
+                        C2.VALDATA AS WQty
+                    FROM TBL_LOT_INFO A
+                    INNER JOIN FWLOT B ON A.LOT_ID = B.APPID
+                    INNER JOIN FWLOT_PN2M C ON B.SYSID = C.FROMID AND C.KEYDATA = 'IPN'
+                    INNER JOIN FWLOT_PN2M C2 ON B.SYSID = C2.FROMID AND C2.KEYDATA = 'WaferQty'
+                    INNER JOIN TBL_MULTICODE_IPN D ON D.SUBIPN = C.VALDATA AND D.IPN = :p_ParentIpn
+                    WHERE A.LOT_ID = :p_ParentLotId 
+                      AND B.PROCESSINGSTATUS <> 'Terminated'";
+
+                var rows = await _dbConnection.QueryAsync(sql, new 
+                { 
+                    p_ParentLotId = parentLotId,
+                    p_ParentIpn = parentIpn
+                });
+
+                foreach (var row in rows)
+                {
+                    // 根據 VB6: Asc(oItem.Item(4)) - 64。將 Rank 字母轉為數字 (如 'A' -> 1)
+                    string rankCodeStr = row.RankCode?.ToString();
+                    string rankResult = "";
+                    if (!string.IsNullOrEmpty(rankCodeStr) && rankCodeStr.Length > 0)
+                    {
+                        rankResult = ((int)rankCodeStr[0] - 64).ToString();
+                    }
+
+                    list.Add(new WsmcdChildLotData
+                    {
+                        LotId = row.LotId,
+                        Ipn = row.Ipn,
+                        CQty = int.TryParse(row.CQty?.ToString(), out int c) ? c : 0,
+                        WQty = int.TryParse(row.WQty?.ToString(), out int w) ? w : 0,
+                        BinOrRank = rankResult
+                    });
+                }
+            }
+            // (3) 邏輯三：其他預設狀況
+            else
+            {
+                string sql = @"
+                    SELECT 
+                        A.LOT_ID AS LotId, 
+                        C.VALDATA AS Ipn, 
+                        B.COMPONENTQTY AS CQty, 
+                        C2.VALDATA AS WQty
+                    FROM TBL_LOT_INFO A
+                    INNER JOIN FWLOT B ON A.LOT_ID = B.APPID
+                    INNER JOIN FWLOT_PN2M C ON B.SYSID = C.FROMID AND C.KEYDATA = 'IPN'
+                    INNER JOIN FWLOT_PN2M C2 ON B.SYSID = C2.FROMID AND C2.KEYDATA = 'WaferQty'
+                    WHERE A.LOT_ID = :p_LotId 
+                      AND B.PROCESSINGSTATUS <> 'Terminated'";
+
+                var rows = await _dbConnection.QueryAsync(sql, new { p_LotId = lotId });
+
+                foreach (var row in rows)
+                {
+                    list.Add(new WsmcdChildLotData
+                    {
+                        LotId = row.LotId,
+                        Ipn = row.Ipn,
+                        CQty = int.TryParse(row.CQty?.ToString(), out int c) ? c : 0,
+                        WQty = int.TryParse(row.WQty?.ToString(), out int w) ? w : 0,
+                        BinOrRank = "BIN1"
+                    });
+                }
+            }
+
+            return list;
         }
     }
 }
@@ -3652,81 +3843,82 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{UserName}", req.UserId)
                 .Replace("{TimeStamp}", timeStampYMD);
         }
-// =========================================================================
+        // =========================================================================
         // 🔹 輔助方法：產生 WSMCD_TO_SFG 與 WS_MULTILOT_TO_SFG 標籤
         // =========================================================================
         private async Task<string> Generate_WSMCD_ZplAsync(PrintLabelRequest req, string timeStampYMD)
         {
             var mcdInfoList = req.WSMCDInfoList ?? new List<string>();
-            int totalWQty = 0;
-            int totalCQty = 0;
 
-            // 💡 如果前端沒有預先準備好子批號清單，我們就在後端自己查 (對應 VB6 cmdOK_Click 裡的大量 SQL)
+            // 💡 [架構升級]：如果前端沒有預先傳入子批號清單，後端自動去 DB 撈取 (取代 VB6 cmdOk_Click 裡的 SQL)
             if (mcdInfoList.Count == 0)
             {
-                // 1. 查出 MCD_PARENT 與 MCP_FLAG
                 var mcpInfo = await _repo.GetMcpFlagAndParentAsync(req.LotId); 
                 
                 if (mcpInfo != null)
                 {
-                    // 2. 依照 VB6 邏輯，依據 F, C, D 查出子批號清單 (封裝在 Repo 內)
                     var childLots = await _repo.GetWsmcdChildLotsAsync(req.LotId, mcpInfo.McdParent, mcpInfo.McpFlag);
-
                     foreach (var child in childLots)
                     {
                         // 組裝格式： "LotId;IPN;BIN/RANK;Qty"
                         mcdInfoList.Add($"{child.LotId};{child.Ipn};{child.BinOrRank};{child.CQty}");
-                        totalWQty += child.WQty;
-                        totalCQty += child.CQty;
                     }
                 }
+            }
+
+            // 初始化五組空資料
+            var lots = new string[5] { "", "", "", "", "" };
+            var ipns = new string[5] { "", "", "", "", "" };
+            var codes = new string[5] { "", "", "", "", "" };
+            var cQtys = new string[5] { "", "", "", "", "" };
+
+            // 條件1：沒有傳入集合，且資料庫也查無子批 (退回只印母批)
+            if (mcdInfoList.Count == 0)
+            {
+                lots[0] = req.LotId;
+                ipns[0] = req.IPN;
+                cQtys[0] = req.CQty;
             }
             else
             {
-                // 如果前端有傳入，則解析字串計算總量
-                foreach(var info in mcdInfoList)
+                // 條件2：有子批集合 (依據原先 VB6 邏輯：從後面往前取，且最多取 5 筆)
+                for (int i = 0; i < mcdInfoList.Count && i < 5; i++)
                 {
-                    var parts = info.Split(';');
-                    if (parts.Length >= 4)
-                    {
-                        int.TryParse(parts[3], out int parsedCqty);
-                        totalCQty += parsedCqty;
-                        // 若前端有傳第5個參數 WQty 可在此解析
-                    }
+                    // C# 反向索引
+                    string item = mcdInfoList[mcdInfoList.Count - 1 - i]; 
+                    var parts = item.Split(';');
+                    
+                    if (parts.Length > 0) lots[i] = parts[0];
+                    if (parts.Length > 1) ipns[i] = parts[1];
+                    if (parts.Length > 2) codes[i] = parts[2];
+                    if (parts.Length > 3) cQtys[i] = parts[3];
                 }
             }
 
-            // -------------------------------------------------------------
-            // 💡 組裝動態的 ZPL 子批號清單 (DynamicChildList)
-            // -------------------------------------------------------------
-            var sbChildLots = new StringBuilder();
-            int currentY = 320; // 起始 Y 座標
+            // 動態組裝 5 列資料的 ZPL，初始 X 座標為 304，每一次遞減 36
+            var sbDynamicItems = new StringBuilder();
+            int currentX = 304;
 
-            foreach (var info in mcdInfoList)
+            for (int i = 0; i < 5; i++)
             {
-                var parts = info.Split(';'); // parts: [LotId, IPN, Code, Qty]
-                if (parts.Length >= 4)
-                {
-                    // 每一行往下偏移 40
-                    sbChildLots.AppendLine($"^FO30,{currentY}^A0N,25,25^CI0^FR^FD{parts[0]}    {parts[1]}    {parts[2]}    {parts[3]}^FS");
-                    currentY += 40;
-                }
+                // 若陣列中有值，或者沒值(印出空字串，ZPL渲染時自然為空)
+                sbDynamicItems.AppendLine($"^FO{currentX},300^A0R,25,32^CI0^FR^FD{lots[i]}^FS");
+                sbDynamicItems.AppendLine($"^FO{currentX},500^A0R,25,32^CI0^FR^FD{ipns[i]}^FS");
+                sbDynamicItems.AppendLine($"^FO{currentX},900^A0R,25,32^CI0^FR^FD{cQtys[i]}^FS");
+                sbDynamicItems.AppendLine($"^FO{currentX},1100^A0R,25,32^CI0^FR^FD{codes[i]}^FS");
+
+                currentX -= 36; // 產生 304, 268, 232, 196, 160 序列
             }
 
-            // -------------------------------------------------------------
-            // 💡 變數替換並直接 Return 字串
-            // -------------------------------------------------------------
-            // 共用同一個模板 (或依據 LabelFormat 切換不同的 ZplTemplates)
-            string zplTemplate = ZplTemplates.WSMCD_TO_SFG;
-
-            return zplTemplate
-                .Replace("{LotNo}", req.LotId)
-                .Replace("{ProdNo}", req.IPN)
-                .Replace("{TotalWQty}", totalWQty > 0 ? totalWQty.ToString() : req.WQty)
-                .Replace("{TotalCQty}", totalCQty > 0 ? totalCQty.ToString() : req.CQty)
-                .Replace("{UserId}", req.UserId)
-                .Replace("{TimeStamp}", timeStampYMD)
-                .Replace("{DynamicChildList}", sbChildLots.ToString());
+            // 💡 變數替換並直接 Return 字串 (不再呼叫 MQ Send)
+            return ZplTemplates.WSMCD_TO_SFG
+                .Replace("{DynamicListBlock}", sbDynamicItems.ToString())
+                .Replace("{ParLotNo}", req.LotId)
+                .Replace("{ParIPN}", req.IPN)
+                .Replace("{ParWqty}", req.WQty ?? "0")
+                .Replace("{ParCQTY}", req.CQty ?? "0")
+                .Replace("{UserName}", req.UserId)
+                .Replace("{TimeStamp}", timeStampYMD);
         }
     }
 }
