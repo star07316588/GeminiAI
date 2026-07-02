@@ -202,6 +202,25 @@ namespace MES.Net.Shared.DTOs.Print
         public string BodySize { get; set; }
         public string ProdLine { get; set; }
     }
+    /// <summary>
+    /// 連動下拉選單共用的請求物件 (擴充 PinCount 以支援第 5 層查詢)
+    /// </summary>
+    public class DropdownRequest
+    {
+        public string CarrierType { get; set; }
+        public string BoxingSpecNo { get; set; }
+        public string Brand { get; set; }
+        public string PinCount { get; set; } // 💡 新增：為了查 PackageCode 必須傳入
+    }
+
+    /// <summary>
+    /// 依據 Stage 與 LabelFormat 動態取得可用印表機的請求物件
+    /// </summary>
+    public class MappedServerRequest
+    {
+        public string Stage { get; set; }
+        public string LabelFormat { get; set; }
+    }
 }
 
 using MES.Net.Application.Services.Print;
@@ -459,6 +478,17 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<IEnumerable<string>> GetBrandsAsync(string carrierType, string boxingSpecNo);
         Task<IEnumerable<string>> GetPinCountsAsync(string carrierType, string boxingSpecNo, string brand);
         Task<bool> SpPrintLabelActionAsync(PrintLabelRequest request);
+        // 💡 1. 第五層連動：取得 Package Code
+        Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request);
+
+        // 💡 2. 補印機制：取得歷史 ZPL 字串
+        Task<string> GetHistoricalZplAsync(string reprintType, string searchData, string lotId);
+
+        // 💡 3. 防呆機制：檢查批號是否被 Hold
+        Task<bool> IsLotOnHoldAsync(string lotId);
+
+        // 💡 4. 稽核機制：寫入列印紀錄
+        Task InsertPrintLogAsync(string lotId, string labelFormat, string zplCommand, string userId, string printMode);
     }
 
     public class PrintLabelRepository : IPrintLabelRepository
@@ -2629,6 +2659,23 @@ namespace MES.Net.Application.Services.Print
         /// </summary>
         public async Task ExecutePrintAsync(PrintLabelRequest req)
         {
+            // 💡 補印模式攔截
+            if (req.PrintMode == "Reprint")
+            {
+                // 根據 LotId 或時間查詢 TBL_LABEL_PRINT_LOG 取得舊的 ZPL
+                string historicalZpl = await _repo.GetHistoricalZplAsync(req.ReprintType, req.SearchData, req.LotId);
+                if (string.IsNullOrEmpty(historicalZpl)) 
+                    throw new Exception("查無歷史列印紀錄 (No print log found) !!");
+                    
+                await SendToPrinterAsync(req.PrinterServer, historicalZpl);
+                return; // 補印完成，直接結束，不去跑後面的 Switch
+            }        
+            // 在 ExecutePrintAsync 的 Switch 之前加入
+            bool isHold = await _repo.IsLotOnHoldAsync(req.LotId);
+            if (isHold && req.LabelFormat != "特定可印的工程標籤") 
+            {
+                throw new InvalidOperationException($"Lot [{req.LotId}] is on HOLD. Cannot print label !!");
+            }
             // --- 1. 計算列印總迴圈數 (iPrintTimes) ---
             int printTimes = 1;
             bool isBoxMode = false;
@@ -2787,6 +2834,171 @@ namespace MES.Net.Application.Services.Print
                         throw new ArgumentException($"不支援的標籤格式: {req.LabelFormat}");
                 }
             } // end for loop
+        }
+        // ==========================================
+        // 🔹 下拉選單連動 API 服務 (補足第 5 層與 Printer 綁定)
+        // ==========================================
+        
+        public async Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request)
+        {
+            return await _repo.GetPackageCodesAsync(request);
+        }
+
+        public async Task<IEnumerable<string>> GetMappedPrinterServersAsync(string stage, string labelFormat)
+        {
+            // 這支對應原本 VB6 的 RefreshPrinterServer
+            return await _repo.GetMappedPrinterServersAsync(stage, labelFormat);
+        }
+
+
+        // ==========================================
+        // 🔹 核心共用：發送印表機並寫入 Log
+        // ==========================================
+        
+        private async Task SendToPrinterAndLogAsync(string printerServer, string zplCommand, PrintLabelRequest req)
+        {
+            // 1. 發送至 MQ 或 Socket
+            string parsedServer = printerServer.Contains("@") 
+                ? printerServer.Substring(0, printerServer.IndexOf("@")) 
+                : printerServer;
+
+            string queueName = $"MBX_{parsedServer}";
+            bool isSent = await _mqService.SendMessageAsync(queueName, zplCommand);
+            
+            if (!isSent) throw new Exception("發送至印表機佇列失敗！");
+
+            // 2. 💡 寫入歷史列印紀錄 (供日後 Reprint 使用)
+            await _repo.InsertPrintLogAsync(req.LotId, req.LabelFormat, zplCommand, req.UserId, req.PrintMode);
+        }
+
+
+        // ==========================================
+        // 🔹 總管 Master Dispatcher (ExecutePrintAsync)
+        // ==========================================
+        
+        public async Task ExecutePrintAsync(PrintLabelRequest req)
+        {
+            // ---------------------------------------------------------
+            // 💡 [商業邏輯 1] Reprint 補印模式直接讀取 Log，不跑後續組裝
+            // ---------------------------------------------------------
+            if (req.PrintMode == "Reprint")
+            {
+                string historicalZpl = await _repo.GetHistoricalZplAsync(req.ReprintType, req.SearchData, req.LotId);
+                
+                if (string.IsNullOrEmpty(historicalZpl))
+                {
+                    throw new Exception("查無歷史列印紀錄 (No print log found) !!");
+                }
+                
+                // 直接派發舊的 ZPL，並再次留存一筆 Reprint 的 Log
+                await SendToPrinterAndLogAsync(req.PrinterServer, historicalZpl, req);
+                return; // 補印完成，提早結束
+            }
+
+            // ---------------------------------------------------------
+            // 💡 [商業邏輯 2] Hold 狀態防呆 (特定工程標籤可豁免)
+            // ---------------------------------------------------------
+            bool isHold = await _repo.IsLotOnHoldAsync(req.LotId);
+            if (isHold)
+            {
+                string[] allowHoldLabels = { "TO_SUBFT_ENG_SAMPLE", "TO_SUBMK_ENG_SAMPLE", "TO_SUBTR_ENG_SAMPLE" };
+                
+                if (!allowHoldLabels.Contains(req.LabelFormat))
+                {
+                    throw new InvalidOperationException($"Lot [{req.LotId}] is currently on HOLD. Cannot print label !! \r\n 該批號目前為 Hold 狀態，不允許列印一般標籤！");
+                }
+            }
+
+            // ---------------------------------------------------------
+            // 💡 [商業邏輯 3] 數量計算 (Print Qty vs Box Qty)
+            // ---------------------------------------------------------
+            int printTimes = 1;
+            bool isBoxMode = false;
+            string[] singleCopyLabels = { 
+                "FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", 
+                "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", 
+                "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG",
+                "FT_TR_LABEL", "FT_BOX_COUNTING" 
+            };
+
+            if (singleCopyLabels.Contains(req.LabelFormat))
+            {
+                printTimes = req.PrintQty > 0 ? req.PrintQty : 1;
+            }
+            else
+            {
+                isBoxMode = true;
+                if (req.BoxQty > 0 && int.TryParse(req.CQty, out int totalCQty))
+                {
+                    printTimes = totalCQty / req.BoxQty;
+                    if (totalCQty % req.BoxQty > 0) printTimes++;
+                }
+            }
+
+            string timeStampYMD = DateTime.Now.ToString("yyyy/MM/dd");
+
+            // ---------------------------------------------------------
+            // 💡 [商業邏輯 4] 列印迴圈與子標籤派發
+            // ---------------------------------------------------------
+            for (int i = 1; i <= printTimes; i++)
+            {
+                bool isPartial = false;
+                string printQtyForLabel = req.BoxQty.ToString();
+
+                if (isBoxMode && i == printTimes && int.TryParse(req.CQty, out int totalCQty) && req.BoxQty > 0)
+                {
+                    int remainder = totalCQty % req.BoxQty;
+                    if (remainder > 0)
+                    {
+                        isPartial = true;
+                        printQtyForLabel = remainder.ToString();
+                    }
+                }
+
+                // 在呼叫子標籤產生器後，我們統一交給 SendToPrinterAndLogAsync 處理
+                // (註：需要將前一輪的 Prt_XXX_Async 方法內部稍微修改，把最後一行的 
+                // `await SendToPrinterAsync(printerServer, zpl);` 
+                // 改為 `await SendToPrinterAndLogAsync(printerServer, zpl, req);`，或是直接讓它們回傳 ZPL 字串在這裡統一發送)
+
+                string generatedZpl = await GenerateZplForLabelAsync(req, isPartial, printQtyForLabel, timeStampYMD);
+                
+                if (!string.IsNullOrEmpty(generatedZpl))
+                {
+                    await SendToPrinterAndLogAsync(req.PrinterServer, generatedZpl, req);
+                }
+            }
+        }
+
+        // ==========================================
+        // 🔹 輔助方法：統一將 ZPL 生成邏輯封裝並回傳字串
+        // (為了讓 ExecutePrintAsync 能統一寫 Log，把原本的 Prt_XXX 轉化為 Generate 方法)
+        // ==========================================
+        private async Task<string> GenerateZplForLabelAsync(PrintLabelRequest req, bool isPartial, string printQtyForLabel, string timeStampYMD)
+        {
+            switch (req.LabelFormat)
+            {
+                case "TO_SUBTR_NORMAL":
+                    string partialBlock = isPartial ? ZplTemplates.PartialBlock : "";
+                    return ZplTemplates.FT_To_SubTR_Normal
+                        .Replace("{PartialBlock}", partialBlock)
+                        .Replace("{LotNo}", req.LotId)
+                        .Replace("{ProdNo}", req.IPN)
+                        .Replace("{Qty}", printQtyForLabel)
+                        .Replace("{Packer}", req.UserId);
+
+                // ... (其餘的 Label 依此類推，將之前寫好的 Prt_XXX_Async 裡面的 ZplTemplate.Replace 搬進來回傳字串即可) ...
+                
+                case "FT_TR_LABEL":
+                    return ZplTemplates.FT_TR_LABEL
+                        .Replace("{LotId}", req.LotId)
+                        .Replace("{IPN}", req.IPN)
+                        .Replace("{QtyReel}", printQtyForLabel)
+                        .Replace("{EqID}", req.SearchData) // 假設 EqId 由前端透過某個欄位傳入
+                        .Replace("{ReelId}", req.WaferId); // 假設 ReelId 由前端透過某個欄位傳入
+
+                default:
+                    throw new ArgumentException($"尚未支援或對應的標籤格式: {req.LabelFormat}");
+            }
         }
     }
 }
