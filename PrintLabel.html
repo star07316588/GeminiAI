@@ -43,7 +43,6 @@
             gap: 16px;
         }
 
-        /* 針對特定欄位調整寬高比例 */
         .col-span-2 {
             grid-column: span 2;
         }
@@ -68,6 +67,7 @@
             outline: none;
             transition: border-color 0.2s;
             background-color: #fff;
+            height: 32px;
         }
 
             .form-control:focus {
@@ -96,7 +96,6 @@
             cursor: pointer;
         }
 
-        /* 利用 fieldset 達成整個區塊的 Disable (對應 VB6 的 Frame.Enabled = False) */
         fieldset {
             border: none;
             padding: 0;
@@ -119,33 +118,28 @@
                             :auto-add-close="true"
                             @action="onAction"></mes-action-bar>
 
+            <!-- 基礎列印條件區塊 -->
             <div class="form-panel">
                 <div class="form-grid">
 
                     <div class="form-group">
                         <label>Stage</label>
-                        <select class="form-control" v-model="form.stage">
+                        <select class="form-control" v-model="form.stage" @change="onStageOrFormatChange">
                             <option value="">-- Select Stage --</option>
                             <option v-for="opt in options.stages" :key="opt" :value="opt">{{ opt }}</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Label Type</label>
-                        <select class="form-control" v-model="form.labelType">
-                            <option value="">-- Select Label Type --</option>
-                            <option v-for="opt in options.labelTypes" :key="opt" :value="opt">{{ opt }}</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label>Label Format</label>
-                        <select class="form-control" v-model="form.labelFormat">
+                        <select class="form-control" v-model="form.labelFormat" @change="onStageOrFormatChange">
                             <option value="">-- Select Format --</option>
                             <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
                         </select>
                     </div>
+
                     <div class="form-group">
-                        <label>Label Data (Wafer/Lot)</label>
+                        <label>Label Data (Lot/Wafer)</label>
                         <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Data">
                     </div>
 
@@ -166,63 +160,77 @@
 
                     <div class="form-group">
                         <label>Printer Server</label>
-                        <select class="form-control" v-model="form.printerServer" @change="onPrinterServerChange">
+                        <select class="form-control" v-model="form.printerServer">
                             <option value="">-- Select Server --</option>
                             <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Printer</label>
-                        <select class="form-control" v-model="form.printer" :disabled="!form.printerServer">
-                            <option value="">-- Select Printer --</option>
-                            <option v-for="opt in options.printers" :key="opt" :value="opt">{{ opt }}</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label>Box Qty</label>
-                        <input type="number" class="form-control" v-model.number="form.boxQty" min="1">
+                        <input type="number" class="form-control" v-model.number="form.boxQty" min="1" :disabled="!isBoxQtyEnabled">
                     </div>
+
                     <div class="form-group">
                         <label>Print Qty (列印份數)</label>
                         <input type="number" class="form-control" v-model.number="form.printQty" min="1" max="99">
                     </div>
-
                 </div>
             </div>
 
+            <!-- Reprint 補印專用區塊 -->
             <div class="form-panel" v-show="form.printMode === 'Reprint'">
                 <div class="form-title">
                     <i class="mdi mdi-refresh"></i> Reprint Type
                 </div>
                 <div class="form-grid" style="grid-template-columns: auto 1fr;">
                     <div class="form-group">
-                        <div class="radio-group" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <div class="radio-group" style="flex-direction: column; align-items: flex-start; gap: 8px; height: auto;">
                             <label class="radio-item">
                                 <input type="radio" v-model="form.reprintType" value="LastLabel"> Print Last Label
                             </label>
                             <label class="radio-item">
-                                <input type="radio" v-model="form.reprintType" value="SearchData"> Search by Data (Wafer/Lot)
+                                <input type="radio" v-model="form.reprintType" value="SearchData"> Search by Data (EqID/Box)
                             </label>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Data :</label>
+                        <label>Search Data :</label>
                         <input type="text" class="form-control" v-model="form.searchData" :disabled="form.reprintType !== 'SearchData'">
                     </div>
                 </div>
             </div>
 
-            <div class="form-panel">
-                <fieldset :disabled="!isLabelPackEnabled">
-                    <div class="form-title">
-                        <i class="mdi mdi-package-variant"></i> Label Pack Info.
+            <!-- LPI (Label Pack Info) 專用區塊 -->
+            <div class="form-panel" v-show="isLabelPackEnabled">
+                <div class="form-title">
+                    <i class="mdi mdi-package-variant"></i> Label Pack Info.
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" v-model="form.lpiMode" value="Auto" @change="onLpiModeChange"> Auto
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" v-model="form.lpiMode" value="Manual" @change="onLpiModeChange"> Manual
+                        </label>
                     </div>
+                </div>
 
+                <fieldset :disabled="form.lpiMode === 'Auto'">
                     <div class="form-grid">
                         <div class="form-group">
+                            <label>Label Spec NO.</label>
+                            <select class="form-control" v-model="form.lpiLabelSpecNo" @change="onLpiLabelSpecChange">
+                                <option value="">-- Select Label Spec --</option>
+                                <option v-for="opt in options.lpiLabelSpecs" :key="opt" :value="opt">{{ opt }}</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
                             <label>Carrier Type</label>
-                            <select class="form-control" v-model="form.carrierType" @change="onCarrierTypeChange">
+                            <select class="form-control" v-model="form.carrierType" @change="onCarrierTypeChange" :disabled="!form.lpiLabelSpecNo">
                                 <option value="">-- Select Carrier Type --</option>
                                 <option v-for="opt in options.carrierTypes" :key="opt" :value="opt">{{ opt }}</option>
                             </select>
@@ -246,9 +254,17 @@
 
                         <div class="form-group">
                             <label>Pin Count</label>
-                            <select class="form-control" v-model="form.pinCount" :disabled="!form.brand">
+                            <select class="form-control" v-model="form.pinCount" @change="onPinCountChange" :disabled="!form.brand">
                                 <option value="">-- Select Pin Count --</option>
                                 <option v-for="opt in options.pinCounts" :key="opt" :value="opt">{{ opt }}</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Package Code</label>
+                            <select class="form-control" v-model="form.packageCode" :disabled="!form.pinCount">
+                                <option value="">-- Select Package Code --</option>
+                                <option v-for="opt in options.packageCodes" :key="opt" :value="opt">{{ opt }}</option>
                             </select>
                         </div>
                     </div>
@@ -271,120 +287,151 @@
             el: '#app',
             data() {
                 return {
-                    // 表單綁定的值
                     form: {
-                        stage: '',           // 新增
-                        labelType: '',       // 新增
+                        stage: '',
                         labelFormat: '',
                         labelData: '',
                         printMode: 'Normal',
-                        printerServer: '',   // 新增
-                        printer: '',
-                        boxQty: 1,           // 新增
-                        printQty: 1,         // 已有的列印份數
+                        printerServer: '',
+                        boxQty: 1,
+                        printQty: 1,
 
                         reprintType: 'LastLabel',
                         searchData: '',
+                        
+                        lpiMode: 'Auto', // Auto 或 Manual
+                        lpiLabelSpecNo: '',
                         carrierType: '',
                         boxingSpecNo: '',
                         brand: '',
-                        pinCount: ''
+                        pinCount: '',
+                        packageCode: ''
                     },
-
                     options: {
-                        stages: ['StageAY', 'StageFT', 'StageWS'],  // 擴充假資料
-                        labelTypes: ['Inner Box', 'Outer Box', 'Wafer'],
-                        labelFormats: ['FT_TRAY', 'FT_ASUS_TRAY', 'TAPE_REEL'],
-                        printerServers: ['SERVER_01', 'SERVER_02'], // 擴充印表機伺服器
-                        printers: [], // 改為根據 Printer Server 連動
+                        stages: [],
+                        labelFormats: [],
+                        printerServers: [],
+                        
+                        lpiLabelSpecs: [],
                         carrierTypes: [],
                         boxingSpecs: [],
                         brands: [],
-                        pinCounts: []
+                        pinCounts: [],
+                        packageCodes: []
                     },
-
                     statusMsg: 'READY',
                     statusMsgType: ''
                 };
             },
 
             computed: {
-                /* 動態變更按鈕 */
                 actionButtons() {
                     return [
                         { action: 'print', label: 'Print', icon: 'mdi-printer', color: 'primary' },
                         { action: 'clear', label: 'Clear', icon: 'mdi-eraser' }
                     ];
                 },
-                /* 判斷 Label Pack Info 區塊是否啟用 (對應 VB6 的 Frame2.Enabled) */
+                // 只有選擇 LPI 特定標籤時，才顯示 LPI 區塊
                 isLabelPackEnabled() {
-                    // 根據您提供的截圖 3，當選擇 Modify 時才會啟用這個區塊
-                    return this.form.printMode === 'Modify';
+                    return this.form.labelFormat === 'FT_Label_PACK_INFO';
+                },
+                // 部分標籤預設隱藏或禁用 BoxQty，這裡做簡單防呆控制
+                isBoxQtyEnabled() {
+                    const singleLabels = [
+                        "FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", 
+                        "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", 
+                        "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG",
+                        "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL"
+                    ];
+                    return !singleLabels.includes(this.form.labelFormat);
                 }
             },
 
             mounted() {
-                // 初始化：撈取需要從資料庫取得的下拉選單
                 this.loadInitData();
             },
 
             methods: {
                 async loadInitData() {
-                    // 這裡呼叫先前寫好的 CarrierTypes API
                     try {
-                        const response = await mesfetch("/api/print/print-label/carrier-types", {});
-                        if (response.Success) {
-                            this.options.carrierTypes = response.Data;
+                        const response = await mesfetch("/api/print/print-label/init", {});
+                        if (response.Success && response.Data) {
+                            this.options.stages = response.Data.Stages || [];
+                            this.options.labelFormats = response.Data.LabelFormats || [];
+                            // VB6 預設會先帶出全部的 Printer Server
+                            this.options.printerServers = response.Data.PrinterServers || [];
                         }
-                    } catch (error) {
-                        console.error(error);
-                    }
-
-                    // TODO: 您可能還需要寫一支 API 來取得 LabelFormats 和 Printers 的清單
-                    // const resInit = await mesfetch("/api/print/print-label/init", {});
+                    } catch (error) { console.error(error); }
                 },
 
-                /* ── Print Mode 切換事件 ── */
+                /* ── 動態連動 Printer Server ── */
+                async onStageOrFormatChange() {
+                    this.form.printerServer = '';
+                    if (!this.form.stage || !this.form.labelFormat) return;
+
+                    try {
+                        const response = await mesfetch("/api/print/print-label/mapped-servers", {
+                            Stage: this.form.stage,
+                            LabelFormat: this.form.labelFormat
+                        });
+                        if (response.Success) {
+                            this.options.printerServers = response.Data;
+                        }
+                    } catch (error) { console.error(error); }
+
+                    // 若選擇了 LPI 標籤，順便預載 LPI 的第一層
+                    if (this.isLabelPackEnabled && this.options.lpiLabelSpecs.length === 0) {
+                        this.loadLpiLabelSpecs();
+                    }
+                },
+
                 onPrintModeChange() {
-                    // 切換模式時，通常會清空不相關的輸入
                     if (this.form.printMode !== 'Reprint') {
                         this.form.searchData = '';
                     }
-                    if (this.form.printMode !== 'Modify') {
-                        // 如果切回 Normal，可以選擇保留或清空 Label Pack 條件
-                        // 依照 VB 習慣通常會清空
-                        this.form.carrierType = '';
-                        this.onCarrierTypeChange();
+                },
+
+                /* ── LPI 六層下拉連動邏輯 ── */
+                onLpiModeChange() {
+                    if (this.form.lpiMode === 'Auto') {
+                        this.clearLpiDropdowns(0);
+                    } else if (this.options.lpiLabelSpecs.length === 0) {
+                        this.loadLpiLabelSpecs();
                     }
                 },
 
-                /* ── 連動選單邏輯 (維持與上一版相同) ── */
-                async onCarrierTypeChange() {
-                    this.form.boxingSpecNo = '';
-                    this.form.brand = '';
-                    this.form.pinCount = '';
-                    this.options.boxingSpecs = [];
-                    this.options.brands = [];
-                    this.options.pinCounts = [];
-
-                    if (!this.form.carrierType) return;
-
+                async loadLpiLabelSpecs() {
                     try {
-                        const response = await mesfetch("/api/print/print-label/boxing-specs", { CarrierType: this.form.carrierType });
+                        const response = await mesfetch("/api/print/print-label/lpi-label-specs", {});
+                        if (response.Success) this.options.lpiLabelSpecs = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+
+                async onLpiLabelSpecChange() {
+                    this.clearLpiDropdowns(1);
+                    if (!this.form.lpiLabelSpecNo) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lpi-carrier-types", { 
+                            LabelSpecNo: this.form.lpiLabelSpecNo 
+                        });
+                        if (response.Success) this.options.carrierTypes = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+
+                async onCarrierTypeChange() {
+                    this.clearLpiDropdowns(2);
+                    if (!this.form.carrierType) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lpi-boxing-specs", { CarrierType: this.form.carrierType });
                         if (response.Success) this.options.boxingSpecs = response.Data;
                     } catch (error) { console.error(error); }
                 },
 
                 async onBoxingSpecChange() {
-                    this.form.brand = '';
-                    this.form.pinCount = '';
-                    this.options.brands = [];
-                    this.options.pinCounts = [];
-
+                    this.clearLpiDropdowns(3);
                     if (!this.form.boxingSpecNo) return;
-
                     try {
-                        const response = await mesfetch("/api/print/print-label/brands", {
+                        const response = await mesfetch("/api/print/print-label/lpi-brands", {
                             CarrierType: this.form.carrierType,
                             BoxingSpecNo: this.form.boxingSpecNo
                         });
@@ -393,13 +440,10 @@
                 },
 
                 async onBrandChange() {
-                    this.form.pinCount = '';
-                    this.options.pinCounts = [];
-
+                    this.clearLpiDropdowns(4);
                     if (!this.form.brand) return;
-
                     try {
-                        const response = await mesfetch("/api/print/print-label/pin-counts", {
+                        const response = await mesfetch("/api/print/print-label/lpi-pin-counts", {
                             CarrierType: this.form.carrierType,
                             BoxingSpecNo: this.form.boxingSpecNo,
                             Brand: this.form.brand
@@ -408,70 +452,96 @@
                     } catch (error) { console.error(error); }
                 },
 
-                /* ── 新增：印表機伺服器連動印表機 ── */
-                async onPrinterServerChange() {
-                    this.form.printer = '';
-                    this.options.printers = [];
-                    if (!this.form.printerServer) return;
-
+                async onPinCountChange() {
+                    this.clearLpiDropdowns(5);
+                    if (!this.form.pinCount) return;
                     try {
-                        // 實務上這裡會呼叫後端 API，例如：
-                        // const response = await mesfetch("/api/print/print-label/printers", { Server: this.form.printerServer });
-                        // if (response.Success) this.options.printers = response.Data;
-
-                        // 模擬連動效果
-                        if (this.form.printerServer === 'SERVER_01') {
-                            this.options.printers = ['PRINTER_A1', 'PRINTER_A2'];
-                        } else {
-                            this.options.printers = ['PRINTER_B1', 'PRINTER_B2'];
-                        }
-                    } catch (error) {
-                        console.error(error);
-                    }
+                        const response = await mesfetch("/api/print/print-label/package-codes", {
+                            CarrierType: this.form.carrierType,
+                            BoxingSpecNo: this.form.boxingSpecNo,
+                            Brand: this.form.brand,
+                            PinCount: this.form.pinCount
+                        });
+                        if (response.Success) this.options.packageCodes = response.Data;
+                    } catch (error) { console.error(error); }
                 },
 
-                /* ── 執行列印 ── */
+                clearLpiDropdowns(level) {
+                    if (level <= 1) { this.form.carrierType = ''; this.options.carrierTypes = []; }
+                    if (level <= 2) { this.form.boxingSpecNo = ''; this.options.boxingSpecs = []; }
+                    if (level <= 3) { this.form.brand = ''; this.options.brands = []; }
+                    if (level <= 4) { this.form.pinCount = ''; this.options.pinCounts = []; }
+                    if (level <= 5) { this.form.packageCode = ''; this.options.packageCodes = []; }
+                },
+
+                /* ── 執行列印 (支援 InputBox 攔截機制) ── */
                 async doPrint() {
-                    // 更新防呆機制，加入新的必填欄位檢查
-                    if (!this.form.printerServer || !this.form.printer || !this.form.labelFormat) {
-                        VMessageBox.alert('請選擇完整的伺服器、印表機與標籤格式！');
+                    if (!this.form.printerServer || !this.form.labelFormat) {
+                        VMessageBox.alert('請選擇完整的伺服器與標籤格式！');
                         return;
                     }
 
+                    // 判斷傳給後端的 PrintMode (解決 LPI 的 Auto/Manual 與全域 Normal/Reprint 的交錯)
+                    let finalPrintMode = this.form.printMode;
+                    if (this.form.labelFormat === 'FT_Label_PACK_INFO' && this.form.printMode === 'Normal') {
+                        finalPrintMode = this.form.lpiMode; // 傳入 Auto 或 Manual 讓後端識別
+                    }
+
+                    const payload = {
+                        Stage: this.form.stage,
+                        LabelFormat: this.form.labelFormat,
+                        LotId: this.form.labelData.trim(),
+                        PrintMode: finalPrintMode,
+                        PrinterServer: this.form.printerServer,
+                        BoxQty: this.form.boxQty,
+                        PrintQty: this.form.printQty,
+                        ReprintType: this.form.printMode === 'Reprint' ? this.form.reprintType : '',
+                        SearchData: this.form.printMode === 'Reprint' ? this.form.searchData : '',
+                        
+                        // LPI 專屬參數
+                        LabelSpecNo: this.form.lpiLabelSpecNo,
+                        CarrierType: this.form.carrierType,
+                        BoxingSpecNo: this.form.boxingSpecNo,
+                        Brand: this.form.brand,
+                        PinCount: this.form.pinCount,
+                        PackageCode: this.form.packageCode,
+                        
+                        UserId: window.checkAuth ? window.checkAuth().userName : 'System'
+                    };
+
+                    await this.executePrintApi(payload);
+                },
+
+                async executePrintApi(payload) {
                     document.body.style.cursor = 'wait';
                     this.setStatus('PRINTING...', 'info');
 
                     try {
-                        //  這裡必須把您畫面上所有用到的參數包裝給後端
-                        const payload = {
-                            Stage: this.form.stage,
-                            LabelType: this.form.labelType,
-                            LabelFormat: this.form.labelFormat,
-                            LotId: this.form.labelData.trim(),
-                            PrintMode: this.form.printMode,
-                            PrinterServer: this.form.printerServer,
-                            Printer: this.form.printer,
-                            BoxQty: this.form.boxQty,
-                            PrintQty: this.form.printQty,
-                            ReprintType: this.form.printMode === 'Reprint' ? this.form.reprintType : '',
-                            SearchData: this.form.printMode === 'Reprint' ? this.form.searchData : '',
-                            CarrierType: this.form.carrierType,
-                            BoxingSpecNo: this.form.boxingSpecNo,
-                            Brand: this.form.brand,
-                            PinCount: this.form.pinCount,
-                            UserId: window.checkAuth ? window.checkAuth().userName : 'System'
-                        };
-
                         const response = await mesfetch("/api/print/print-label/print", payload);
 
                         if (response.Success) {
                             VMessageBox.alert(response.Message || '標籤列印指令已成功送出！');
                             this.setStatus('PRINT SUCCESS', 'success');
                         } else {
+                            // 🚨 攔截 VB6 InputBox 替代方案 (降級標籤要求手動輸入原始批號)
+                            if (response.Message && response.Message.includes("REQUIRE_ORIGINAL_LOT")) {
+                                VMessageBox.prompt('無母批 merge 資訊，請輸入原始批號：', '補入資訊', {
+                                    confirmButtonText: '確定',
+                                    cancelButtonText: '取消'
+                                }).then(async (result) => {
+                                    if (result && result.value) {
+                                        payload.OriLotID = result.value.trim();
+                                        await this.executePrintApi(payload); // 帶入 OriLotID 重新呼叫
+                                    }
+                                }).catch(() => {
+                                    this.setStatus('已取消列印', '');
+                                });
+                                return;
+                            }
+
                             VMessageBox.alert(response.Message || '列印失敗');
                             this.setStatus('PRINT FAILED', 'error');
                         }
-
                     } catch (error) {
                         console.error(error);
                         VMessageBox.alert('列印發生預期外的錯誤').catch(() => { });
@@ -484,18 +554,16 @@
                 /* ── 清空表單 ── */
                 doClear() {
                     this.form.stage = '';
-                    this.form.labelType = '';
-                    this.form.printerServer = '';
-                    this.form.boxQty = 1;
-                    this.form.printQty = 1;
                     this.form.labelFormat = '';
                     this.form.labelData = '';
                     this.form.printMode = 'Normal';
-                    this.form.printer = '';
+                    this.form.printerServer = '';
+                    this.form.boxQty = 1;
                     this.form.printQty = 1;
                     this.form.searchData = '';
-                    this.form.carrierType = '';
-                    this.onCarrierTypeChange();
+                    this.form.lpiMode = 'Auto';
+                    this.form.lpiLabelSpecNo = '';
+                    this.clearLpiDropdowns(1);
                     this.setStatus('CLEARED', '');
                 },
 
