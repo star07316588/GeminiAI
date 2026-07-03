@@ -42,9 +42,11 @@
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 16px;
         }
-        
+
         /* 針對特定欄位調整寬高比例 */
-        .col-span-2 { grid-column: span 2; }
+        .col-span-2 {
+            grid-column: span 2;
+        }
 
         .form-group {
             display: flex;
@@ -52,11 +54,11 @@
             gap: 4px;
         }
 
-        .form-group label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-main, #333);
-        }
+            .form-group label {
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--text-main, #333);
+            }
 
         .form-control {
             padding: 6px 10px;
@@ -68,8 +70,15 @@
             background-color: #fff;
         }
 
-        .form-control:focus { border-color: var(--accent, #1565C0); }
-        .form-control:disabled { background-color: #f5f5f5; cursor: not-allowed; color: #888; }
+            .form-control:focus {
+                border-color: var(--accent, #1565C0);
+            }
+
+            .form-control:disabled {
+                background-color: #f5f5f5;
+                cursor: not-allowed;
+                color: #888;
+            }
 
         /* Radio Button 群組樣式 */
         .radio-group {
@@ -78,6 +87,7 @@
             gap: 16px;
             height: 32px;
         }
+
         .radio-item {
             display: flex;
             align-items: center;
@@ -92,9 +102,10 @@
             padding: 0;
             margin: 0;
         }
-        fieldset:disabled .form-title {
-            color: #999;
-        }
+
+            fieldset:disabled .form-title {
+                color: #999;
+            }
     </style>
 </head>
 <body>
@@ -108,77 +119,77 @@
                             :auto-add-close="true"
                             @action="onAction"></mes-action-bar>
 
-                <div class="form-panel">
-                    <div class="form-grid">
-                        
-                        <div class="form-group">
-                            <label>Stage</label>
-                            <select class="form-control" v-model="form.stage">
-                                <option value="">-- Select Stage --</option>
-                                <option v-for="opt in options.stages" :key="opt" :value="opt">{{ opt }}</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Label Type</label>
-                            <select class="form-control" v-model="form.labelType">
-                                <option value="">-- Select Label Type --</option>
-                                <option v-for="opt in options.labelTypes" :key="opt" :value="opt">{{ opt }}</option>
-                            </select>
-                        </div>
-                
-                        <div class="form-group">
-                            <label>Label Format</label>
-                            <select class="form-control" v-model="form.labelFormat">
-                                <option value="">-- Select Format --</option>
-                                <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Label Data (Wafer/Lot)</label>
-                            <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Data">
-                        </div>
-                
-                        <div class="form-group col-span-2">
-                            <label>Print Mode</label>
-                            <div class="radio-group">
-                                <label class="radio-item">
-                                    <input type="radio" v-model="form.printMode" value="Normal" @change="onPrintModeChange"> Normal
-                                </label>
-                                <label class="radio-item">
-                                    <input type="radio" v-model="form.printMode" value="Reprint" @change="onPrintModeChange"> Reprint
-                                </label>
-                                <label class="radio-item">
-                                    <input type="radio" v-model="form.printMode" value="Modify" @change="onPrintModeChange"> Modify
-                                </label>
-                            </div>
-                        </div>
-                
-                        <div class="form-group">
-                            <label>Printer Server</label>
-                            <select class="form-control" v-model="form.printerServer" @change="onPrinterServerChange">
-                                <option value="">-- Select Server --</option>
-                                <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Printer</label>
-                            <select class="form-control" v-model="form.printer" :disabled="!form.printerServer">
-                                <option value="">-- Select Printer --</option>
-                                <option v-for="opt in options.printers" :key="opt" :value="opt">{{ opt }}</option>
-                            </select>
-                        </div>
-                
-                        <div class="form-group">
-                            <label>Box Qty</label>
-                            <input type="number" class="form-control" v-model.number="form.boxQty" min="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Print Qty (列印份數)</label>
-                            <input type="number" class="form-control" v-model.number="form.printQty" min="1" max="99">
-                        </div>
-                
+            <div class="form-panel">
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label>Stage</label>
+                        <select class="form-control" v-model="form.stage">
+                            <option value="">-- Select Stage --</option>
+                            <option v-for="opt in options.stages" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
                     </div>
+                    <div class="form-group">
+                        <label>Label Type</label>
+                        <select class="form-control" v-model="form.labelType">
+                            <option value="">-- Select Label Type --</option>
+                            <option v-for="opt in options.labelTypes" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Label Format</label>
+                        <select class="form-control" v-model="form.labelFormat">
+                            <option value="">-- Select Format --</option>
+                            <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Label Data (Wafer/Lot)</label>
+                        <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Data">
+                    </div>
+
+                    <div class="form-group col-span-2">
+                        <label>Print Mode</label>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" v-model="form.printMode" value="Normal" @change="onPrintModeChange"> Normal
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" v-model="form.printMode" value="Reprint" @change="onPrintModeChange"> Reprint
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" v-model="form.printMode" value="Modify" @change="onPrintModeChange"> Modify
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Printer Server</label>
+                        <select class="form-control" v-model="form.printerServer" @change="onPrinterServerChange">
+                            <option value="">-- Select Server --</option>
+                            <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Printer</label>
+                        <select class="form-control" v-model="form.printer" :disabled="!form.printerServer">
+                            <option value="">-- Select Printer --</option>
+                            <option v-for="opt in options.printers" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Box Qty</label>
+                        <input type="number" class="form-control" v-model.number="form.boxQty" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Print Qty (列印份數)</label>
+                        <input type="number" class="form-control" v-model.number="form.printQty" min="1" max="99">
+                    </div>
+
                 </div>
+            </div>
 
             <div class="form-panel" v-show="form.printMode === 'Reprint'">
                 <div class="form-title">
@@ -246,7 +257,8 @@
 
         </div><mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
 
-    </div><script src="/Scripts/vue.min.js"></script>
+    </div>
+    <script src="/Scripts/vue.min.js"></script>
     <script src="/Scripts/vuetify.min.js"></script>
     <script src="/Scripts/slimselect.js"></script>
     <script src="/Scripts/mes-util.js?v=260522"></script>
@@ -260,7 +272,7 @@
             data() {
                 return {
                     // 表單綁定的值
-            form: {
+                    form: {
                         stage: '',           // 新增
                         labelType: '',       // 新增
                         labelFormat: '',
@@ -270,7 +282,7 @@
                         printer: '',
                         boxQty: 1,           // 新增
                         printQty: 1,         // 已有的列印份數
-                        
+
                         reprintType: 'LastLabel',
                         searchData: '',
                         carrierType: '',
@@ -278,11 +290,11 @@
                         brand: '',
                         pinCount: ''
                     },
-                    
+
                     options: {
                         stages: ['StageAY', 'StageFT', 'StageWS'],  // 擴充假資料
-                        labelTypes: ['Inner Box', 'Outer Box', 'Wafer'], 
-                        labelFormats: ['FT_TRAY', 'FT_ASUS_TRAY', 'TAPE_REEL'], 
+                        labelTypes: ['Inner Box', 'Outer Box', 'Wafer'],
+                        labelFormats: ['FT_TRAY', 'FT_ASUS_TRAY', 'TAPE_REEL'],
                         printerServers: ['SERVER_01', 'SERVER_02'], // 擴充印表機伺服器
                         printers: [], // 改為根據 Printer Server 連動
                         carrierTypes: [],
@@ -327,7 +339,7 @@
                     } catch (error) {
                         console.error(error);
                     }
-                    
+
                     // TODO: 您可能還需要寫一支 API 來取得 LabelFormats 和 Printers 的清單
                     // const resInit = await mesfetch("/api/print/print-label/init", {});
                 },
@@ -342,7 +354,7 @@
                         // 如果切回 Normal，可以選擇保留或清空 Label Pack 條件
                         // 依照 VB 習慣通常會清空
                         this.form.carrierType = '';
-                        this.onCarrierTypeChange(); 
+                        this.onCarrierTypeChange();
                     }
                 },
 
@@ -372,7 +384,7 @@
                     if (!this.form.boxingSpecNo) return;
 
                     try {
-                        const response = await mesfetch("/api/print/print-label/brands", { 
+                        const response = await mesfetch("/api/print/print-label/brands", {
                             CarrierType: this.form.carrierType,
                             BoxingSpecNo: this.form.boxingSpecNo
                         });
@@ -387,7 +399,7 @@
                     if (!this.form.brand) return;
 
                     try {
-                        const response = await mesfetch("/api/print/print-label/pin-counts", { 
+                        const response = await mesfetch("/api/print/print-label/pin-counts", {
                             CarrierType: this.form.carrierType,
                             BoxingSpecNo: this.form.boxingSpecNo,
                             Brand: this.form.brand
@@ -401,12 +413,12 @@
                     this.form.printer = '';
                     this.options.printers = [];
                     if (!this.form.printerServer) return;
-            
+
                     try {
                         // 實務上這裡會呼叫後端 API，例如：
                         // const response = await mesfetch("/api/print/print-label/printers", { Server: this.form.printerServer });
                         // if (response.Success) this.options.printers = response.Data;
-                        
+
                         // 模擬連動效果
                         if (this.form.printerServer === 'SERVER_01') {
                             this.options.printers = ['PRINTER_A1', 'PRINTER_A2'];
@@ -417,7 +429,7 @@
                         console.error(error);
                     }
                 },
-                
+
                 /* ── 執行列印 ── */
                 async doPrint() {
                     // 更新防呆機制，加入新的必填欄位檢查
@@ -430,7 +442,7 @@
                     this.setStatus('PRINTING...', 'info');
 
                     try {
-                        // 💡 這裡必須把您畫面上所有用到的參數包裝給後端
+                        //  這裡必須把您畫面上所有用到的參數包裝給後端
                         const payload = {
                             Stage: this.form.stage,
                             LabelType: this.form.labelType,
@@ -483,7 +495,7 @@
                     this.form.printQty = 1;
                     this.form.searchData = '';
                     this.form.carrierType = '';
-                    this.onCarrierTypeChange(); 
+                    this.onCarrierTypeChange();
                     this.setStatus('CLEARED', '');
                 },
 
