@@ -489,6 +489,14 @@ namespace MES.Net.Infrastructure.Repository.Print
 {
     public interface IPrintLabelRepository
     {
+        // LPI (Label Pack Info) 六層連動下拉選單
+        Task<IEnumerable<string>> GetLpiLabelSpecsAsync();
+        Task<IEnumerable<string>> GetLpiCarrierTypesAsync(string labelSpecNo);
+        Task<IEnumerable<string>> GetLpiBoxingSpecsAsync(DropdownRequest request);
+        Task<IEnumerable<string>> GetLpiBrandsAsync(DropdownRequest request);
+        Task<IEnumerable<string>> GetLpiPinCountsAsync(DropdownRequest request);
+        Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request);
+        
         Task<PrintLabelInitResponse> GetInitDataAsync();
         Task<IEnumerable<string>> GetPrintersAsync(string server);
         Task<IEnumerable<string>> GetCarrierTypesAsync();
@@ -521,6 +529,98 @@ namespace MES.Net.Infrastructure.Repository.Print
         public PrintLabelRepository(IDbConnection dbConnection)
         {
             _dbConnection = dbConnection;
+        }
+
+        // 1. 取得 Label Spec No (對應 VB6: GetLPI_LabelSpec)
+        public async Task<IEnumerable<string>> GetLpiLabelSpecsAsync()
+        {
+            string sql = @"
+                SELECT DISTINCT LABELSPECNO 
+                FROM TBL_FT_LABEL_SPEC_INFO 
+                WHERE DELETEFLAG = 'N' 
+                ORDER BY LABELSPECNO";
+            return await _dbConnection.QueryAsync<string>(sql);
+        }
+
+        // 2. 取得 Carrier Type (對應 VB6: GetLPI_CarrierType)
+        public async Task<IEnumerable<string>> GetLpiCarrierTypesAsync(string labelSpecNo)
+        {
+            string sql = @"
+                SELECT DISTINCT CARRIERTYPE 
+                FROM TBL_FT_LABEL_SPEC_INFO 
+                WHERE LABELSPECNO = :p_LabelSpecNo 
+                  AND DELETEFLAG = 'N' 
+                ORDER BY CARRIERTYPE";
+            return await _dbConnection.QueryAsync<string>(sql, new { p_LabelSpecNo = labelSpecNo });
+        }
+
+        // 3. 取得 Boxing Spec No (對應 VB6: GetLPI_BoxingSpecNO)
+        public async Task<IEnumerable<string>> GetLpiBoxingSpecsAsync(DropdownRequest request)
+        {
+            string sql = @"
+                SELECT DISTINCT BOXINGSPECNO 
+                FROM TBL_FT_LABEL_BOXING_INFO 
+                WHERE CARRIERTYPE = :p_CarrierType 
+                  AND DELETEFLAG = 'N' 
+                ORDER BY BOXINGSPECNO";
+            return await _dbConnection.QueryAsync<string>(sql, new { p_CarrierType = request.CarrierType });
+        }
+
+        // 4. 取得 Brand (對應 VB6: GetLPI_Brand)
+        public async Task<IEnumerable<string>> GetLpiBrandsAsync(DropdownRequest request)
+        {
+            string sql = @"
+                SELECT DISTINCT BRAND 
+                FROM TBL_FT_LABEL_BOXING_INFO 
+                WHERE CARRIERTYPE = :p_CarrierType 
+                  AND BOXINGSPECNO = :p_BoxingSpecNo 
+                  AND DELETEFLAG = 'N' 
+                ORDER BY BRAND";
+            return await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                p_CarrierType = request.CarrierType, 
+                p_BoxingSpecNo = request.BoxingSpecNo 
+            });
+        }
+
+        // 5. 取得 Pin Count (對應 VB6: GetLPI_PinCount)
+        public async Task<IEnumerable<string>> GetLpiPinCountsAsync(DropdownRequest request)
+        {
+            string sql = @"
+                SELECT DISTINCT PINCOUNT 
+                FROM TBL_FT_LABEL_BOXING_INFO 
+                WHERE CARRIERTYPE = :p_CarrierType 
+                  AND BOXINGSPECNO = :p_BoxingSpecNo 
+                  AND BRAND = :p_Brand 
+                  AND DELETEFLAG = 'N' 
+                ORDER BY PINCOUNT";
+            return await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                p_CarrierType = request.CarrierType, 
+                p_BoxingSpecNo = request.BoxingSpecNo, 
+                p_Brand = request.Brand 
+            });
+        }
+
+        // 6. 取得 Package Code (對應 VB6: GetLPI_PackageCode)
+        public async Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request)
+        {
+            string sql = @"
+                SELECT DISTINCT PACKAGECODE 
+                FROM TBL_FT_LABEL_BOXING_INFO 
+                WHERE CARRIERTYPE = :p_CarrierType 
+                  AND BOXINGSPECNO = :p_BoxingSpecNo 
+                  AND BRAND = :p_Brand 
+                  AND PINCOUNT = :p_PinCount 
+                  AND DELETEFLAG = 'N' 
+                ORDER BY PACKAGECODE";
+            return await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                p_CarrierType = request.CarrierType, 
+                p_BoxingSpecNo = request.BoxingSpecNo, 
+                p_Brand = request.Brand, 
+                p_PinCount = request.PinCount 
+            });
         }
 
         public async Task<PrintLabelInitResponse> GetInitDataAsync()
