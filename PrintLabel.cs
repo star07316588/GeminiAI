@@ -399,6 +399,26 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = "列印發生預期外的系統錯誤" });
             }
         }
+        // 3. 依據 Stage 取得 Label Formats
+        [HttpPost, Route("label-formats"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLabelFormats([FromBody] MappedServerRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Stage))
+            {
+                return BadRequest("請先選擇 Stage");
+            }
+            try
+            {
+                // 記得在 Service 層也要接通 GetLabelFormatsByStageAsync
+                var result = await _printLabelService.GetLabelFormatsByStageAsync(request.Stage);
+                return Ok(new { Success = true, Message = "", Data = result });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error(this, ex.Message, ex);
+                return Ok(new { Success = false, Message = "取得 Label Formats 失敗" });
+            }
+        }
     }
 }
 
@@ -1416,6 +1436,51 @@ namespace MES.Net.Infrastructure.Repository.Print
             }
 
             return list;
+        }
+        // ==========================================
+        // 1. 初始化畫面資料
+        // ==========================================
+        public async Task<PrintLabelInitResponse> GetInitDataAsync()
+        {
+            var response = new PrintLabelInitResponse();
+
+            // 取得有設定標籤的站別 (Stage)
+            string sqlStage = @"
+                SELECT DISTINCT STAGE 
+                FROM TBL_LABEL_SPEC 
+                WHERE DELETE_FLAG = 'N' 
+                ORDER BY STAGE";
+            
+            response.Stages = await _dbConnection.QueryAsync<string>(sqlStage);
+
+            // 取得初始的所有印表機伺服器
+            string sqlServer = @"
+                SELECT DISTINCT SERVER_NAME 
+                FROM TBL_LABEL_SPEC 
+                WHERE SERVER_NAME IS NOT NULL 
+                  AND DELETE_FLAG = 'N' 
+                ORDER BY SERVER_NAME";
+
+            response.PrinterServers = await _dbConnection.QueryAsync<string>(sqlServer);
+
+            // 💡 注意：LabelFormats 不在這裡全撈了，因為它應該根據 Stage 連動
+
+            return response;
+        }
+
+        // ==========================================
+        // 2. 依據 Stage 連動取得 Label Formats (對應 VB6 的 GetLabelSpec)
+        // ==========================================
+        public async Task<IEnumerable<string>> GetLabelFormatsByStageAsync(string stage)
+        {
+            string sql = @"
+                SELECT DISTINCT LABEL_SPECNO 
+                FROM TBL_LABEL_SPEC 
+                WHERE STAGE = :p_Stage 
+                  AND DELETE_FLAG = 'N' 
+                ORDER BY LABEL_SPECNO";
+
+            return await _dbConnection.QueryAsync<string>(sql, new { p_Stage = stage });
         }
     }
 }
