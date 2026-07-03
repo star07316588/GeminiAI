@@ -364,8 +364,24 @@
                     } catch (error) { console.error(error); }
                 },
 
-                /* ── 動態連動 Printer Server ── */
-                async onStageOrFormatChange() {
+// 1. Stage 改變時，先連動撈出 Label Formats
+                async onStageChange() {
+                    this.form.labelFormat = '';
+                    this.options.labelFormats = [];
+                    this.form.printerServer = '';
+                    
+                    if (!this.form.stage) return;
+
+                    try {
+                        const response = await mesfetch("/api/print/print-label/label-formats", { Stage: this.form.stage });
+                        if (response.Success) {
+                            this.options.labelFormats = response.Data;
+                        }
+                    } catch (error) { console.error(error); }
+                },
+
+                // 2. Label Format 改變時，再連動過濾 Printer Server (以及載入 LPI)
+                async onLabelFormatChange() {
                     this.form.printerServer = '';
                     if (!this.form.stage || !this.form.labelFormat) return;
 
@@ -379,7 +395,7 @@
                         }
                     } catch (error) { console.error(error); }
 
-                    // 若選擇了 LPI 標籤，順便預載 LPI 的第一層
+                    // 若選擇了 LPI 標籤，預載 LPI 的第一層
                     if (this.isLabelPackEnabled && this.options.lpiLabelSpecs.length === 0) {
                         this.loadLpiLabelSpecs();
                     }
