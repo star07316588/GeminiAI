@@ -4020,5 +4020,101 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{UserName}", req.UserId)
                 .Replace("{TimeStamp}", timeStampYMD);
         }
+// =========================================================================
+        // 1. 總管：ExecutePrintAsync (完美對應 VB6 cmdOK_Click)
+        // =========================================================================
+        public async Task ExecutePrintAsync(PrintLabelRequest req)
+        {
+            // ---------------------------------------------------------
+            // [對應 VB6 前期防呆]: 驗證必要欄位
+            // ---------------------------------------------------------
+            if (string.IsNullOrWhiteSpace(req.PrinterServer)) throw new ArgumentException("Please select Printer Server!");
+            if (req.PrintQty <= 0) throw new ArgumentException("列印份數不能為零!");
+
+            // ---------------------------------------------------------
+            // [對應 VB6 Reprint 邏輯] (C# 新增的補印架構)
+            // ---------------------------------------------------------
+            if (req.PrintMode == "Reprint")
+            {
+                string historicalZpl = await _repo.GetHistoricalZplAsync(req.ReprintType, req.SearchData, req.LotId);
+                if (string.IsNullOrEmpty(historicalZpl)) throw new Exception("查無歷史列印紀錄 !!");
+                
+                await SendToPrinterAndLogAsync(req.PrinterServer, historicalZpl, req);
+                return;
+            }
+
+            // ---------------------------------------------------------
+            // [對應 VB6 Hold 狀態防呆]
+            // ---------------------------------------------------------
+            bool isHold = await _repo.IsLotOnHoldAsync(req.LotId);
+            if (isHold)
+            {
+                string[] allowHoldLabels = { "TO_SUBFT_ENG_SAMPLE", "TO_SUBMK_ENG_SAMPLE", "TO_SUBTR_ENG_SAMPLE" };
+                if (!allowHoldLabels.Contains(req.LabelFormat))
+                {
+                    throw new InvalidOperationException($"Lot [{req.LotId}] is on HOLD. Cannot print label !!");
+                }
+            }
+
+            // ---------------------------------------------------------
+            // [對應 VB6 數量與迴圈計算]
+            // ---------------------------------------------------------
+            int innerPrintTimes = 1; // 預設內迴圈只跑 1 次
+            bool isBoxMode = false;
+            
+            // 這些標籤不需要計算箱數，直接印 (對應 VB6 cmdOK_Click 中 iPrintTimes = 1 的判斷)
+            string[] singleCopyLabels = { 
+                "FT_SMALL_LABEL", "FT_ETEST_MERGE", "FT_LOT_INFO", "FT_Label_PACK_INFO", 
+                "FT_TR_LABEL", "FT_BOX_COUNTING", "WS_SMALL_LABEL", "CP_SMALL_LABEL", 
+                "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_ENG_LOC_LABEL" 
+            };
+
+            if (!singleCopyLabels.Contains(req.LabelFormat))
+            {
+                // 對應 VB6: iPrintTimes = CLng(Me.txtQty(miIndex).Text) \ CLng(Me.txtBoxQty)
+                isBoxMode = true;
+                if (req.BoxQty <= 0) throw new ArgumentException("Please Input Correct BoxQty");
+                if (!int.TryParse(req.CQty, out int totalCQty) || totalCQty <= 0) throw new ArgumentException("Please Input Correct LotQty");
+
+                innerPrintTimes = totalCQty / req.BoxQty;
+                if (totalCQty % req.BoxQty > 0) innerPrintTimes++;
+            }
+
+            string timeStampYMD = DateTime.Now.ToString("yyyy/MM/dd");
+
+            // ---------------------------------------------------------
+            // [對應 VB6 雙層列印迴圈]
+            // ---------------------------------------------------------
+            // 外迴圈：控制列印份數 (對應 VB6: For iIndex = 1 To Val(Me.txtPrintQty.Text))
+            for (int copyIndex = 1; copyIndex <= req.PrintQty; copyIndex++)
+            {
+                // 內迴圈：控制裝箱數 (對應 VB6: For iIdx = 1 To iPrintTimes)
+                for (int boxIndex = 1; boxIndex <= innerPrintTimes; boxIndex++)
+                {
+                    bool isPartial = false;
+                    string printQtyForLabel = req.BoxQty.ToString();
+
+                    // 尾數箱判斷 (對應 VB6 的 bIsPartial 邏輯)
+                    if (isBoxMode && boxIndex == innerPrintTimes && int.TryParse(req.CQty, out int totalCQty))
+                    {
+                        int remainder = totalCQty % req.BoxQty;
+                        if (remainder > 0)
+                        {
+                            isPartial = true;
+                            printQtyForLabel = remainder.ToString();
+                        }
+                    }
+
+                    // 呼叫加工廠：取得 ZPL 字串 (對應 VB6 大量的 Call modPrint.Prt_...)
+                    string generatedZpl = await GenerateZplForLabelAsync(req, isPartial, printQtyForLabel, timeStampYMD);
+                    
+                    // 呼叫送貨員：發送並寫入 Log
+                    if (!string.IsNullOrEmpty(generatedZpl))
+                    {
+                        await SendToPrinterAndLogAsync(req.PrinterServer, generatedZpl, req);
+                    }
+                }
+            }
+        }
     }
 }
