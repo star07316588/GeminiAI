@@ -17,7 +17,7 @@ namespace MES.Net.Shared.DTOs.Print
         public int CQty { get; set; }
         public int PassQty { get; set; }
         public int FailQty { get; set; }
-        
+
         // PO Info
         public string PoNo { get; set; }
         public string PoItem { get; set; }
@@ -45,10 +45,12 @@ using System.Data;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MES.Net.Shared.DTOs.Print;
+using Oracle.ManagedDataAccess.Client;
+using System.Configuration;
 
 namespace MES.Net.Infrastructure.Repository.Print
 {
-    public interface IISGFormRepository
+    public interface IPrintISGRepository
     {
         Task<PrintISGResponse> GetShipFGAsync(string shipNo);
         Task<dynamic> GetLotInfoAsync(string lotId);
@@ -56,13 +58,13 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<IEnumerable<string>> GetWaferNumbersAsync(string lotId);
     }
 
-    public class ISGFormRepository : IISGFormRepository
+    public class PrintISGRepository : IPrintISGRepository
     {
         private readonly IDbConnection _dbConnection;
-
-        public ISGFormRepository(IDbConnection dbConnection)
+        private static readonly string _connString = ConfigurationManager.ConnectionStrings["MESDB"]?.ConnectionString;
+        public PrintISGRepository()
         {
-            _dbConnection = dbConnection;
+            _dbConnection = new OracleConnection(_connString);
         }
 
         public async Task<PrintISGResponse> GetShipFGAsync(string shipNo)
@@ -70,7 +72,7 @@ namespace MES.Net.Infrastructure.Repository.Print
             string sql = @"
                 SELECT LOTID, IPN, SHIPQTY, WAFERQTY as WQty, CHIPQTY as CQty, PASSQTY, FAILQTY 
                 FROM SHIP_FG 
-                WHERE TICKETNO = @ShipNo AND DELETE_FLAG = 'N' 
+                WHERE TICKETNO = :ShipNo AND DELETE_FLAG = 'N' 
                 ORDER BY CREATE_TIME DESC";
 
             return await _dbConnection.QueryFirstOrDefaultAsync<PrintISGResponse>(sql, new { ShipNo = shipNo });
@@ -82,7 +84,7 @@ namespace MES.Net.Infrastructure.Repository.Print
                 SELECT CUR_PO_NO as PoNo, CUR_PO_ITEM as PoItem, 
                        CUSTLOTID as CustLotNo, CUSTPOITEM as OrPoItem, CUSTPONO as OrPoNo
                 FROM LOT_INFO 
-                WHERE LOT_ID = @LotId";
+                WHERE LOT_ID = :LotId";
 
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId });
         }
@@ -100,7 +102,7 @@ namespace MES.Net.Infrastructure.Repository.Print
                 INNER JOIN fwlot c ON b.valdata = c.appid
                 INNER JOIN fwlot_pn2m d ON c.sysid = d.fromid AND d.keydata = 'ChipQty'
                 LEFT JOIN LOT_INFO e ON b.valdata = e.lotid
-                WHERE a.wipid = @LotId 
+                WHERE a.wipid = :LotId 
                   AND SUBSTR(a.mergestepid, 1, 5) = '70710'";
 
             return await _dbConnection.QueryAsync<MergeLotInfo>(sql, new { LotId = lotId });
@@ -114,7 +116,7 @@ namespace MES.Net.Infrastructure.Repository.Print
                 INNER JOIN fwlot_n2m b ON a.SysId = b.fromid
                 INNER JOIN fwcomponent c ON b.toid = c.sysid
                 INNER JOIN fwcomponent_pn2m d ON c.sysid = d.fromid
-                WHERE a.appid = @LotId 
+                WHERE a.appid = :LotId 
                 ORDER BY c.componentid";
 
             return await _dbConnection.QueryAsync<string>(sql, new { LotId = lotId });
@@ -122,26 +124,36 @@ namespace MES.Net.Infrastructure.Repository.Print
     }
 }
 
+
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MES.Net.Shared.DTOs.Print;
 using MES.Net.Infrastructure.Repository.Print;
+using MES.Net.Infrastructure.Messaging;
 
 namespace MES.Net.Application.Services.Print
 {
-    public interface IISGFormService
+    public interface IPrintISGService
     {
         Task<PrintISGResponse> GetISGFormDataAsync(string shipNo);
     }
 
-    public class ISGFormService : IISGFormService
+    public class PrintISGService : IPrintISGService
     {
-        private readonly IISGFormRepository _repository;
+        private readonly IPrintISGRepository _printISGRepo;
+        private readonly IMessageQueueService _mqService;
 
-        public ISGFormService(IISGFormRepository repository)
+        private readonly PrintISGRepository _repository;
+
+
+        public PrintISGService()
         {
-            _repository = repository;
+            _printISGRepo = new PrintISGRepository();
+        }
+        public PrintISGService(IPrintISGRepository printISGRepo)
+        {
+            _printISGRepo = printISGRepo;
         }
 
         public async Task<PrintISGResponse> GetISGFormDataAsync(string shipNo)
@@ -178,7 +190,7 @@ namespace MES.Net.Application.Services.Print
             {
                 var mergeLots = await _repository.GetMergeLotsAsync(response.LotId);
                 response.MergeLots = mergeLots.ToList();
-                
+
                 // VB 邏輯：計算剩餘 CQty (總 CQty 減去所有 Child Qty 的總和)
                 int childQtyTotal = response.MergeLots.Sum(x => x.MergeCQty);
                 int remainingQty = response.CQty - childQtyTotal;
@@ -196,21 +208,23 @@ namespace MES.Net.Application.Services.Print
     }
 }
 
-using Microsoft.AspNetCore.Mvc;
+using MES.Net.Application.Services.Print;
+using MES.Net.Web.Filters;
 using System;
 using System.Threading.Tasks;
-using MES.Net.Shared.DTOs.Print;
-using MES.Net.Application.Services.Print;
+using System.Web.Http;
 
 namespace MES.Net.Web.Controllers.Print
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class PrintISGController : ControllerBase
+    [RoutePrefix("api/print/print-ISG")]
+    public class PrintISGController : ApiController
     {
-        private readonly IISGFormService _service;
+        private readonly IPrintISGService _service;
 
-        public PrintISGController(IISGFormService service)
+        public PrintISGController()
+        {
+        }
+        public PrintISGController(IPrintISGService service)
         {
             _service = service;
         }
@@ -218,8 +232,8 @@ namespace MES.Net.Web.Controllers.Print
         /// <summary>
         /// 取得 ISG 出貨單報表資料
         /// </summary>
-        [HttpGet("GetData/{shipNo}")]
-        public async Task<IActionResult> GetISGData(string shipNo)
+        [HttpPost, Route("shipNo"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetISGData(string shipNo)
         {
             try
             {
@@ -228,11 +242,11 @@ namespace MES.Net.Web.Controllers.Print
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "程式執行失敗，請洽IT人員處理", details = ex.Message });
+                return Ok(new { Success = false, Message = "程式執行失敗，請洽IT人員處理", Data = ex.Message });
             }
         }
     }
