@@ -40,6 +40,7 @@ namespace MES.Net.Shared.DTOs.Print
     }
 }
 
+
 using Dapper;
 using System.Data;
 using System.Collections.Generic;
@@ -123,7 +124,6 @@ namespace MES.Net.Infrastructure.Repository.Print
         }
     }
 }
-
 
 using System;
 using System.Linq;
