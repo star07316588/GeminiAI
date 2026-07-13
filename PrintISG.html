@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRINT ISG FORM</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        .msc-panel, .mab-bar {
+            margin-bottom: 10px;
+        }
+
+        /* ── 列印專用樣式 ── */
+        .print-only {
+            display: none;
+        }
+        
+        @media print {
+            /* 隱藏系統外殼與查詢按鈕 */
+            .page-layout, .v-application {
+                display: none !important;
+            }
+            /* 顯示列印專用區塊 */
+            .print-only {
+                display: block !important;
+                font-family: Arial, sans-serif;
+                color: #000;
+            }
+            @page {
+                size: landscape; /* 模擬 VB 的 PrintOrientationLandscape */
+                margin: 15mm;
+            }
+            .print-header {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .print-header h2 {
+                font-size: 24px;
+                margin-bottom: 10px;
+            }
+            .print-info {
+                display: flex;
+                justify-content: space-between;
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+            .print-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            .print-table th, .print-table td {
+                border: 1px solid #000;
+                padding: 8px;
+                text-align: center;
+                font-size: 14px;
+            }
+            .wafer-no-cell {
+                word-break: break-all;
+                text-align: left !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app" data-app>
+        
+        <div class="page-layout">
+            <mes-toolbar title="Print ISG Form (列印出貨單)"></mes-toolbar>
+
+            <div class="page-body">
+                <mes-search-criteria title="Select Criteria to query"
+                                     :fields="criteriaFields"
+                                     :cols="4"
+                                     v-model="qry"
+                                     ref="criteria"
+                                     @enter="doQuery"></mes-search-criteria>
+
+                <mes-action-bar :buttons="actionButtons"
+                                :auto-add-close="true"
+                                @action="onAction"></mes-action-bar>
+
+                <div>
+                    <mes-query-result ref="resultGrid"
+                                      :title="gridTitle"
+                                      :columns="currentColumns"
+                                      :summary="gridSummary"
+                                      :data="gridData"
+                                      style="height: calc(100vh - 280px);"> 
+                    </mes-query-result>
+                </div>
+
+            </div>
+            
+            <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
+        </div>
+
+        <div class="print-only" v-if="reportData">
+            <div class="print-header">
+                <h2>MXIC/BE代工出貨單</h2>
+                <div class="print-info">
+                    <span>單據號碼：{{ reportData.shipNo }}</span>
+                    <span>出貨簽名：________________</span>
+                    <span>收貨簽名：________________</span>
+                </div>
+            </div>
+
+            <table v-if="reportData.shipType === 'FT'" class="print-table">
+                <thead>
+                    <tr>
+                        <th>併批</th>
+                        <th>LotNo</th>
+                        <th>IPN</th>
+                        <th>CQty</th>
+                        <th>PoNo</th>
+                        <th>PoItem</th>
+                        <th>CustLotNo</th>
+                        <th>PassQty</th>
+                        <th>FailQty</th>
+                        <th>併批前批號</th>
+                        <th>併批前CQty</th>
+                        <th>前批號PoNo</th>
+                        <th>前批號PoItem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>N</td>
+                        <td>{{ reportData.lotId }}</td>
+                        <td>{{ reportData.ipn }}</td>
+                        <td>{{ reportData.cQty }}</td>
+                        <td>{{ reportData.poNo }}</td>
+                        <td>{{ reportData.poItem }}</td>
+                        <td>{{ reportData.custLotNo }}</td>
+                        <td>{{ reportData.passQty }}</td>
+                        <td>{{ reportData.failQty }}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr v-for="(merge, index) in reportData.mergeLots" :key="index">
+                        <td>Y</td>
+                        <td>{{ reportData.lotId }}</td>
+                        <td>{{ reportData.ipn }}</td>
+                        <td>{{ reportData.cQty }}</td>
+                        <td>{{ reportData.poNo }}</td>
+                        <td>{{ reportData.poItem }}</td>
+                        <td>{{ merge.custLotNo }}</td>
+                        <td>{{ reportData.passQty }}</td>
+                        <td>{{ reportData.failQty }}</td>
+                        <td>{{ merge.mergeLotId }}</td>
+                        <td>{{ merge.mergeCQty }}</td>
+                        <td>{{ merge.custPoNo }}</td>
+                        <td>{{ merge.custPoItem }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <table v-else class="print-table">
+                <thead>
+                    <tr>
+                        <th>LotNo</th>
+                        <th>IPN</th>
+                        <th>WQty</th>
+                        <th>CQty</th>
+                        <th>PoNo</th>
+                        <th>PoItem</th>
+                        <th>CustLotNo</th>
+                        <th>好壞品 (Pass/Fail)</th>
+                        <th>WaferNo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ reportData.lotId }}</td>
+                        <td>{{ reportData.ipn }}</td>
+                        <td>{{ reportData.wQty }}</td>
+                        <td>{{ reportData.cQty }}</td>
+                        <td>{{ reportData.poNo }}</td>
+                        <td>{{ reportData.poItem }}</td>
+                        <td>{{ reportData.custLotNo }}</td>
+                        <td>{{ reportData.passQty }} / {{ reportData.failQty }}</td>
+                        <td class="wafer-no-cell">{{ reportData.waferNoList }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/tabulator.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-search-criteria.js"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+    <script src="/Scripts/mes-query-result.js?v=260522"></script>
+
+    <script>
+        Vue.use(VMessageBox);
+
+        var vapp = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    /* ── 查詢參數 ── */
+                    qry: {
+                        shipNo: ''
+                    },
+
+                    /* ── 條件欄位定義 ── */
+                    criteriaFields: [
+                        { key: 'shipNo', label: '出貨單號 (Ship No)', type: 'input', placeholder: '請輸入出貨單據號碼' }
+                    ],
+
+                    /* ── 表格資料與狀態 ── */
+                    gridData: [],
+                    reportData: null, // 儲存原始 API 資料供列印使用
+                    currentViewType: 'NONE', // 'FT' 或 'WS'
+
+                    /* ── FT 欄位定義 ── */
+                    colFT: [
+                        { title: '併批', field: 'IsMerge', width: 80, hozAlign: 'center' },
+                        { title: 'LotNo', field: 'LotId', width: 'auto' },
+                        { title: 'IPN', field: 'IPN', width: 'auto' },
+                        { title: 'CQty', field: 'CQty', width: 90, hozAlign: 'right' },
+                        { title: 'PoNo', field: 'PoNo', width: 'auto' },
+                        { title: 'PoItem', field: 'PoItem', width: 'auto' },
+                        { title: 'CustLotNo', field: 'CustLotNo', width: 'auto' },
+                        { title: 'PassQty', field: 'PassQty', width: 90, hozAlign: 'right' },
+                        { title: 'FailQty', field: 'FailQty', width: 90, hozAlign: 'right' },
+                        { title: '併批前批號', field: 'MergeLotId', width: 'auto' },
+                        { title: '併批前CQty', field: 'MergeCQty', width: 120, hozAlign: 'right' },
+                        { title: '前批號PoNo', field: 'OrPoNo', width: 'auto' },
+                        { title: '前批號PoItem', field: 'OrPoItem', width: 'auto' }
+                    ],
+
+                    /* ── WS 欄位定義 ── */
+                    colWS: [
+                        { title: 'LotNo', field: 'LotId', width: 'auto' },
+                        { title: 'IPN', field: 'IPN', width: 'auto' },
+                        { title: 'WQty', field: 'WQty', width: 90, hozAlign: 'right' },
+                        { title: 'CQty', field: 'CQty', width: 90, hozAlign: 'right' },
+                        { title: 'PoNo', field: 'PoNo', width: 'auto' },
+                        { title: 'PoItem', field: 'PoItem', width: 'auto' },
+                        { title: 'CustLotNo', field: 'CustLotNo', width: 'auto' },
+                        { title: '好壞品', field: 'PassFail', width: 120, hozAlign: 'center' },
+                        { title: 'WaferNo', field: 'WaferNoList', width: 400, formatter: "textarea" }
+                    ],
+
+                    statusMsg: 'READY',
+                    statusMsgType: ''
+                };
+            },
+
+            computed: {
+                /* ── 動態變更按鈕 ── */
+                actionButtons() {
+                    let btns = [
+                        { action: 'query', label: 'Query (確認)', icon: 'mdi-magnify' }
+                    ];
+
+                    // 只有在查詢出資料後，才啟用 Print 按鈕
+                    if (this.reportData) {
+                        btns.push({ action: 'print', label: 'Print (列印出貨單)', icon: 'mdi-printer', color: 'success' });
+                    }
+
+                    btns.push({ action: 'clear', label: 'Clear (放棄)', icon: 'mdi-eraser' });
+                    return btns;
+                },
+
+                currentColumns() {
+                    if (this.currentViewType === 'FT') return this.colFT;
+                    if (this.currentViewType === 'WS') return this.colWS;
+                    return [];
+                },
+
+                gridTitle() {
+                    return this.currentViewType === 'NONE' 
+                        ? 'Report Data' 
+                        : `Report Data (${this.currentViewType} Mode)`;
+                },
+
+                gridSummary() {
+                    return [{ label: 'TOTAL ROWS', value: this.gridData.length }];
+                }
+            },
+
+            methods: {
+                /* ── 執行查詢 ── */
+                async doQuery() {
+                    if (!this.qry.shipNo.trim()) {
+                        VMessageBox.alert('Pls input Ship No !!<br>請輸入出貨單據號碼 !!');
+                        return;
+                    }
+
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('QUERYING...', 'info');
+
+                    try {
+                        const payload = {
+                            ShipNo: this.qry.shipNo
+                        };
+
+                        // 呼叫 C# API，對應 PrintISGController 的 GetISGData 路由
+                        const response = await mesfetch("/api/print/print-ISG/shipNo", payload);
+
+                        if (response.success || response.Success) {
+                            
+                            const data = response.data || response.Data;
+                            this.reportData = data;
+                            this.currentViewType = data.shipType || data.ShipType; // 容錯大小寫
+                            
+                            // 將 API 資料轉換為 Tabulator 列表格格式
+                            this.gridData = this.buildGridData(data);
+                            this.$refs.resultGrid.setData(this.gridData);
+
+                            this.setStatus('QUERY SUCCESS', 'success');
+
+                        } else {
+                            // API 回傳失敗
+                            VMessageBox.alert(response.message || response.Message || '查無資料或查詢失敗', '提示', {
+                                icon: 'mdi-information-outline', color: '#f39c12', iconBg: 'rgba(243,156,18,.1)'
+                            }).catch(() => { });
+                            this.doClearDataOnly();
+                            this.setStatus('QUERY FAILED', 'error');
+                        }
+
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert(error.Message || error.message || '查詢發生預期外的錯誤', 'Error', {
+                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
+                        }).catch(() => { });
+                        this.doClearDataOnly();
+                        this.setStatus('QUERY FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                /* ── 資料轉換：將 API DTO 轉成適合 Tabulator 呈現的 Array ── */
+                buildGridData(data) {
+                    let rows = [];
+                    // 轉小寫 Key 容錯處理
+                    const shipType = data.shipType || data.ShipType;
+
+                    if (shipType === 'FT') {
+                        // 1. 先加入母批號
+                        rows.push({
+                            IsMerge: 'N',
+                            LotId: data.lotId || data.LotId,
+                            IPN: data.ipn || data.IPN,
+                            CQty: data.cQty || data.CQty,
+                            PoNo: data.poNo || data.PoNo,
+                            PoItem: data.poItem || data.PoItem,
+                            CustLotNo: data.custLotNo || data.CustLotNo,
+                            PassQty: data.passQty || data.PassQty,
+                            FailQty: data.failQty || data.FailQty,
+                            MergeLotId: '-',
+                            MergeCQty: null,
+                            OrPoNo: '-',
+                            OrPoItem: '-'
+                        });
+
+                        // 2. 加入子批號明細
+                        const mergeLots = data.mergeLots || data.MergeLots || [];
+                        mergeLots.forEach(merge => {
+                            rows.push({
+                                IsMerge: 'Y',
+                                LotId: data.lotId || data.LotId,
+                                IPN: data.ipn || data.IPN,
+                                CQty: data.cQty || data.CQty,
+                                PoNo: data.poNo || data.PoNo,
+                                PoItem: data.poItem || data.PoItem,
+                                CustLotNo: merge.custLotNo || merge.CustLotNo,
+                                PassQty: data.passQty || data.PassQty,
+                                FailQty: data.failQty || data.FailQty,
+                                MergeLotId: merge.mergeLotId || merge.MergeLotId,
+                                MergeCQty: merge.mergeCQty || merge.MergeCQty,
+                                OrPoNo: merge.custPoNo || merge.CustPoNo,
+                                OrPoItem: merge.custPoItem || merge.CustPoItem
+                            });
+                        });
+                    } else {
+                        // WS 只有一筆資料
+                        rows.push({
+                            LotId: data.lotId || data.LotId,
+                            IPN: data.ipn || data.IPN,
+                            WQty: data.wQty || data.WQty,
+                            CQty: data.cQty || data.CQty,
+                            PoNo: data.poNo || data.PoNo,
+                            PoItem: data.poItem || data.PoItem,
+                            CustLotNo: data.custLotNo || data.CustLotNo,
+                            PassFail: `${data.passQty || data.PassQty} / ${data.failQty || data.FailQty}`,
+                            WaferNoList: data.waferNoList || data.WaferNoList
+                        });
+                    }
+                    return rows;
+                },
+
+                /* ── 列印 ── */
+                doPrint() {
+                    if (!this.reportData) return;
+                    window.print();
+                },
+
+                /* ── 清除資料 ── */
+                doClear() {
+                    this.qry.shipNo = '';
+                    this.doClearDataOnly();
+                    this.setStatus('CLEARED', '');
+                },
+
+                doClearDataOnly() {
+                    this.reportData = null;
+                    this.gridData = [];
+                    this.currentViewType = 'NONE';
+                    if (this.$refs.resultGrid) this.$refs.resultGrid.setData([]);
+                },
+
+                doClose() {
+                    window.location.href = '/Content/F5.html';
+                },
+
+                /* ── Action Bar 分派器 ── */
+                onAction(action) {
+                    const map = {
+                        query: this.doQuery,
+                        print: this.doPrint,
+                        clear: this.doClear,
+                        close: this.doClose
+                    };
+                    if (map[action]) map[action].call(this);
+                },
+
+                setStatus(msg, type) {
+                    this.statusMsg = msg;
+                    this.statusMsgType = type || '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
