@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 
-
-namespace YourApp.Models.ISGForm
+namespace MES.Net.Shared.DTOs.Print
 {
     public class PrintISGRequest
     {
@@ -44,9 +44,9 @@ using Dapper;
 using System.Data;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using YourApp.Models.ISGForm;
+using MES.Net.Shared.DTOs.Print;
 
-namespace YourApp.Repositories
+namespace MES.Net.Infrastructure.Repository.Print
 {
     public interface IISGFormRepository
     {
@@ -89,7 +89,6 @@ namespace YourApp.Repositories
 
         public async Task<IEnumerable<MergeLotInfo>> GetMergeLotsAsync(string lotId)
         {
-            // 轉換原本 VB 的 Oracle 查詢 (加入JOIN取代舊語法)
             string sql = @"
                 SELECT b.valdata as MergeLotId, 
                        CAST(d.valdata AS INT) as MergeCQty,
@@ -126,15 +125,14 @@ namespace YourApp.Repositories
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using YourApp.Models.ISGForm;
-using YourApp.Repositories;
+using MES.Net.Shared.DTOs.Print;
+using MES.Net.Infrastructure.Repository.Print;
 
-namespace YourApp.Services
+namespace MES.Net.Application.Services.Print
 {
     public interface IISGFormService
     {
         Task<PrintISGResponse> GetISGFormDataAsync(string shipNo);
-        // Task<byte[]> GenerateISGExcelAsync(string shipNo); // 擴充：若需由後端產出Excel
     }
 
     public class ISGFormService : IISGFormService
@@ -185,19 +183,57 @@ namespace YourApp.Services
                 int childQtyTotal = response.MergeLots.Sum(x => x.MergeCQty);
                 int remainingQty = response.CQty - childQtyTotal;
 
-                // 若有餘額，通常會將母批也當作一筆子明細呈現 (對齊 VB 邏輯中的 .SetText miSpdPrintCol_FT_MergeCQty...)
-                if (remainingQty > 0)
-                {
-                     // 您可以視前端需求決定是否在這裡推入一筆剩餘數量的明細
-                }
+                // 若需依原有邏輯將剩餘數量推入明細，可在此擴充
             }
             else // "WS" 邏輯
             {
                 var waferNos = await _repository.GetWaferNumbersAsync(response.LotId);
-                response.WaferNoList = string.Join(";", waferNos); // 串接 WaferNo
+                response.WaferNoList = string.Join(";", waferNos);
             }
 
             return response;
+        }
+    }
+}
+
+using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Threading.Tasks;
+using MES.Net.Shared.DTOs.Print;
+using MES.Net.Application.Services.Print;
+
+namespace MES.Net.Web.Controllers.Print
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class PrintISGController : ControllerBase
+    {
+        private readonly IISGFormService _service;
+
+        public PrintISGController(IISGFormService service)
+        {
+            _service = service;
+        }
+
+        /// <summary>
+        /// 取得 ISG 出貨單報表資料
+        /// </summary>
+        [HttpGet("GetData/{shipNo}")]
+        public async Task<IActionResult> GetISGData(string shipNo)
+        {
+            try
+            {
+                var data = await _service.GetISGFormDataAsync(shipNo);
+                return Ok(new { success = true, data = data });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "程式執行失敗，請洽IT人員處理", details = ex.Message });
+            }
         }
     }
 }
