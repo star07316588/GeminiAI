@@ -1,0 +1,4 @@
+MES.Net.Infrastructure.Repository.Print
+MES.Net.Application.Services.Print
+MES.Net.Shared.DTOs.Print
+MES.Net.Web.Controllers.Print
