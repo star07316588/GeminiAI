@@ -43,7 +43,7 @@
                                   :data="dataLotInfo"
                                   style="height: calc(100vh - 280px);"> </mes-query-result>
             </div>
-            
+
             <div v-show="currentView === 'Sorter'">
                 <mes-query-result ref="resultSorter"
                                   title="Sorter Control Information"
@@ -262,7 +262,7 @@
                         const payload = {
                             LotId: this.qry.lotId,
                             UserId: sessionStorage.getItem('mes_loginId'),
-                            Items: selectedRows.map(row => ({
+                            Items: allRows.map(row => ({
                                 UpdateTable: row.UpdateTable,
                                 RowId: row.RowId
                             }))
