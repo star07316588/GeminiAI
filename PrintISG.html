@@ -111,17 +111,17 @@
             <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
         </div>
 
-        <div class="print-only" v-if="reportData">
+<div class="print-only" v-if="reportData">
             <div class="print-header">
                 <h2>MXIC/BE代工出貨單</h2>
                 <div class="print-info">
-                    <span>單據號碼：{{ reportData.shipNo }}</span>
+                    <span>單據號碼：{{ reportData.ShipNo || reportData.shipNo }}</span>
                     <span>出貨簽名：________________</span>
                     <span>收貨簽名：________________</span>
                 </div>
             </div>
 
-            <table v-if="reportData.shipType === 'FT'" class="print-table">
+            <table v-if="(reportData.ShipType || reportData.shipType) === 'FT'" class="print-table">
                 <thead>
                     <tr>
                         <th>併批</th>
@@ -142,33 +142,33 @@
                 <tbody>
                     <tr>
                         <td>N</td>
-                        <td>{{ reportData.lotId }}</td>
-                        <td>{{ reportData.ipn }}</td>
-                        <td>{{ reportData.cQty }}</td>
-                        <td>{{ reportData.poNo }}</td>
-                        <td>{{ reportData.poItem }}</td>
-                        <td>{{ reportData.custLotNo }}</td>
-                        <td>{{ reportData.passQty }}</td>
-                        <td>{{ reportData.failQty }}</td>
+                        <td>{{ reportData.LotId || reportData.lotId }}</td>
+                        <td>{{ reportData.IPN || reportData.ipn }}</td>
+                        <td>{{ reportData.CQty || reportData.cQty }}</td>
+                        <td>{{ reportData.PoNo || reportData.poNo }}</td>
+                        <td>{{ reportData.PoItem || reportData.poItem }}</td>
+                        <td>{{ reportData.CustLotNo || reportData.custLotNo }}</td>
+                        <td>{{ reportData.PassQty || reportData.passQty }}</td>
+                        <td>{{ reportData.FailQty || reportData.failQty }}</td>
                         <td>-</td>
                         <td>-</td>
                         <td>-</td>
                         <td>-</td>
                     </tr>
-                    <tr v-for="(merge, index) in reportData.mergeLots" :key="index">
+                    <tr v-for="(merge, index) in (reportData.MergeLots || reportData.mergeLots)" :key="index">
                         <td>Y</td>
-                        <td>{{ reportData.lotId }}</td>
-                        <td>{{ reportData.ipn }}</td>
-                        <td>{{ reportData.cQty }}</td>
-                        <td>{{ reportData.poNo }}</td>
-                        <td>{{ reportData.poItem }}</td>
-                        <td>{{ merge.custLotNo }}</td>
-                        <td>{{ reportData.passQty }}</td>
-                        <td>{{ reportData.failQty }}</td>
-                        <td>{{ merge.mergeLotId }}</td>
-                        <td>{{ merge.mergeCQty }}</td>
-                        <td>{{ merge.custPoNo }}</td>
-                        <td>{{ merge.custPoItem }}</td>
+                        <td>{{ reportData.LotId || reportData.lotId }}</td>
+                        <td>{{ reportData.IPN || reportData.ipn }}</td>
+                        <td>{{ reportData.CQty || reportData.cQty }}</td>
+                        <td>{{ reportData.PoNo || reportData.poNo }}</td>
+                        <td>{{ reportData.PoItem || reportData.poItem }}</td>
+                        <td>{{ merge.CustLotNo || merge.custLotNo }}</td>
+                        <td>{{ reportData.PassQty || reportData.passQty }}</td>
+                        <td>{{ reportData.FailQty || reportData.failQty }}</td>
+                        <td>{{ merge.MergeLotId || merge.mergeLotId }}</td>
+                        <td>{{ merge.MergeCQty || merge.mergeCQty }}</td>
+                        <td>{{ merge.CustPoNo || merge.custPoNo }}</td>
+                        <td>{{ merge.CustPoItem || merge.custPoItem }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -189,15 +189,15 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>{{ reportData.lotId }}</td>
-                        <td>{{ reportData.ipn }}</td>
-                        <td>{{ reportData.wQty }}</td>
-                        <td>{{ reportData.cQty }}</td>
-                        <td>{{ reportData.poNo }}</td>
-                        <td>{{ reportData.poItem }}</td>
-                        <td>{{ reportData.custLotNo }}</td>
-                        <td>{{ reportData.passQty }} / {{ reportData.failQty }}</td>
-                        <td class="wafer-no-cell">{{ reportData.waferNoList }}</td>
+                        <td>{{ reportData.LotId || reportData.lotId }}</td>
+                        <td>{{ reportData.IPN || reportData.ipn }}</td>
+                        <td>{{ reportData.WQty || reportData.wQty }}</td>
+                        <td>{{ reportData.CQty || reportData.cQty }}</td>
+                        <td>{{ reportData.PoNo || reportData.poNo }}</td>
+                        <td>{{ reportData.PoItem || reportData.poItem }}</td>
+                        <td>{{ reportData.CustLotNo || reportData.custLotNo }}</td>
+                        <td>{{ reportData.PassQty || reportData.passQty }} / {{ reportData.FailQty || reportData.failQty }}</td>
+                        <td class="wafer-no-cell">{{ reportData.WaferNoList || reportData.waferNoList }}</td>
                     </tr>
                 </tbody>
             </table>
