@@ -82,21 +82,30 @@
                                      v-model="qry"
                                      ref="criteria"
                                      @enter="doQuery"></mes-search-criteria>
-
+            
                 <mes-action-bar :buttons="actionButtons"
                                 :auto-add-close="true"
                                 @action="onAction"></mes-action-bar>
-
-                <div>
-                    <mes-query-result ref="resultGrid"
-                                      :title="gridTitle"
-                                      :columns="currentColumns"
-                                      :summary="gridSummary"
-                                      :data="gridData"
+            
+                <div v-show="currentViewType === 'FT'">
+                    <mes-query-result ref="resultGridFT"
+                                      title="Report Data (FT Mode)"
+                                      :columns="colFT"
+                                      :summary="summaryFT"
+                                      :data="dataFT"
                                       style="height: calc(100vh - 280px);"> 
                     </mes-query-result>
                 </div>
-
+            
+                <div v-show="currentViewType === 'WS'">
+                    <mes-query-result ref="resultGridWS"
+                                      title="Report Data (WS Mode)"
+                                      :columns="colWS"
+                                      :summary="summaryWS"
+                                      :data="dataWS"
+                                      style="height: calc(100vh - 280px);"> 
+                    </mes-query-result>
+                </div>
             </div>
             
             <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
@@ -224,6 +233,8 @@
 
                     /* ── 表格資料與狀態 ── */
                     gridData: [],
+                    dataFT: [],
+                    dataWS: [],
                     reportData: null, // 儲存原始 API 資料供列印使用
                     currentViewType: 'NONE', // 'FT' 或 'WS'
 
@@ -262,39 +273,26 @@
                 };
             },
 
+            /* 在 computed 區塊中更新 */
             computed: {
-                /* ── 動態變更按鈕 ── */
                 actionButtons() {
                     let btns = [
-                        { action: 'query', label: 'Query (確認)', icon: 'mdi-magnify' }
+                        { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
                     ];
-
-                    // 只有在查詢出資料後，才啟用 Print 按鈕
+            
+                    // 查詢成功後，開放「匯出 Excel (CSV)」與「列印」按鈕
                     if (this.reportData) {
-                        btns.push({ action: 'print', label: 'Print (列印出貨單)', icon: 'mdi-printer', color: 'success' });
+                        btns.push({ action: 'export', label: 'Export Data (匯出)', icon: 'mdi-file-export', color: 'primary' });
+                        btns.push({ action: 'print', label: 'Print Paper (列印報表)', icon: 'mdi-printer', color: 'success' });
                     }
-
-                    btns.push({ action: 'clear', label: 'Clear (放棄)', icon: 'mdi-eraser' });
+            
+                    btns.push({ action: 'clear', label: 'Clear (清除)', icon: 'mdi-eraser' });
                     return btns;
                 },
-
-                currentColumns() {
-                    if (this.currentViewType === 'FT') return this.colFT;
-                    if (this.currentViewType === 'WS') return this.colWS;
-                    return [];
-                },
-
-                gridTitle() {
-                    return this.currentViewType === 'NONE' 
-                        ? 'Report Data' 
-                        : `Report Data (${this.currentViewType} Mode)`;
-                },
-
-                gridSummary() {
-                    return [{ label: 'TOTAL ROWS', value: this.gridData.length }];
-                }
+                summaryFT() { return [{ label: 'TOTAL ROWS', value: this.dataFT.length }]; },
+                summaryWS() { return [{ label: 'TOTAL ROWS', value: this.dataWS.length }]; }
             },
-
+            
             methods: {
                 /* ── 執行查詢 ── */
                 async doQuery() {
@@ -302,146 +300,99 @@
                         VMessageBox.alert('Pls input Ship No !!<br>請輸入出貨單據號碼 !!');
                         return;
                     }
-
+            
                     document.body.style.cursor = 'wait';
                     this.setStatus('QUERYING...', 'info');
-
+            
                     try {
-                        const payload = {
-                            ShipNo: this.qry.shipNo
-                        };
-
-                        // 呼叫 C# API，對應 PrintISGController 的 GetISGData 路由
-                        const response = await mesfetch("/api/print/print-ISG/shipNo", payload);
-
+                        const response = await mesfetch("/api/print/print-ISG/shipNo", { ShipNo: this.qry.shipNo });
+            
                         if (response.success || response.Success) {
-                            
                             const data = response.data || response.Data;
                             this.reportData = data;
-                            this.currentViewType = data.shipType || data.ShipType; // 容錯大小寫
+                            this.currentViewType = data.shipType || data.ShipType;
                             
-                            // 將 API 資料轉換為 Tabulator 列表格格式
-                            this.gridData = this.buildGridData(data);
-                            this.$refs.resultGrid.setData(this.gridData);
-
+                            const gridRows = this.buildGridData(data); // (使用前面提供的轉換函式)
+            
+                            // 🌟 重點：使用 $nextTick 等待 v-show 把 Grid 渲染出來後，再塞入資料
+                            this.$nextTick(() => {
+                                if (this.currentViewType === 'FT') {
+                                    this.dataFT = gridRows;
+                                    this.dataWS = [];
+                                    if(this.$refs.resultGridFT) this.$refs.resultGridFT.setData(gridRows);
+                                } else {
+                                    this.dataWS = gridRows;
+                                    this.dataFT = [];
+                                    if(this.$refs.resultGridWS) this.$refs.resultGridWS.setData(gridRows);
+                                }
+                            });
+            
                             this.setStatus('QUERY SUCCESS', 'success');
-
                         } else {
-                            // API 回傳失敗
-                            VMessageBox.alert(response.message || response.Message || '查無資料或查詢失敗', '提示', {
-                                icon: 'mdi-information-outline', color: '#f39c12', iconBg: 'rgba(243,156,18,.1)'
-                            }).catch(() => { });
+                            VMessageBox.alert(response.message || response.Message || '查無資料');
                             this.doClearDataOnly();
                             this.setStatus('QUERY FAILED', 'error');
                         }
-
                     } catch (error) {
                         console.error(error);
-                        VMessageBox.alert(error.Message || error.message || '查詢發生預期外的錯誤', 'Error', {
-                            icon: 'mdi-alert-circle', color: '#ed4245', iconBg: 'rgba(237,66,69,.1)'
-                        }).catch(() => { });
+                        VMessageBox.alert('查詢發生預期外的錯誤', 'Error');
                         this.doClearDataOnly();
                         this.setStatus('QUERY FAILED', 'error');
                     } finally {
                         document.body.style.cursor = 'default';
                     }
                 },
-
-                /* ── 資料轉換：將 API DTO 轉成適合 Tabulator 呈現的 Array ── */
-                buildGridData(data) {
-                    let rows = [];
-                    // 轉小寫 Key 容錯處理
-                    const shipType = data.shipType || data.ShipType;
-
-                    if (shipType === 'FT') {
-                        // 1. 先加入母批號
-                        rows.push({
-                            IsMerge: 'N',
-                            LotId: data.lotId || data.LotId,
-                            IPN: data.ipn || data.IPN,
-                            CQty: data.cQty || data.CQty,
-                            PoNo: data.poNo || data.PoNo,
-                            PoItem: data.poItem || data.PoItem,
-                            CustLotNo: data.custLotNo || data.CustLotNo,
-                            PassQty: data.passQty || data.PassQty,
-                            FailQty: data.failQty || data.FailQty,
-                            MergeLotId: '-',
-                            MergeCQty: null,
-                            OrPoNo: '-',
-                            OrPoItem: '-'
-                        });
-
-                        // 2. 加入子批號明細
-                        const mergeLots = data.mergeLots || data.MergeLots || [];
-                        mergeLots.forEach(merge => {
-                            rows.push({
-                                IsMerge: 'Y',
-                                LotId: data.lotId || data.LotId,
-                                IPN: data.ipn || data.IPN,
-                                CQty: data.cQty || data.CQty,
-                                PoNo: data.poNo || data.PoNo,
-                                PoItem: data.poItem || data.PoItem,
-                                CustLotNo: merge.custLotNo || merge.CustLotNo,
-                                PassQty: data.passQty || data.PassQty,
-                                FailQty: data.failQty || data.FailQty,
-                                MergeLotId: merge.mergeLotId || merge.MergeLotId,
-                                MergeCQty: merge.mergeCQty || merge.MergeCQty,
-                                OrPoNo: merge.custPoNo || merge.CustPoNo,
-                                OrPoItem: merge.custPoItem || merge.CustPoItem
-                            });
-                        });
-                    } else {
-                        // WS 只有一筆資料
-                        rows.push({
-                            LotId: data.lotId || data.LotId,
-                            IPN: data.ipn || data.IPN,
-                            WQty: data.wQty || data.WQty,
-                            CQty: data.cQty || data.CQty,
-                            PoNo: data.poNo || data.PoNo,
-                            PoItem: data.poItem || data.PoItem,
-                            CustLotNo: data.custLotNo || data.CustLotNo,
-                            PassFail: `${data.passQty || data.PassQty} / ${data.failQty || data.FailQty}`,
-                            WaferNoList: data.waferNoList || data.WaferNoList
-                        });
-                    }
-                    return rows;
-                },
-
-                /* ── 列印 ── */
-                doPrint() {
+            
+                /* ── 匯出 Excel (使用 Tabulator 內建功能) ── */
+                doExport() {
                     if (!this.reportData) return;
-                    window.print();
+                    
+                    // 檔名設定 (對應原本 VB 邏輯的 sShipNo + 檔名)
+                    const dateStr = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+                    const fileName = `${this.reportData.shipNo}_${dateStr}.csv`; 
+            
+                    // 這裡匯出 CSV 格式。如果您的環境有掛載 xlsx.js，可以將 "csv" 改為 "xlsx"
+                    if (this.currentViewType === 'FT') {
+                        this.$refs.resultGridFT.table.download("csv", fileName, { bom: true }); 
+                    } else {
+                        this.$refs.resultGridWS.table.download("csv", fileName, { bom: true }); 
+                    }
                 },
-
+            
                 /* ── 清除資料 ── */
+                doClearDataOnly() {
+                    this.reportData = null;
+                    this.dataFT = [];
+                    this.dataWS = [];
+                    this.currentViewType = 'NONE';
+                    if (this.$refs.resultGridFT) this.$refs.resultGridFT.setData([]);
+                    if (this.$refs.resultGridWS) this.$refs.resultGridWS.setData([]);
+                },
+                
                 doClear() {
                     this.qry.shipNo = '';
                     this.doClearDataOnly();
                     this.setStatus('CLEARED', '');
                 },
-
-                doClearDataOnly() {
-                    this.reportData = null;
-                    this.gridData = [];
-                    this.currentViewType = 'NONE';
-                    if (this.$refs.resultGrid) this.$refs.resultGrid.setData([]);
+            
+                /* ── 列印 ── */
+                doPrint() {
+                    if (!this.reportData) return;
+                    window.print();
                 },
-
-                doClose() {
-                    window.location.href = '/Content/F5.html';
-                },
-
-                /* ── Action Bar 分派器 ── */
+            
+                // ... (保留原本的 doClose, onAction, setStatus, buildGridData 等方法)
                 onAction(action) {
                     const map = {
                         query: this.doQuery,
+                        export: this.doExport, // 綁定新方法
                         print: this.doPrint,
                         clear: this.doClear,
                         close: this.doClose
                     };
                     if (map[action]) map[action].call(this);
                 },
-
+                
                 setStatus(msg, type) {
                     this.statusMsg = msg;
                     this.statusMsgType = type || '';
