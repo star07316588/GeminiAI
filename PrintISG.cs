@@ -233,20 +233,26 @@ namespace MES.Net.Web.Controllers.Print
         /// 取得 ISG 出貨單報表資料
         /// </summary>
         [HttpPost, Route("shipNo"), AuthorizeToken]
-        public async Task<IHttpActionResult> GetISGData(string shipNo)
+        // 🌟 修正1：改用 [FromBody] PrintISGRequest 來接收前端傳來的 JSON
+        public async Task<IHttpActionResult> GetISGData([FromBody] PrintISGRequest request)
         {
             try
             {
-                var data = await _service.GetISGFormDataAsync(shipNo);
-                return Ok(new { success = true, data = data });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
+                // 防呆：確保前端有傳值過來
+                if (request == null || string.IsNullOrWhiteSpace(request.ShipNo))
+                {
+                    return Ok(new { Success = false, Message = "請輸入出貨單號! (Please key in ShipNo!)" });
+                }
+
+                var data = await _service.GetISGFormDataAsync(request.ShipNo);
+                return Ok(new { Success = true, Data = data });
             }
             catch (Exception ex)
             {
-                return Ok(new { Success = false, Message = "程式執行失敗，請洽IT人員處理", Data = ex.Message });
+                // 🌟 修正2：不論是 ArgumentException 還是查無資料的 Exception，
+                // 都將 ex.Message 放在 Message 屬性中，並回傳 Ok (HTTP 200)。
+                // 這樣前端的 mesfetch 就不會進到 catch(error) 區塊，能正確顯示提示。
+                return Ok(new { Success = false, Message = ex.Message });
             }
         }
     }
