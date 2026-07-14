@@ -214,7 +214,7 @@
     <script src="/Scripts/mes-action-bar.js"></script>
     <script src="/Scripts/mes-query-result.js?v=260522"></script>
 
-    <script>
+<script>
         Vue.use(VMessageBox);
 
         var vapp = new Vue({
@@ -233,8 +233,6 @@
 
                     /* ── 表格資料與狀態 ── */
                     gridData: [],
-                    dataFT: [],
-                    dataWS: [],
                     reportData: null, // 儲存原始 API 資料供列印使用
                     currentViewType: 'NONE', // 'FT' 或 'WS'
 
@@ -273,14 +271,14 @@
                 };
             },
 
-            /* 在 computed 區塊中更新 */
             computed: {
+                /* ── 動態變更按鈕 ── */
                 actionButtons() {
                     let btns = [
                         { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
                     ];
             
-                    // 查詢成功後，開放「匯出 Excel (CSV)」與「列印」按鈕
+                    // 查詢成功後，開放「匯出 CSV」與「列印報表」按鈕
                     if (this.reportData) {
                         btns.push({ action: 'export', label: 'Export Data (匯出)', icon: 'mdi-file-export', color: 'primary' });
                         btns.push({ action: 'print', label: 'Print Paper (列印報表)', icon: 'mdi-printer', color: 'success' });
@@ -289,12 +287,19 @@
                     btns.push({ action: 'clear', label: 'Clear (清除)', icon: 'mdi-eraser' });
                     return btns;
                 },
-                summaryFT() { return [{ label: 'TOTAL ROWS', value: this.dataFT.length }]; },
-                summaryWS() { return [{ label: 'TOTAL ROWS', value: this.dataWS.length }]; }
-            },
             
+                /* ── 分別計算兩個表格的總筆數 ── */
+                summaryFT() { 
+                    return [{ label: 'TOTAL ROWS', value: this.dataFT.length }]; 
+                },
+                
+                summaryWS() { 
+                    return [{ label: 'TOTAL ROWS', value: this.dataWS.length }]; 
+                }
+            },
+
             methods: {
-                /* ── 執行查詢 ── */
+            /* ── 執行查詢 ── */
                 async doQuery() {
                     if (!this.qry.shipNo.trim()) {
                         VMessageBox.alert('Pls input Ship No !!<br>請輸入出貨單據號碼 !!');
@@ -342,7 +347,67 @@
                         document.body.style.cursor = 'default';
                     }
                 },
-            
+
+                /* ── 資料轉換：將 API DTO 轉成適合 Tabulator 呈現的 Array ── */
+                buildGridData(data) {
+                    let rows = [];
+                    // 轉小寫 Key 容錯處理
+                    const shipType = data.shipType || data.ShipType;
+
+                    if (shipType === 'FT') {
+                        // 1. 先加入母批號
+                        rows.push({
+                            IsMerge: 'N',
+                            LotId: data.lotId || data.LotId,
+                            IPN: data.ipn || data.IPN,
+                            CQty: data.cQty || data.CQty,
+                            PoNo: data.poNo || data.PoNo,
+                            PoItem: data.poItem || data.PoItem,
+                            CustLotNo: data.custLotNo || data.CustLotNo,
+                            PassQty: data.passQty || data.PassQty,
+                            FailQty: data.failQty || data.FailQty,
+                            MergeLotId: '-',
+                            MergeCQty: null,
+                            OrPoNo: '-',
+                            OrPoItem: '-'
+                        });
+
+                        // 2. 加入子批號明細
+                        const mergeLots = data.mergeLots || data.MergeLots || [];
+                        mergeLots.forEach(merge => {
+                            rows.push({
+                                IsMerge: 'Y',
+                                LotId: data.lotId || data.LotId,
+                                IPN: data.ipn || data.IPN,
+                                CQty: data.cQty || data.CQty,
+                                PoNo: data.poNo || data.PoNo,
+                                PoItem: data.poItem || data.PoItem,
+                                CustLotNo: merge.custLotNo || merge.CustLotNo,
+                                PassQty: data.passQty || data.PassQty,
+                                FailQty: data.failQty || data.FailQty,
+                                MergeLotId: merge.mergeLotId || merge.MergeLotId,
+                                MergeCQty: merge.mergeCQty || merge.MergeCQty,
+                                OrPoNo: merge.custPoNo || merge.CustPoNo,
+                                OrPoItem: merge.custPoItem || merge.CustPoItem
+                            });
+                        });
+                    } else {
+                        // WS 只有一筆資料
+                        rows.push({
+                            LotId: data.lotId || data.LotId,
+                            IPN: data.ipn || data.IPN,
+                            WQty: data.wQty || data.WQty,
+                            CQty: data.cQty || data.CQty,
+                            PoNo: data.poNo || data.PoNo,
+                            PoItem: data.poItem || data.PoItem,
+                            CustLotNo: data.custLotNo || data.CustLotNo,
+                            PassFail: `${data.passQty || data.PassQty} / ${data.failQty || data.FailQty}`,
+                            WaferNoList: data.waferNoList || data.WaferNoList
+                        });
+                    }
+                    return rows;
+                },
+
                 /* ── 匯出 Excel (使用 Tabulator 內建功能) ── */
                 doExport() {
                     if (!this.reportData) return;
@@ -358,7 +423,7 @@
                         this.$refs.resultGridWS.table.download("csv", fileName, { bom: true }); 
                     }
                 },
-            
+                
                 /* ── 清除資料 ── */
                 doClearDataOnly() {
                     this.reportData = null;
@@ -380,8 +445,12 @@
                     if (!this.reportData) return;
                     window.print();
                 },
-            
-                // ... (保留原本的 doClose, onAction, setStatus, buildGridData 等方法)
+
+                doClose() {
+                    window.location.href = '/Content/F5.html';
+                },
+
+                /* ── Action Bar 分派器 ── */
                 onAction(action) {
                     const map = {
                         query: this.doQuery,
@@ -392,7 +461,7 @@
                     };
                     if (map[action]) map[action].call(this);
                 },
-                
+
                 setStatus(msg, type) {
                     this.statusMsg = msg;
                     this.statusMsgType = type || '';
