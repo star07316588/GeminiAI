@@ -205,6 +205,7 @@ namespace MES.Net.Infrastructure.Repository.Print
 }
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using MES.Net.Shared.DTOs.Print;
@@ -237,33 +238,82 @@ namespace MES.Net.Application.Services.Print
             if (string.IsNullOrWhiteSpace(request.LotId))
                 throw new ArgumentException("LotId is required.");
 
-            // 1. 取得基本 Lot 資訊 (原 VB 呼叫 FwuRetrieveLot)
+            // ==========================================
+            // Step 1: 取得 Lot 基本屬性與 Spec 規格
+            // ==========================================
             var response = new RunCardResponse
             {
                 LotId = request.LotId,
-                // ... (從系統 API 或額外的 Repository 查詢補齊 Lot 基本屬性，如 IPN, Qty, Owner 等)
-                IPN = "A1234567" // 假設撈出
+                IPN = "A1234567",       // 實際專案應從 Lot 主檔取得
+                LotOwner = "MXIC",      // 實際專案應從 Lot 主檔取得
+                Route = "",             // 假設 Lot 主檔中 Route 尚未給定
+                PlanId = "PROD_PLAN_01" // 實際專案應從 Lot 主檔取得
             };
 
-            // 2. 取得規格資訊 (Spec)
             response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
+
+            // ==========================================
+            // Step 2: [呼叫 1] 判斷 Lot Type (Normal/Eng/Rework)
+            // ==========================================
+            string lotType = await _repository.GetLotTypeAsync(request.LotId);
             
-            // 處理 Label 特殊邏輯 (對應 VB: If Trim(BRAND) = "KH" And ... Then activecell = "6130K-0807.1")
-            if (response.SpecInfo != null && string.IsNullOrEmpty(response.SpecInfo.Label))
+            // 依據判斷出來的 Lot Type 去過濾未來的處置與註記 (Future Actions)
+            response.FutureActions = new List<RunCardFutureAction>(
+                await _repository.GetFutureActionsAsync(request.LotId, response.IPN, "ProdGroup", response.LotOwner, lotType)
+            );
+
+            // ==========================================
+            // Step 3: [呼叫 2] 處理途程路徑 (Route / StepPath)
+            // ==========================================
+            // 對應 VB: If oLot.CustomAttributes("ROUTE") Is Nothing Then sRoute = GetStepPath(...)
+            if (string.IsNullOrEmpty(response.Route))
             {
-                 // 將 VB6 寫死的 Label 邏輯移入這裡處理
-                 response.SpecInfo.Label = "6130-0807"; 
+                string currentStepSeq = "10"; // 從 Lot Current Step 取得當前 Seq
+                response.Route = await _repository.GetStepPathAsync(response.PlanId, currentStepSeq);
             }
 
-            // 3. 取得站點履歷 (Step History)
-            // 原 VB 寫法會逐站去要 Equipment, Recipe, Bin Data
-            var histories = await _repository.GetStepHistoryAsync(request.LotId, "PlanId_Here");
-            response.StepHistories = new List<RunCardStepHistory>(histories);
+            // ==========================================
+            // Step 4: [呼叫 3 & 4] 走訪履歷，還原歷史機台與配方屬性
+            // ==========================================
+            var histories = await _repository.GetStepHistoryAsync(request.LotId);
+            var historyList = new List<RunCardStepHistory>();
 
-            // 4. 取得註記/未來處置 (Future Actions)
-            response.FutureActions = new List<RunCardFutureAction>(
-                await _repository.GetFutureActionsAsync(request.LotId, response.IPN, "ProdGroup", "Owner")
-            );
+            foreach (var history in histories)
+            {
+                // 當有 TrackOut 時間點時，去歷史紀錄還原當下的狀態
+                if (history.TrackOutTime.HasValue)
+                {
+                    DateTime txnTime = history.TrackOutTime.Value;
+
+                    // [呼叫 3 - GetLotAttrAsync]: 撈取該站 TrackOut 當下的機台 ID、溫度、程式名稱
+                    string curEqp = await _repository.GetLotAttrAsync(request.LotId, "CurEqpId", txnTime);
+                    string pgName = await _repository.GetLotAttrAsync(request.LotId, "PgName", txnTime);
+                    string temp = await _repository.GetLotAttrAsync(request.LotId, "Temperature", txnTime);
+
+                    // [呼叫 4 - GetEqpAttrAsync]: 依據當時的機台 ID，還原機台當下的 SubSys1 / SubSys2 狀態
+                    string eqpHandler = curEqp;
+                    if (!string.IsNullOrEmpty(curEqp))
+                    {
+                        string subSys1 = await _repository.GetEqpAttrAsync(curEqp, "SubSys1", txnTime);
+                        string subSys2 = await _repository.GetEqpAttrAsync(curEqp, "SubSys2", txnTime);
+
+                        if (!string.IsNullOrEmpty(subSys1) && !string.IsNullOrEmpty(subSys2))
+                            eqpHandler = $"{subSys1};{subSys2}";
+                        else if (!string.IsNullOrEmpty(subSys1))
+                            eqpHandler = subSys1;
+                        else if (!string.IsNullOrEmpty(subSys2))
+                            eqpHandler = subSys2;
+                    }
+
+                    // 組裝回傳給前端的視覺化欄位
+                    history.Equipment = string.IsNullOrEmpty(eqpHandler) ? curEqp : eqpHandler;
+                    history.Recipe = $"{pgName} {temp}".Trim();
+                }
+
+                historyList.Add(history);
+            }
+
+            response.StepHistories = historyList;
 
             return response;
         }
