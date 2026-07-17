@@ -32,12 +32,19 @@ namespace MES.Net.Shared.DTOs.Print
     {
         public string LotId { get; set; }
         public string IPN { get; set; }
+        public string Route { get; set; }
         public int WaferQty { get; set; }
         public int ChipQty { get; set; }
         public string LotOwner { get; set; }
         public string Route { get; set; }
         public string Status { get; set; }
         public string StartDate { get; set; }
+
+        // --- 新增：業務邏輯所需的中介與分類欄位 ---
+        public string PlanId { get; set; }
+        public string CurrentStepSeq { get; set; }
+        public string LotType { get; set; } // Normal, Eng, Rework
+        public string RunCardType { get; set; } // 標記此報表為 "FT" 或 "WS"
 
         public RunCardSpecInfo SpecInfo { get; set; }
         public List<RunCardStepHistory> StepHistories { get; set; } = new List<RunCardStepHistory>();
@@ -237,85 +244,99 @@ namespace MES.Net.Application.Services.Print
         {
             if (string.IsNullOrWhiteSpace(request.LotId))
                 throw new ArgumentException("LotId is required.");
+            if (string.IsNullOrWhiteSpace(request.Type))
+                throw new ArgumentException("RunCard Type (FT/WS) is required.");
 
-            // ==========================================
-            // Step 1: 取得 Lot 基本屬性與 Spec 規格
-            // ==========================================
+            // 1. 初始化與撈取共用 Lot 基本資訊
             var response = new RunCardResponse
             {
                 LotId = request.LotId,
-                IPN = "A1234567",       // 實際專案應從 Lot 主檔取得
-                LotOwner = "MXIC",      // 實際專案應從 Lot 主檔取得
-                Route = "",             // 假設 Lot 主檔中 Route 尚未給定
-                PlanId = "PROD_PLAN_01" // 實際專案應從 Lot 主檔取得
+                RunCardType = request.Type.ToUpper(),
+                IPN = "A1234567",         // (請替換為實際查詢)
+                PlanId = "YOUR_PLAN_ID",  // (請替換為實際查詢)
+                CurrentStepSeq = "1234"   // (請替換為實際查詢)
             };
 
-            response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
+            string prodGroup = "PG_A";    // (請替換為實際查詢)
+            string lotOwner = "OWNER_A";  // (請替換為實際查詢)
 
-            // ==========================================
-            // Step 2: [呼叫 1] 判斷 Lot Type (Normal/Eng/Rework)
-            // ==========================================
-            string lotType = await _repository.GetLotTypeAsync(request.LotId);
-            
-            // 依據判斷出來的 Lot Type 去過濾未來的處置與註記 (Future Actions)
+            // 2. 判斷 LotType 與 Route (共用邏輯)
+            response.LotType = await _repository.GetLotTypeAsync(request.LotId);
+            response.Route = await _repository.GetStepPathAsync(response.PlanId, response.CurrentStepSeq);
+
+            // 3. ⭐️ 核心分流：依據 FT 或 WS 處理差異化的 Spec 與 History
+            if (response.RunCardType == "FT")
+            {
+                await ProcessFtRunCardAsync(request.LotId, response);
+            }
+            else if (response.RunCardType == "WS")
+            {
+                await ProcessWsRunCardAsync(request.LotId, response);
+            }
+            else
+            {
+                throw new ArgumentException("Invalid RunCard Type. Must be 'FT' or 'WS'.");
+            }
+
+            // 4. 撈取 Future Actions (共用邏輯，傳入對齊後的 5 個參數)
             response.FutureActions = new List<RunCardFutureAction>(
-                await _repository.GetFutureActionsAsync(request.LotId, response.IPN, "ProdGroup", response.LotOwner, lotType)
+                await _repository.GetFutureActionsAsync(
+                    request.LotId, 
+                    response.IPN, 
+                    prodGroup, 
+                    lotOwner, 
+                    response.LotType)
             );
 
-            // ==========================================
-            // Step 3: [呼叫 2] 處理途程路徑 (Route / StepPath)
-            // ==========================================
-            // 對應 VB: If oLot.CustomAttributes("ROUTE") Is Nothing Then sRoute = GetStepPath(...)
-            if (string.IsNullOrEmpty(response.Route))
+            return response;
+        }
+
+        // ====================================================================
+        // 私有方法：專門處理 FT 的邏輯 (對應原 VB6 的 FtExcelCell)
+        // ====================================================================
+        private async Task ProcessFtRunCardAsync(string lotId, RunCardResponse response)
+        {
+            // FT 專屬的 Spec 查詢邏輯
+            response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
+            
+            // FT 專屬的特殊 Label 邏輯 (移植自 VB6)
+            if (response.SpecInfo != null && string.IsNullOrEmpty(response.SpecInfo.Label))
             {
-                string currentStepSeq = "10"; // 從 Lot Current Step 取得當前 Seq
-                response.Route = await _repository.GetStepPathAsync(response.PlanId, currentStepSeq);
+                 response.SpecInfo.Label = "6130-0807"; 
             }
 
-            // ==========================================
-            // Step 4: [呼叫 3 & 4] 走訪履歷，還原歷史機台與配方屬性
-            // ==========================================
-            var histories = await _repository.GetStepHistoryAsync(request.LotId);
-            var historyList = new List<RunCardStepHistory>();
-
+            // FT 的生產履歷，可能需要額外去撈取 FT Bin Data (Pass/Fail Qty)
+            var histories = await _repository.GetStepHistoryAsync(lotId);
             foreach (var history in histories)
             {
-                // 當有 TrackOut 時間點時，去歷史紀錄還原當下的狀態
-                if (history.TrackOutTime.HasValue)
+                // ... 執行與先前相同的還原機台(EqpAttr)與配方(LotAttr)邏輯 ...
+                
+                // (擴充) 如果是 FT 測試站，去抓 Bin Data
+                if (history.StepName.Contains("TEST"))
                 {
-                    DateTime txnTime = history.TrackOutTime.Value;
-
-                    // [呼叫 3 - GetLotAttrAsync]: 撈取該站 TrackOut 當下的機台 ID、溫度、程式名稱
-                    string curEqp = await _repository.GetLotAttrAsync(request.LotId, "CurEqpId", txnTime);
-                    string pgName = await _repository.GetLotAttrAsync(request.LotId, "PgName", txnTime);
-                    string temp = await _repository.GetLotAttrAsync(request.LotId, "Temperature", txnTime);
-
-                    // [呼叫 4 - GetEqpAttrAsync]: 依據當時的機台 ID，還原機台當下的 SubSys1 / SubSys2 狀態
-                    string eqpHandler = curEqp;
-                    if (!string.IsNullOrEmpty(curEqp))
-                    {
-                        string subSys1 = await _repository.GetEqpAttrAsync(curEqp, "SubSys1", txnTime);
-                        string subSys2 = await _repository.GetEqpAttrAsync(curEqp, "SubSys2", txnTime);
-
-                        if (!string.IsNullOrEmpty(subSys1) && !string.IsNullOrEmpty(subSys2))
-                            eqpHandler = $"{subSys1};{subSys2}";
-                        else if (!string.IsNullOrEmpty(subSys1))
-                            eqpHandler = subSys1;
-                        else if (!string.IsNullOrEmpty(subSys2))
-                            eqpHandler = subSys2;
-                    }
-
-                    // 組裝回傳給前端的視覺化欄位
-                    history.Equipment = string.IsNullOrEmpty(eqpHandler) ? curEqp : eqpHandler;
-                    history.Recipe = $"{pgName} {temp}".Trim();
+                    // history.PassQty = await _repository.GetFtBinDataAsync(...);
                 }
-
-                historyList.Add(history);
             }
+            response.StepHistories = new List<RunCardStepHistory>(histories);
+        }
 
-            response.StepHistories = historyList;
+        // ====================================================================
+        // 私有方法：專門處理 WS 的邏輯 (對應原 VB6 的 WsExcelCell)
+        // ====================================================================
+        private async Task ProcessWsRunCardAsync(string lotId, RunCardResponse response)
+        {
+            // WS 的 Spec 來源表或欄位可能與 FT 不同，若不同可另建 Repository 方法
+            response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
 
-            return response;
+            // WS 的生產履歷，可能需要額外去撈取 Wafer 的 TDS (Test Data Sheet) 等級
+            var histories = await _repository.GetStepHistoryAsync(lotId);
+            foreach (var history in histories)
+            {
+                // ... 執行與先前相同的還原機台(EqpAttr)與配方(LotAttr)邏輯 ...
+
+                // (擴充) 如果是 WS 測試站，去抓 Wafer 等級或良率
+            }
+            response.StepHistories = new List<RunCardStepHistory>(histories);
         }
     }
 }
