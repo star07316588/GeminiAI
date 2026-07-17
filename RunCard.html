@@ -3,213 +3,425 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RunCard 流程卡列印作業</title>
-    <!-- 假設引入 Bootstrap 與 Vue (請依據您的專案環境調整) -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <title>PRINT RUN CARD</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card-header { background-color: #0d6efd; color: white; font-weight: bold; }
-        .table-hover tbody tr:hover { background-color: #f1f3f5; cursor: pointer; }
-        .loading-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.8); z-index: 1050;
-            display: flex; justify-content: center; align-items: center;
+        .msc-panel, .mab-bar {
+            margin-bottom: 10px;
+        }
+
+        /* ── 列印專用樣式 ── */
+        .print-only {
+            display: none;
+        }
+        
+        @media print {
+            /* 隱藏系統外殼與查詢 UI */
+            .page-layout, .v-application {
+                display: none !important;
+            }
+            /* 顯示列印專用區塊 */
+            .print-only {
+                display: block !important;
+                font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
+                color: #000;
+            }
+            @page {
+                size: landscape; /* 流程卡通常欄位多，建議橫印 */
+                margin: 10mm;
+            }
+            
+            .print-header {
+                text-align: center;
+                margin-bottom: 15px;
+                border-bottom: 2px solid #000;
+                padding-bottom: 5px;
+            }
+            .print-header h2 {
+                font-size: 24px;
+                margin: 0 0 5px 0;
+            }
+            
+            .section-title {
+                font-size: 16px;
+                font-weight: bold;
+                background-color: #eee;
+                padding: 4px;
+                margin: 15px 0 5px 0;
+                border: 1px solid #000;
+            }
+
+            .info-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
+                margin-bottom: 10px;
+                font-size: 14px;
+            }
+            .info-item span:first-child {
+                font-weight: bold;
+            }
+
+            .print-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 5px;
+            }
+            .print-table th, .print-table td {
+                border: 1px solid #000;
+                padding: 4px;
+                text-align: center;
+                font-size: 12px;
+            }
+            .text-left {
+                text-align: left !important;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="app" class="container-fluid mt-4">
+    <div id="app" data-app>
         
-        <!-- Loading 遮罩 -->
-        <div v-if="isLoading" class="loading-overlay">
-            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <h4 class="ms-3 text-primary">資料處理中，請稍候...</h4>
-        </div>
+        <!-- 系統操作介面 -->
+        <div class="page-layout">
+            <mes-toolbar title="Print Run Card (流程卡列印)"></mes-toolbar>
 
-        <h2 class="mb-4">RunCard 流程卡列印作業</h2>
-
-        <!-- 1. 條件查詢區 (Query Panel) -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">查詢條件</div>
-            <div class="card-body">
-                <div class="row g-3 align-items-center">
-                    <!-- Type (FT/WS) -->
-                    <div class="col-md-2">
-                        <label class="form-label">報表類型</label>
-                        <select class="form-select" v-model="searchForm.Type">
-                            <option value="FT">FT (測試)</option>
-                            <option value="WS">WS (晶圓)</option>
-                        </select>
-                    </div>
-                    <!-- Lot ID -->
-                    <div class="col-md-3">
-                        <label class="form-label">批號 (Lot ID)</label>
-                        <input type="text" class="form-control" v-model="searchForm.LotId" placeholder="輸入完整或部分批號 (*)" @keyup.enter="queryLots">
-                    </div>
-                    <!-- IPN -->
-                    <div class="col-md-3">
-                        <label class="form-label">料號 (IPN)</label>
-                        <input type="text" class="form-control" v-model="searchForm.IPN" placeholder="輸入料號" @keyup.enter="queryLots">
-                    </div>
-                    <!-- Step -->
-                    <div class="col-md-2">
-                        <label class="form-label">站點 (Step)</label>
-                        <input type="text" class="form-control" v-model="searchForm.Step" placeholder="輸入站點" @keyup.enter="queryLots">
-                    </div>
-                    <!-- 按鈕區 -->
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button class="btn btn-primary w-100 me-2" @click="queryLots">
-                            🔍 查詢
-                        </button>
-                        <button class="btn btn-outline-secondary w-100" @click="resetForm">
-                            清除
-                        </button>
-                    </div>
+            <div class="page-body">
+                <mes-search-criteria title="Select Criteria to query"
+                                     :fields="criteriaFields"
+                                     :cols="4"
+                                     v-model="qry"
+                                     ref="criteria"
+                                     @enter="doQuery"></mes-search-criteria>
+            
+                <mes-action-bar :buttons="actionButtons"
+                                :auto-add-close="true"
+                                @action="onAction"></mes-action-bar>
+            
+                <!-- 查詢結果清單 -->
+                <div>
+                    <mes-query-result ref="resultGrid"
+                                      title="Lot List (請點選要列印的批號)"
+                                      :columns="colGrid"
+                                      :summary="summary"
+                                      :data="dataList"
+                                      :selectable="1"
+                                      @rowSelected="onRowSelected"
+                                      @rowDeselected="onRowDeselected"
+                                      style="height: calc(100vh - 280px);"> 
+                    </mes-query-result>
                 </div>
             </div>
+            
+            <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
         </div>
 
-        <!-- 2. 結果清單區 (Data Grid) -->
-        <div class="card shadow-sm" v-if="lotList.length > 0">
-            <div class="card-header bg-secondary">
-                查詢結果 (共 {{ lotList.length }} 筆)
+        <!-- 列印專用報表版面 -->
+        <div class="print-only" v-if="runCardDetail">
+            <div class="print-header">
+                <h2>{{ runCardDetail.runCardType || runCardDetail.RunCardType }} RUN CARD ({{ runCardDetail.lotType || runCardDetail.LotType }})</h2>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>批號 (Lot ID)</th>
-                                <th>料號 (IPN)</th>
-                                <th>目前站點 (Step)</th>
-                                <th>站點描述</th>
-                                <th>數量 (Qty)</th>
-                                <th class="text-center">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(lot, index) in lotList" :key="index">
-                                <td><strong>{{ lot.LotId }}</strong></td>
-                                <td>{{ lot.IPN }}</td>
-                                <td>{{ lot.StepName }}</td>
-                                <td>{{ lot.Description }}</td>
-                                <td>{{ lot.ComponentQty }}</td>
-                                <td class="text-center">
-                                    <!-- 報表操作按鈕 -->
-                                    <button class="btn btn-success btn-sm" @click="printRunCard(lot)">
-                                        🖨️ 列印 / 檢視流程卡
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+
+            <!-- 1. 基本資訊 -->
+            <div class="info-grid">
+                <div class="info-item"><span>Lot ID:</span> {{ runCardDetail.lotId || runCardDetail.LotId }}</div>
+                <div class="info-item"><span>IPN:</span> {{ runCardDetail.ipn || runCardDetail.IPN }}</div>
+                <div class="info-item"><span>Qty:</span> {{ runCardDetail.chipQty || runCardDetail.ChipQty }}</div>
+                <div class="info-item"><span>Owner:</span> {{ runCardDetail.lotOwner || runCardDetail.LotOwner }}</div>
+                <div class="info-item"><span>Route:</span> {{ runCardDetail.route || runCardDetail.Route }}</div>
+                <div class="info-item"><span>Start Date:</span> {{ runCardDetail.startDate || runCardDetail.StartDate }}</div>
+            </div>
+
+            <!-- 2. 規格資訊 (Spec Info) -->
+            <div v-if="runCardDetail.specInfo || runCardDetail.SpecInfo">
+                <div class="section-title">Specification Info</div>
+                <div class="info-grid">
+                    <div class="info-item"><span>EPN:</span> {{ getSpec('epn') }}</div>
+                    <div class="info-item"><span>CPN:</span> {{ getSpec('cpn') }}</div>
+                    <div class="info-item"><span>Pkg Code:</span> {{ getSpec('packageCode') }}</div>
+                    <div class="info-item"><span>Label:</span> {{ getSpec('label') }}</div>
+                    <div class="info-item"><span>Carrier Spec:</span> {{ getSpec('carrierSpecNo') }}</div>
                 </div>
             </div>
-        </div>
-        
-        <!-- 無資料提示 -->
-        <div class="alert alert-info mt-4" v-else-if="hasSearched && lotList.length === 0">
-            查無符合條件的批號，請重新調整查詢條件。
+
+            <!-- 3. 未來處置/註記 (Future Actions) -->
+            <div v-if="hasFutureActions">
+                <div class="section-title">Future Actions / Holds</div>
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th width="15%">Step</th>
+                            <th width="10%">Type</th>
+                            <th width="50%">Comments</th>
+                            <th width="10%">User</th>
+                            <th width="15%">Set Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(act, idx) in (runCardDetail.futureActions || runCardDetail.FutureActions)" :key="idx">
+                            <td>{{ act.step || act.Step }}</td>
+                            <td>{{ act.actionType || act.ActionType }}</td>
+                            <td class="text-left">{{ act.comments || act.Comments }}</td>
+                            <td>{{ act.userId || act.UserId }}</td>
+                            <td>{{ formatTime(act.setTime || act.SetTime) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 4. 生產履歷 (Step History) -->
+            <div class="section-title">Step History</div>
+            <table class="print-table">
+                <thead>
+                    <tr>
+                        <th width="15%">Step</th>
+                        <th width="15%">Description</th>
+                        <th width="15%">Equipment (Handler)</th>
+                        <th width="15%">Recipe / PgName</th>
+                        <th width="5%">Qty</th>
+                        <th width="10%">User</th>
+                        <th width="15%">Track Out Time</th>
+                        <th width="10%" v-if="isFt">Pass/Fail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(hist, idx) in (runCardDetail.stepHistories || runCardDetail.StepHistories)" :key="idx">
+                        <td class="text-left">{{ hist.stepName || hist.StepName }}</td>
+                        <td class="text-left">{{ hist.description || hist.Description }}</td>
+                        <td>{{ hist.equipment || hist.Equipment }}</td>
+                        <td>{{ hist.recipe || hist.Recipe }}</td>
+                        <td>{{ hist.quantityOut || hist.QuantityOut }}</td>
+                        <td>{{ hist.userOut || hist.UserOut }}</td>
+                        <td>{{ formatTime(hist.trackOutTime || hist.TrackOutTime) }}</td>
+                        <td v-if="isFt">{{ hist.passQty || hist.PassQty }} / {{ hist.failQty || hist.FailQty }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
     </div>
 
+    <script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/tabulator.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-search-criteria.js"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+    <script src="/Scripts/mes-query-result.js?v=260522"></script>
+
     <script>
-        new Vue({
+        Vue.use(VMessageBox);
+
+        var vapp = new Vue({
             el: '#app',
             data() {
                 return {
-                    // 對應後端的 QueryRunCardRequest DTO
-                    searchForm: {
-                        Type: 'FT',
-                        LotId: '',
-                        IPN: '',
-                        Step: ''
+                    /* ── 查詢參數 ── */
+                    qry: {
+                        type: 'FT',
+                        step: '',
+                        lotId: '',
+                        ipn: ''
                     },
-                    lotList: [],
-                    isLoading: false,
-                    hasSearched: false
+
+                    /* ── 條件欄位定義 ── */
+                    criteriaFields: [
+                        { key: 'type', label: 'Type (FT/WS)', type: 'select', options: [{text: 'FT', value: 'FT'}, {text: 'WS', value: 'WS'}] },
+                        { key: 'step', label: 'Step (站點)', type: 'input', placeholder: '可模糊查詢' },
+                        { key: 'lotId', label: 'Lot ID (批號)', type: 'input', placeholder: '支援 * 模糊查詢' },
+                        { key: 'ipn', label: 'IPN (料號)', type: 'input', placeholder: '支援 * 模糊查詢' }
+                    ],
+
+                    /* ── 表格資料與狀態 ── */
+                    dataList: [],
+                    selectedLot: null,      // Grid 中選取的批號
+                    runCardDetail: null,    // 呼叫 Detail API 取回的報表物件
+
+                    /* ── 清單欄位定義 (對應 RunCardLotListDto) ── */
+                    colGrid: [
+                        { title: 'Lot ID', field: 'LotId', width: 150 },
+                        { title: 'Step', field: 'StepName', width: 120 },
+                        { title: 'Description', field: 'Description', width: 'auto' },
+                        { title: 'Qty', field: 'ComponentQty', width: 80, hozAlign: 'right' },
+                        { title: 'IPN', field: 'IPN', width: 180 }
+                    ],
+
+                    statusMsg: 'READY',
+                    statusMsgType: ''
                 };
             },
-            methods: {
-                // 清除表單
-                resetForm() {
-                    this.searchForm.LotId = '';
-                    this.searchForm.IPN = '';
-                    this.searchForm.Step = '';
-                    this.lotList = [];
-                    this.hasSearched = false;
+
+            computed: {
+                /* ── 動態變更按鈕 ── */
+                actionButtons() {
+                    let btns = [
+                        { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
+                    ];
+            
+                    // 當有勾選清單上的批號時，開放「列印報表」按鈕
+                    if (this.selectedLot) {
+                        btns.push({ action: 'print', label: 'Print RunCard (列印)', icon: 'mdi-printer', color: 'success' });
+                    }
+            
+                    btns.push({ action: 'clear', label: 'Clear (清除)', icon: 'mdi-eraser' });
+                    return btns;
+                },
+            
+                summary() { 
+                    return [{ label: 'TOTAL LOTS', value: this.dataList.length }]; 
                 },
 
-                // 呼叫 API：查詢批號清單
-                async queryLots() {
-                    this.isLoading = true;
-                    this.hasSearched = true;
-                    this.lotList = [];
-                    
+                isFt() {
+                    if(!this.runCardDetail) return false;
+                    const t = this.runCardDetail.runCardType || this.runCardDetail.RunCardType;
+                    return t === 'FT';
+                },
+
+                hasFutureActions() {
+                    if(!this.runCardDetail) return false;
+                    const acts = this.runCardDetail.futureActions || this.runCardDetail.FutureActions;
+                    return acts && acts.length > 0;
+                }
+            },
+
+            methods: {
+                /* ── 執行批號清單查詢 ── */
+                async doQuery() {
+                    if (!this.qry.type) {
+                        VMessageBox.alert('請選擇 Type (FT 或 WS)');
+                        return;
+                    }
+            
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('QUERYING...', 'info');
+                    this.selectedLot = null;
+            
                     try {
-                        const response = await axios.post('/api/print/run-card/query', this.searchForm);
-                        
-                        if (response.data.Success) {
-                            this.lotList = response.data.Data;
+                        const response = await mesfetch("/api/print/run-card/query", this.qry);
+            
+                        if (response.success || response.Success) {
+                            const data = response.data || response.Data;
+                            this.dataList = data;
+                            
+                            this.$nextTick(() => {
+                                if(this.$refs.resultGrid) this.$refs.resultGrid.setData(this.dataList);
+                            });
+            
+                            this.setStatus('QUERY SUCCESS', 'success');
                         } else {
-                            alert('查詢失敗：' + response.data.Message);
+                            VMessageBox.alert(response.message || response.Message || '查無資料');
+                            this.doClearDataOnly();
+                            this.setStatus('QUERY FAILED', 'error');
                         }
                     } catch (error) {
-                        console.error("Query API Error:", error);
-                        alert('系統發生異常，請聯絡 IT 人員。');
+                        console.error(error);
+                        VMessageBox.alert('查詢發生錯誤', 'Error');
+                        this.doClearDataOnly();
+                        this.setStatus('QUERY FAILED', 'error');
                     } finally {
-                        this.isLoading = false;
+                        document.body.style.cursor = 'default';
                     }
                 },
 
-                // 呼叫 API：取得單一流程卡詳細資料並執行列印/匯出
-                async printRunCard(lot) {
-                    this.isLoading = true;
+                /* ── 點擊列印：呼叫 Detail API 並觸發 Browser Print ── */
+                async doPrint() {
+                    if (!this.selectedLot) return;
 
-                    // 對應後端的 PrintRunCardRequest DTO
-                    const requestData = {
-                        LotId: lot.LotId,
-                        Type: this.searchForm.Type
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('GENERATING RUN CARD...', 'info');
+
+                    const req = {
+                        LotId: this.selectedLot.LotId || this.selectedLot.lotId,
+                        Type: this.qry.type
                     };
 
                     try {
-                        const response = await axios.post('/api/print/run-card/detail', requestData);
+                        const response = await mesfetch("/api/print/run-card/detail", req);
                         
-                        if (response.data.Success) {
-                            const runCardData = response.data.Data;
-                            console.log("RunCard 報表資料取得成功:", runCardData);
-
-                            // ----------------------------------------------------
-                            // 這裡接續「產出報表」的動作：
-                            // 方式 A: 將 runCardData 傳遞給前端報表套件 (如 Stimulsoft, JSReport)
-                            // 方式 B: 開啟一個新視窗 (Preview HTML) 供使用者瀏覽器列印
-                            // 方式 C: 呼叫另一個後端 API 產生 Excel 檔案並下載
-                            // ----------------------------------------------------
+                        if (response.success || response.Success) {
+                            this.runCardDetail = response.data || response.Data;
                             
-                            this.renderPrintPreview(runCardData);
+                            // 等待 Vue 將 print-only 區塊渲染到畫面上後，觸發列印
+                            this.$nextTick(() => {
+                                window.print();
+                            });
 
+                            this.setStatus('PRINT SUCCESS', 'success');
                         } else {
-                            alert('取得流程卡資料失敗：' + response.data.Message);
+                            VMessageBox.alert(response.message || response.Message || '產生流程卡失敗');
+                            this.setStatus('PRINT FAILED', 'error');
                         }
                     } catch (error) {
-                        console.error("Detail API Error:", error);
-                        alert('取得流程卡資料發生異常！');
+                        console.error(error);
+                        VMessageBox.alert('產生報表時發生錯誤', 'Error');
+                        this.setStatus('PRINT FAILED', 'error');
                     } finally {
-                        this.isLoading = false;
+                        document.body.style.cursor = 'default';
                     }
                 },
 
-                // 處理預覽/列印的顯示邏輯 (依專案實際需求客製)
-                renderPrintPreview(data) {
-                    // 範例：簡單的 Alert 提示，實務上通常會開啟一個 Modal 或新分頁畫出表格
-                    alert(`成功載入 ${data.RunCardType} 流程卡資料！\n批號: ${data.LotId}\n共有 ${data.StepHistories.length} 筆履歷，${data.FutureActions.length} 筆未來處置。`);
-                    
-                    // TODO: 根據專案習慣，實作 Excel 下載或畫面 Render
+                /* ── Tabulator 事件綁定 ── */
+                onRowSelected(row) {
+                    this.selectedLot = row.getData();
+                },
+                onRowDeselected(row) {
+                    this.selectedLot = null;
+                },
+                
+                /* ── 清除與輔助方法 ── */
+                doClearDataOnly() {
+                    this.dataList = [];
+                    this.selectedLot = null;
+                    this.runCardDetail = null;
+                    if (this.$refs.resultGrid) this.$refs.resultGrid.setData([]);
+                },
+                
+                doClear() {
+                    this.qry.step = '';
+                    this.qry.lotId = '';
+                    this.qry.ipn = '';
+                    this.doClearDataOnly();
+                    this.setStatus('CLEARED', '');
+                },
+            
+                doClose() {
+                    window.location.href = '/Content/F5.html';
+                },
+
+                onAction(action) {
+                    const map = {
+                        query: this.doQuery,
+                        print: this.doPrint,
+                        clear: this.doClear,
+                        close: this.doClose
+                    };
+                    if (map[action]) map[action].call(this);
+                },
+
+                setStatus(msg, type) {
+                    this.statusMsg = msg;
+                    this.statusMsgType = type || '';
+                },
+
+                // 容錯讀取 Spec 欄位的大小寫
+                getSpec(key) {
+                    if(!this.runCardDetail || !this.runCardDetail.specInfo && !this.runCardDetail.SpecInfo) return '';
+                    const spec = this.runCardDetail.specInfo || this.runCardDetail.SpecInfo;
+                    const upperKey = key.charAt(0).toUpperCase() + key.slice(1);
+                    return spec[key] || spec[upperKey] || '';
+                },
+
+                // 格式化日期時間
+                formatTime(isoStr) {
+                    if(!isoStr) return '';
+                    return isoStr.replace('T', ' ').substring(0, 19);
                 }
             }
         });
