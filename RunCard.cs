@@ -81,9 +81,18 @@ namespace MES.Net.Shared.DTOs.Print
         public string Equipment { get; set; }
         public string Recipe { get; set; }
         
-        // FT 專用的 Bin Data 或 WS 的 TDS Data 可擴充於此
+        // 新增 FT 專用測試數據與處置
         public int? PassQty { get; set; }
         public int? FailQty { get; set; }
+        public string Bin1 { get; set; }
+        public string Bin2 { get; set; }
+        public string Bin3 { get; set; }
+        public string Bin4 { get; set; }
+        public string Bin5 { get; set; }
+        public string Bin6 { get; set; }
+        public double? Yield { get; set; } // 良率 (PassQty / InQty)
+        
+        public string ScrapComment { get; set; }
         public string MergeIdList { get; set; }
         public string SplitIdList { get; set; }
     }
@@ -94,7 +103,11 @@ namespace MES.Net.Shared.DTOs.Print
         public string Comments { get; set; }
         public string UserId { get; set; }
         public DateTime SetTime { get; set; }
-        public string ActionType { get; set; } // Lot, Ipn, ProdGroup, Hold 等
+        public string ActionType { get; set; } 
+        
+        // 用於業務邏輯過濾用，不一定會顯示在畫面上
+        public string IncludeEngLot { get; set; }
+        public string IncludeReworkLot { get; set; }
     }
 }
 
@@ -207,6 +220,78 @@ namespace MES.Net.Infrastructure.Repository.Print
             // 對應龐大的 UNION 查詢 (TBL_LOT_FUTACT, TBL_IPN_FUTACT, TBL_PRODGROUP_FUTACT, TBL_HOLD_REC)
             // 實作時建議依據 DTO 結構將欄位對齊
             return new List<RunCardFutureAction>(); // 假裝已經實作完成
+        }
+        /// <summary>
+        /// 實作那段巨大的 UNION 查詢 (Future Actions)
+        /// </summary>
+        public async Task<IEnumerable<RunCardFutureAction>> GetFutureActionsAsync(
+            string lotId, string ipn, string prodGroup, string lotOwner)
+        {
+            // 將 VB6 中的龐大 Union 轉換為標準 SQL
+            string sql = @"
+                SELECT * FROM (
+                    -- 1. Lot FutAct
+                    SELECT STEP_NO AS Step, COMMENTS AS Comments, USER_ID AS UserId, SET_TIME AS SetTime, 
+                           '' AS IncludeEngLot, '' AS IncludeReworkLot, 'Lot' AS ActionType
+                    FROM TBL_LOT_FUTACT 
+                    WHERE LOT_ID = :LotId AND COMMENTS IS NOT NULL AND DELETE_FLAG <> 'Y'
+                    
+                    UNION 
+                    
+                    -- 2. IPN FutAct
+                    SELECT STEP_NO AS Step, COMMENTS AS Comments, USER_ID AS UserId, SET_TIME AS SetTime, 
+                           INCLUDEENGLOT AS IncludeEngLot, INCLUDEREWORKLOT AS IncludeReworkLot, 'Ipn' AS ActionType
+                    FROM TBL_IPN_FUTACT
+                    WHERE IPN = :Ipn AND COMMENTS IS NOT NULL AND DELETE_FLAG <> 'Y'
+                      AND (NVL(INCLUDELOTOWNER, 'All')='All' OR INCLUDELOTOWNER = :LotOwner 
+                           OR INCLUDELOTOWNER LIKE :LotOwner || ',%' OR INCLUDELOTOWNER LIKE '%,' || :LotOwner 
+                           OR INCLUDELOTOWNER LIKE '%,' || :LotOwner || ',%')
+
+                    UNION 
+
+                    -- 3. ProdGroup FutAct
+                    SELECT STEP_NO AS Step, COMMENTS AS Comments, USER_ID AS UserId, SET_TIME AS SetTime, 
+                           INCLUDEENGLOT AS IncludeEngLot, INCLUDEREWORKLOT AS IncludeReworkLot, 'ProdGroup' AS ActionType
+                    FROM TBL_PRODGROUP_FUTACT
+                    WHERE PROD_GROUP = :ProdGroup AND COMMENTS IS NOT NULL AND DELETE_FLAG <> 'Y'
+                      AND (NVL(INCLUDELOTOWNER, 'All')='All' OR INCLUDELOTOWNER = :LotOwner 
+                           OR INCLUDELOTOWNER LIKE :LotOwner || ',%' OR INCLUDELOTOWNER LIKE '%,' || :LotOwner 
+                           OR INCLUDELOTOWNER LIKE '%,' || :LotOwner || ',%')
+
+                    UNION 
+
+                    -- 4. Hold Record
+                    SELECT STEP_ID AS Step, COMMENTS AS Comments, CREATE_USER_ID AS UserId, CREATE_TIME AS SetTime, 
+                           '' AS IncludeEngLot, '' AS IncludeReworkLot, 'Hold' AS ActionType
+                    FROM TBL_HOLD_REC
+                    WHERE LOT_ID = :LotId AND COMMENTS IS NOT NULL AND DELETE_FLAG <> 'Y'
+
+                    UNION 
+
+                    -- 5. Manual Test Qty
+                    SELECT STEPNO AS Step, COMMENTS AS Comments, CREATE_USER_ID AS UserId, CREATE_TIME AS SetTime, 
+                           '' AS IncludeEngLot, '' AS IncludeReworkLot, 'ManualTest' AS ActionType
+                    FROM TBL_MANUAL_TESTQTY
+                    WHERE LOT_ID = :LotId AND COMMENTS IS NOT NULL AND DELETE_FLAG <> 'Y'
+                ) ORDER BY SetTime";
+
+            return await _dbConnection.QueryAsync<RunCardFutureAction>(sql, new { 
+                LotId = lotId, Ipn = ipn, ProdGroup = prodGroup ?? "", LotOwner = lotOwner ?? "" 
+            });
+        }
+
+        // --- 針對 FT 站點提供擴充的細部查詢 ---
+        
+        public async Task<dynamic> GetFtBinDataAsync(string lotId, string stepName, string testerId)
+        {
+            string sql = "SELECT PASSQTY, FAILQTY, BIN1, BIN2, BIN3, BIN4, BIN5, BIN6 FROM TBL_FT_LOTCOMPLETE WHERE LOTID = :LotId AND STEPNO = :StepName AND TESTERID = :TesterId AND DELETEFLAG <> 'Y'";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, StepName = stepName, TesterId = testerId });
+        }
+
+        public async Task<string> GetScrapCommentAsync(string lotId, DateTime trackIn, DateTime trackOut)
+        {
+            string sql = "SELECT B.BRIEFDESCRIPTION FROM FWSCRAPLOT A INNER JOIN FWCOMMENT B ON A.TXNCOMMENT = B.SYSID WHERE A.WIPID = :LotId AND A.TXNTIMESTAMP >= :TrackIn AND A.TXNTIMESTAMP <= :TrackOut";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { LotId = lotId, TrackIn = trackIn, TrackOut = trackOut });
         }
     }
 }
