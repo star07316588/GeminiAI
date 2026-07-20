@@ -95,6 +95,11 @@ namespace MES.Net.Shared.DTOs.Print
         public string ScrapComment { get; set; }
         public string MergeIdList { get; set; }
         public string SplitIdList { get; set; }
+
+        // 新增 WS 專用屬性
+        public int WaferQty { get; set; }
+        public string WaferNoList { get; set; } // 例如: "01, 02, 05, 07~15, 25"
+        public string GrossDie { get; set; }
     }
 
     public class RunCardFutureAction
@@ -127,6 +132,11 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<RunCardSpecInfo> GetLotSpecInfoAsync(string ipn);
         Task<IEnumerable<RunCardStepHistory>> GetStepHistoryAsync(string lotId, string planId);
         Task<IEnumerable<RunCardFutureAction>> GetFutureActionsAsync(string lotId, string ipn, string prodGroup, string lotOwner);
+        // 取得該批號目前包含的所有晶圓號碼 (Wafer ID)
+        Task<IEnumerable<string>> GetWaferListAsync(string lotId);
+        
+        // 取得 WS 測試站點的良率與測試數據
+        Task<dynamic> GetWsTestDataAsync(string lotId, string stepName);
     }
 
     public class RunCardRepository : IRunCardRepository
@@ -293,6 +303,29 @@ namespace MES.Net.Infrastructure.Repository.Print
             string sql = "SELECT B.BRIEFDESCRIPTION FROM FWSCRAPLOT A INNER JOIN FWCOMMENT B ON A.TXNCOMMENT = B.SYSID WHERE A.WIPID = :LotId AND A.TXNTIMESTAMP >= :TrackIn AND A.TXNTIMESTAMP <= :TrackOut";
             return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { LotId = lotId, TrackIn = trackIn, TrackOut = trackOut });
         }
+
+        public async Task<IEnumerable<string>> GetWaferListAsync(string lotId)
+        {
+            // 查詢批號下的晶圓號碼 (通常取後兩碼作為 Slot No)
+            string sql = @"
+                SELECT WAFER_ID 
+                FROM TBL_LOT_WAFER 
+                WHERE LOT_ID = :LotId AND DELETE_FLAG = 'N'
+                ORDER BY WAFER_ID";
+                
+            return await _dbConnection.QueryAsync<string>(sql, new { LotId = lotId });
+        }
+
+        public async Task<dynamic> GetWsTestDataAsync(string lotId, string stepName)
+        {
+            // 撈取 CP (Circuit Probe) 測試的結果，例如 Good Die, Fail Die 等
+            string sql = @"
+                SELECT GOOD_DIE AS PassQty, FAIL_DIE AS FailQty, GROSS_DIE AS GrossDie, TDS_VERSION AS TdsVersion
+                FROM TBL_WS_TEST_RESULT
+                WHERE LOT_ID = :LotId AND STEP_NO = :StepName AND DELETE_FLAG = 'N'";
+                
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, StepName = stepName });
+        }
     }
 }
 
@@ -327,82 +360,133 @@ namespace MES.Net.Application.Services.Print
 
         public async Task<RunCardResponse> GetRunCardDataAsync(PrintRunCardRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.LotId))
-                throw new ArgumentException("LotId is required.");
-            if (string.IsNullOrWhiteSpace(request.Type))
-                throw new ArgumentException("RunCard Type (FT/WS) is required.");
-
-            // 1. 初始化與撈取共用 Lot 基本資訊
-            var response = new RunCardResponse
-            {
-                LotId = request.LotId,
-                RunCardType = request.Type.ToUpper(),
-                IPN = "A1234567",         // (請替換為實際查詢)
-                PlanId = "YOUR_PLAN_ID",  // (請替換為實際查詢)
-                CurrentStepSeq = "1234"   // (請替換為實際查詢)
-            };
-
-            string prodGroup = "PG_A";    // (請替換為實際查詢)
-            string lotOwner = "OWNER_A";  // (請替換為實際查詢)
-
-            // 2. 判斷 LotType 與 Route (共用邏輯)
-            response.LotType = await _repository.GetLotTypeAsync(request.LotId);
-            response.Route = await _repository.GetStepPathAsync(response.PlanId, response.CurrentStepSeq);
-
-            // 3. ⭐️ 核心分流：依據 FT 或 WS 處理差異化的 Spec 與 History
+            // ... (同先前設計：取得 Lot, Route, Spec, StepHistories) ...
+            var response = new RunCardResponse { /* 初始化... */ };
+            
             if (response.RunCardType == "FT")
             {
                 await ProcessFtRunCardAsync(request.LotId, response);
             }
-            else if (response.RunCardType == "WS")
-            {
-                await ProcessWsRunCardAsync(request.LotId, response);
-            }
-            else
-            {
-                throw new ArgumentException("Invalid RunCard Type. Must be 'FT' or 'WS'.");
-            }
+            
+            // 處理 Future Actions 過濾 (依據 LotType)
+            var rawActions = await _repository.GetFutureActionsAsync(request.LotId, response.IPN, "ProdGroup", "Owner");
+            var filteredActions = new List<RunCardFutureAction>();
 
-            // 4. 撈取 Future Actions (共用邏輯，傳入對齊後的 5 個參數)
-            response.FutureActions = new List<RunCardFutureAction>(
-                await _repository.GetFutureActionsAsync(
-                    request.LotId, 
-                    response.IPN, 
-                    prodGroup, 
-                    lotOwner, 
-                    response.LotType)
-            );
+            foreach (var act in rawActions)
+            {
+                if (act.ActionType == "Ipn" || act.ActionType == "ProdGroup")
+                {
+                    if (response.LotType == "Normal") filteredActions.Add(act);
+                    else if (response.LotType == "Eng" && act.IncludeEngLot == "Y") filteredActions.Add(act);
+                    else if (response.LotType == "Rework" && act.IncludeReworkLot == "Y") filteredActions.Add(act);
+                }
+                else
+                {
+                    filteredActions.Add(act);
+                }
+            }
+            response.FutureActions = filteredActions;
 
             return response;
         }
 
-        // ====================================================================
-        // 私有方法：專門處理 FT 的邏輯 (對應原 VB6 的 FtExcelCell)
-        // ====================================================================
         private async Task ProcessFtRunCardAsync(string lotId, RunCardResponse response)
         {
-            // FT 專屬的 Spec 查詢邏輯
-            response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
-            
-            // FT 專屬的特殊 Label 邏輯 (移植自 VB6)
-            if (response.SpecInfo != null && string.IsNullOrEmpty(response.SpecInfo.Label))
-            {
-                 response.SpecInfo.Label = "6130-0807"; 
-            }
-
-            // FT 的生產履歷，可能需要額外去撈取 FT Bin Data (Pass/Fail Qty)
+            // ... (取得 Spec 邏輯) ...
             var histories = await _repository.GetStepHistoryAsync(lotId);
+            
             foreach (var history in histories)
             {
-                // ... 執行與先前相同的還原機台(EqpAttr)與配方(LotAttr)邏輯 ...
-                
-                // (擴充) 如果是 FT 測試站，去抓 Bin Data
-                if (history.StepName.Contains("TEST"))
+                if (history.TrackOutTime.HasValue && history.TrackInTime.HasValue)
                 {
-                    // history.PassQty = await _repository.GetFtBinDataAsync(...);
+                    string curEqp = "TESTER_A"; // 假定由 GetLotAttr 取得
+                    
+                    if (history.Description.StartsWith("FT") || history.Description.StartsWith("TQAE"))
+                    {
+                        var binData = await _repository.GetFtBinDataAsync(lotId, history.StepName, curEqp);
+                        if (binData != null)
+                        {
+                            history.PassQty = (int?)binData.PASSQTY;
+                            history.FailQty = (int?)binData.FAILQTY;
+                            history.Bin1 = binData.BIN1?.ToString();
+                            // ... Bin2 ~ Bin6 ...
+                            
+                            if (history.QuantityIn > 0 && history.QuantityOut > 0)
+                                history.Yield = Math.Round((double)history.QuantityOut / history.QuantityIn, 2);
+                        }
+                    }
+
+                    if (history.QuantityIn > history.QuantityOut)
+                    {
+                        history.ScrapComment = await _repository.GetScrapCommentAsync(lotId, history.TrackInTime.Value, history.TrackOutTime.Value);
+                    }
                 }
             }
             response.StepHistories = new List<RunCardStepHistory>(histories);
+        }
+
+        /// <summary>
+        /// 核心：將組裝好的資料產出為 Excel 二進制陣列
+        /// </summary>
+        public byte[] GenerateExcelReport(RunCardResponse data)
+        {
+            using (var workbook = new XLWorkbook())
+            {
+                var ws = workbook.Worksheets.Add(data.RunCardType + "_RunCard");
+                
+                // --- Title 區塊 (參照 CSV 位置) ---
+                ws.Cell(1, 11).Value = "Macronix Final Test Run Card";
+                ws.Cell(1, 17).Value = "Date: " + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
+                
+                // --- Basic Information ---
+                ws.Cell(2, 1).Value = "Basic information :";
+                
+                ws.Cell(3, 4).Value = "Ipn :";         ws.Cell(3, 5).Value = data.IPN;
+                ws.Cell(3, 16).Value = "Route :";      ws.Cell(3, 17).Value = data.Route;
+                
+                ws.Cell(4, 4).Value = "Lot id :";      ws.Cell(4, 5).Value = data.LotId;
+                ws.Cell(5, 4).Value = "Qty :";         ws.Cell(5, 5).Value = data.ChipQty;
+                
+                // ... 繼續對應座標寫入 Spec ...
+                if (data.SpecInfo != null)
+                {
+                    ws.Cell(7, 4).Value = "EPN :";          ws.Cell(7, 5).Value = data.SpecInfo.EPN;
+                    ws.Cell(11, 4).Value = "Label spec :";  ws.Cell(11, 5).Value = data.SpecInfo.Label;
+                }
+
+                // --- Process Record (Step History) ---
+                int currentRow = 20; // 假設歷史紀錄從第 20 行開始
+                ws.Cell(18, 1).Value = "Process Record :";
+                
+                foreach (var hist in data.StepHistories)
+                {
+                    ws.Cell(currentRow, 4).Value = "Step name :";
+                    ws.Cell(currentRow, 5).Value = hist.Description;
+                    ws.Cell(currentRow, 16).Value = "Step id :";
+                    ws.Cell(currentRow, 17).Value = hist.StepName;
+                    
+                    ws.Cell(currentRow + 1, 4).Value = "Track In :";
+                    ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString("yyyy/MM/dd HH:mm:ss");
+                    ws.Cell(currentRow + 1, 16).Value = "Track Out :";
+                    ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString("yyyy/MM/dd HH:mm:ss");
+
+                    if (hist.PassQty.HasValue)
+                    {
+                        ws.Cell(currentRow + 3, 16).Value = "Pass Qty :";
+                        ws.Cell(currentRow + 3, 17).Value = hist.PassQty;
+                        ws.Cell(currentRow + 4, 16).Value = "Fail Qty :";
+                        ws.Cell(currentRow + 4, 17).Value = hist.FailQty;
+                    }
+                    
+                    currentRow += 13; // 依據原本 VB 每個 Step 佔據 13 行空間
+                }
+
+                using (var stream = new MemoryStream())
+                {
+                    workbook.SaveAs(stream);
+                    return stream.ToArray();
+                }
+            }
         }
 
         // ====================================================================
@@ -410,17 +494,47 @@ namespace MES.Net.Application.Services.Print
         // ====================================================================
         private async Task ProcessWsRunCardAsync(string lotId, RunCardResponse response)
         {
-            // WS 的 Spec 來源表或欄位可能與 FT 不同，若不同可另建 Repository 方法
+            // 1. 取得 Spec 資訊 (與 FT 相同或取不同的欄位)
             response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
 
-            // WS 的生產履歷，可能需要額外去撈取 Wafer 的 TDS (Test Data Sheet) 等級
+            // 2. 🌟 WS 專屬：取得晶圓清單與數量
+            var wafers = await _repository.GetWaferListAsync(lotId);
+            if (wafers != null && wafers.Any())
+            {
+                response.WaferQty = wafers.Count();
+                // 將 Wafer ID 陣列轉為逗號分隔字串，或撰寫縮寫邏輯 (如: 01~15)
+                response.WaferNoList = string.Join(", ", wafers.Select(w => w.Substring(w.Length - 2))); 
+            }
+
+            // 3. 取得生產履歷，並還原 WS 測試屬性
             var histories = await _repository.GetStepHistoryAsync(lotId);
+            
             foreach (var history in histories)
             {
-                // ... 執行與先前相同的還原機台(EqpAttr)與配方(LotAttr)邏輯 ...
+                if (history.TrackOutTime.HasValue)
+                {
+                    // 還原機台與 Recipe (與 FT 共用邏輯)
+                    string curEqp = await _repository.GetLotAttrAsync(lotId, "CurEqpId", history.TrackOutTime.Value);
+                    string pgName = await _repository.GetLotAttrAsync(lotId, "PgName", history.TrackOutTime.Value);
+                    history.Recipe = pgName;
+                    history.Equipment = curEqp;
 
-                // (擴充) 如果是 WS 測試站，去抓 Wafer 等級或良率
+                    // 🌟 WS 專屬：若站點名稱包含 CP (Circuit Probe) 或 WS，則撈取測試良率
+                    if (history.Description.Contains("CP") || history.Description.Contains("WS"))
+                    {
+                        var wsData = await _repository.GetWsTestDataAsync(lotId, history.StepName);
+                        if (wsData != null)
+                        {
+                            history.PassQty = (int?)wsData.PASSQTY;
+                            history.FailQty = (int?)wsData.FAILQTY;
+                            
+                            // 記錄 TDS 版本於註解欄位 (或其他您定義的 DTO 欄位)
+                            history.ScrapComment = $"TDS: {wsData.TDSVERSION}"; 
+                        }
+                    }
+                }
             }
+            
             response.StepHistories = new List<RunCardStepHistory>(histories);
         }
     }
@@ -484,6 +598,40 @@ namespace MES.Net.Web.Controllers.Print
             catch (Exception ex)
             {
                 return Ok(new { Success = false, Message = ex.Message });
+            }
+        }
+        /// <summary>
+        /// 下載 Excel 實體檔案
+        /// </summary>
+        [HttpPost, Route("download-excel"), AuthorizeToken]
+        public async Task<IHttpActionResult> DownloadExcel([FromBody] PrintRunCardRequest request)
+        {
+            try
+            {
+                // 1. 取得完整組裝資料
+                var data = await _service.GetRunCardDataAsync(request);
+                
+                // 2. 產出 Excel 二進制流
+                byte[] excelBytes = ((RunCardService)_service).GenerateExcelReport(data);
+                
+                // 3. 設定檔名並回傳實體檔案
+                string fileName = $"{request.Type}_{data.LotId}_{DateTime.Now:yyyyMMddHHmm}.xlsx";
+                
+                var result = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new System.Net.Http.ByteArrayContent(excelBytes)
+                };
+                result.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                result.Content.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("attachment")
+                {
+                    FileName = fileName
+                };
+                
+                return ResponseMessage(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
             }
         }
     }
