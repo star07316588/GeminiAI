@@ -12,6 +12,17 @@ namespace MES.Net.Shared.DTOs.Print
         public string Type { get; set; } // "FT" 或 "WS"
     }
 
+    public class LotBasicInfo
+    {
+        public string IPN { get; set; }
+        public string PlanId { get; set; }
+        public string CurrentStepSeq { get; set; }
+        public string ProdGroup { get; set; }
+        public string LotOwner { get; set; }
+        public int? Qty { get; set; }
+        public DateTime? StartDate { get; set; }
+    }
+    
     public class RunCardLotListDto
     {
         public string LotId { get; set; }
@@ -137,6 +148,7 @@ namespace MES.Net.Infrastructure.Repository.Print
         
         // 取得 WS 測試站點的良率與測試數據
         Task<dynamic> GetWsTestDataAsync(string lotId, string stepName);
+        Task<LotBasicInfo> GetLotBasicInfoAsync(string lotId);
     }
 
     public class RunCardRepository : IRunCardRepository
@@ -364,24 +376,33 @@ namespace MES.Net.Application.Services.Print
                 throw new ArgumentException("LotId is required.");
             if (string.IsNullOrWhiteSpace(request.Type))
                 throw new ArgumentException("RunCard Type (FT/WS) is required.");
-
-            // 1. 初始化與撈取共用 Lot 基本資訊
+        
+            // 1. 撈取共用 Lot 基本資訊 (取代原本寫死的假資料)
+            var lotInfo = await _runCardRepository.GetLotBasicInfoAsync(request.LotId);
+            if (lotInfo == null)
+            {
+                throw new Exception($"LotId [{request.LotId}] not found or basic info is missing.");
+            }
+        
+            // 初始化 Response
             var response = new RunCardResponse
             {
                 LotId = request.LotId,
                 RunCardType = request.Type.ToUpper(),
-                IPN = "A1234567",         // (請替換為實際查詢)
-                PlanId = "YOUR_PLAN_ID",  // (請替換為實際查詢)
-                CurrentStepSeq = "1234"   // (請替換為實際查詢)
+                
+                // 帶入實際查詢到的資料
+                IPN = lotInfo.IPN,
+                PlanId = lotInfo.PlanId,
+                CurrentStepSeq = lotInfo.CurrentStepSeq,
+                LotOwner = lotInfo.LotOwner,
+                StartDate = lotInfo.StartDate?.ToString("yyyy/MM/dd HH:mm:ss"), // 視您的 DTO 型別調整
+                ChipQty = lotInfo.Qty // 假設您的基本表有數量欄位
             };
-
-            string prodGroup = "PG_A";    // (請替換為實際查詢)
-            string lotOwner = "OWNER_A";  // (請替換為實際查詢)
-
+        
             // 2. 判斷 LotType 與 Route (共用邏輯)
             response.LotType = await _getLotTypeRepository.GetLotTypeAsync(request.LotId);
             response.Route = await _getStepPathRepository.GetStepPathAsync(response.PlanId, response.CurrentStepSeq);
-
+        
             // 3. ⭐️ 核心分流：依據 FT 或 WS 處理差異化的 Spec 與 History
             if (response.RunCardType == "FT")
             {
@@ -395,11 +416,18 @@ namespace MES.Net.Application.Services.Print
             {
                 throw new ArgumentException("Invalid RunCard Type. Must be 'FT' or 'WS'.");
             }
-
-            // 處理 Future Actions 過濾 (依據 LotType)
-            var rawActions = await _runCardRepository.GetFutureActionsAsync(request.LotId, response.IPN, "ProdGroup", "Owner");
+        
+            // 4. 處理 Future Actions 
+            // 💡 修正：將 "ProdGroup" 與 "Owner" 替換為實際變數 lotInfo.ProdGroup 與 response.LotOwner
+            var rawActions = await _runCardRepository.GetFutureActionsAsync(
+                request.LotId, 
+                response.IPN, 
+                lotInfo.ProdGroup, 
+                response.LotOwner);
+                
             var filteredActions = new List<RunCardFutureAction>();
-
+        
+            // 依據 LotType 過濾
             foreach (var act in rawActions)
             {
                 if (act.ActionType == "Ipn" || act.ActionType == "ProdGroup")
@@ -414,7 +442,7 @@ namespace MES.Net.Application.Services.Print
                 }
             }
             response.FutureActions = filteredActions;
-
+        
             return response;
         }
 
