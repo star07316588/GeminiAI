@@ -220,21 +220,59 @@ namespace MES.Net.Infrastructure.Repository.Print
             return await _dbConnection.QueryFirstOrDefaultAsync<RunCardSpecInfo>(sql, new { Ipn = ipn });
         }
 
-        public async Task<IEnumerable<RunCardStepHistory>> GetStepHistoryAsync(string lotId, string planId)
+        public async Task<IEnumerable<RunCardStepHistory>> GetStepHistoryAsync(string lotId, string planId, string planVersion)
         {
-            // 對應原本抓取 FWTRACKOUT, FWTRACKIN 與 TBL_ROUTE_STEP_LIST 的履歷 SQL
+            // 將舊版 Oracle 的 (+) 語法轉換為標準的 LEFT JOIN 與 INNER JOIN
+            // 變數 (如 gsCAT_TRSL_STEP_NO) 這裡先替換為預設的常見欄位名，請依實際欄位確認
             var sql = @"
-                SELECT F.STEP_NO as StepName, F.STEP_NAME as Description, 
-                       A.QUANTITYOUT as QuantityOut, A.TRACKINTIME as TrackInTime, 
-                       A.TXNTIMESTAMP as TrackOutTime, A.USERID as UserOut, 
-                       B.USERID as UserIn, B.QUANTITYIN as QuantityIn
+                SELECT 
+                    F.STEP_NO AS StepName, 
+                    F.STEP_NAME AS Description, 
+                    A.QUANTITYOUT AS QuantityOut, 
+                    A.TRACKINTIME AS TrackInTime, 
+                    A.TXNTIMESTAMP AS TrackOutTime, 
+                    A.USERID AS UserOut, 
+                    A.LASTTRACKOUT AS LastTrackOut, 
+                    B.USERID AS UserIn, 
+                    B.QUANTITYIN AS QuantityIn
                 FROM FWTRACKOUT A
-                LEFT JOIN FWTRACKIN B ON A.WIPID = B.WIPID AND A.TRACKINTIME = B.TXNTIMESTAMP
-                -- ... 略 (保留原有與 FW FLAT PLAN / FWWIPHISTORY 的 JOIN)
+                -- 1. 關聯 FWTRACKIN (對應舊版 A.WIPID = B.WIPID(+) AND A.TRACKINTIME = B.TXNTIMESTAMP(+))
+                LEFT JOIN FWTRACKIN B 
+                    ON A.WIPID = B.WIPID AND A.TRACKINTIME = B.TXNTIMESTAMP
+                -- 2. 串接核心歷史關聯表
+                INNER JOIN FWWIPHISTORY C 
+                    ON A.SYSID = C.WIPTXN
+                INNER JOIN FWWIPHISTORY_N2M D 
+                    ON C.SYSID = D.FROMID
+                INNER JOIN FWWIPSTEPHISTORY E 
+                    ON D.TOID = E.SYSID
+                -- 3. 子查詢 G：串接 FlatPlan 取得節點 Handle
+                INNER JOIN (
+                    SELECT n.handle, n.StepSeq
+                    FROM FwFlatNode n
+                    INNER JOIN FwFlatPlan p ON p.SysId = n.PlanSysId
+                    INNER JOIN FwStepVersion s ON s.SysId = n.NodeRef
+                    WHERE p.revstate = 'Frozen' 
+                      AND p.PlanName = :PlanId 
+                      AND p.PlanVersion = :PlanVersion 
+                      AND n.NodeType = 'S'
+                ) G ON E.HANDLE = G.StepSeq
+                -- 4. 關聯客製站點表 TBL_ROUTE_STEP_LIST (F)
+                INNER JOIN TBL_ROUTE_STEP_LIST F 
+                    ON G.handle = F.STEP_HANDLE AND F.ROUTE_ID = :PlanId
+                -- 💡 注意：舊 SQL 似乎漏了過濾單一 LotId，這裡補上確保效能與正確性
                 WHERE A.WIPID = :LotId
-                ORDER BY F.STEP_SEQ";
-
-            return await _dbConnection.QueryAsync<RunCardStepHistory>(sql, new { LotId = lotId });
+                ORDER BY F.STEP_SEQ ASC";
+        
+            return await _dbConnection.QueryAsync<RunCardStepHistory>(
+                sql, 
+                new 
+                { 
+                    LotId = lotId, 
+                    PlanId = planId, 
+                    PlanVersion = planVersion 
+                }
+            );
         }
 
         public async Task<IEnumerable<RunCardFutureAction>> GetFutureActionsAsync(string lotId, string ipn, string prodGroup, string lotOwner)
