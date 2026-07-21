@@ -360,16 +360,44 @@ namespace MES.Net.Application.Services.Print
 
         public async Task<RunCardResponse> GetRunCardDataAsync(PrintRunCardRequest request)
         {
-            // ... (同先前設計：取得 Lot, Route, Spec, StepHistories) ...
-            var response = new RunCardResponse { /* 初始化... */ };
-            
+            if (string.IsNullOrWhiteSpace(request.LotId))
+                throw new ArgumentException("LotId is required.");
+            if (string.IsNullOrWhiteSpace(request.Type))
+                throw new ArgumentException("RunCard Type (FT/WS) is required.");
+
+            // 1. 初始化與撈取共用 Lot 基本資訊
+            var response = new RunCardResponse
+            {
+                LotId = request.LotId,
+                RunCardType = request.Type.ToUpper(),
+                IPN = "A1234567",         // (請替換為實際查詢)
+                PlanId = "YOUR_PLAN_ID",  // (請替換為實際查詢)
+                CurrentStepSeq = "1234"   // (請替換為實際查詢)
+            };
+
+            string prodGroup = "PG_A";    // (請替換為實際查詢)
+            string lotOwner = "OWNER_A";  // (請替換為實際查詢)
+
+            // 2. 判斷 LotType 與 Route (共用邏輯)
+            response.LotType = await _getLotTypeRepository.GetLotTypeAsync(request.LotId);
+            response.Route = await _getStepPathRepository.GetStepPathAsync(response.PlanId, response.CurrentStepSeq);
+
+            // 3. ⭐️ 核心分流：依據 FT 或 WS 處理差異化的 Spec 與 History
             if (response.RunCardType == "FT")
             {
                 await ProcessFtRunCardAsync(request.LotId, response);
             }
-            
+            else if (response.RunCardType == "WS")
+            {
+                await ProcessWsRunCardAsync(request.LotId, response);
+            }
+            else
+            {
+                throw new ArgumentException("Invalid RunCard Type. Must be 'FT' or 'WS'.");
+            }
+
             // 處理 Future Actions 過濾 (依據 LotType)
-            var rawActions = await _repository.GetFutureActionsAsync(request.LotId, response.IPN, "ProdGroup", "Owner");
+            var rawActions = await _runCardRepository.GetFutureActionsAsync(request.LotId, response.IPN, "ProdGroup", "Owner");
             var filteredActions = new List<RunCardFutureAction>();
 
             foreach (var act in rawActions)
