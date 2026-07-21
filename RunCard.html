@@ -132,10 +132,21 @@
             <div class="info-grid">
                 <div class="info-item"><span>Lot ID:</span> {{ runCardDetail.lotId || runCardDetail.LotId }}</div>
                 <div class="info-item"><span>IPN:</span> {{ runCardDetail.ipn || runCardDetail.IPN }}</div>
-                <div class="info-item"><span>Qty:</span> {{ runCardDetail.chipQty || runCardDetail.ChipQty }}</div>
+                
+                <!-- 依據 FT 或 WS 顯示不同 Qty -->
+                <div class="info-item" v-if="isWs"><span>Wafer Qty:</span> {{ runCardDetail.waferQty || runCardDetail.WaferQty }}</div>
+                <div class="info-item" v-else><span>Chip Qty:</span> {{ runCardDetail.chipQty || runCardDetail.ChipQty }}</div>
+                
                 <div class="info-item"><span>Owner:</span> {{ runCardDetail.lotOwner || runCardDetail.LotOwner }}</div>
                 <div class="info-item"><span>Route:</span> {{ runCardDetail.route || runCardDetail.Route }}</div>
                 <div class="info-item"><span>Start Date:</span> {{ runCardDetail.startDate || runCardDetail.StartDate }}</div>
+            </div>
+            
+            <!-- WS 專屬：顯示晶圓號碼清單 (橫跨整行) -->
+            <div class="info-grid" v-if="isWs && (runCardDetail.waferNoList || runCardDetail.WaferNoList)">
+                <div class="info-item" style="grid-column: span 4;">
+                    <span>Wafer No:</span> {{ runCardDetail.waferNoList || runCardDetail.WaferNoList }}
+                </div>
             </div>
 
             <!-- 2. 規格資訊 (Spec Info) -->
@@ -265,9 +276,12 @@
                         { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
                     ];
             
-                    // 當有勾選清單上的批號時，開放「列印報表」按鈕
+                    // 當有勾選清單上的批號時，開放「網頁列印」與「匯出 Excel」按鈕
                     if (this.selectedLot) {
-                        btns.push({ action: 'print', label: 'Print RunCard (列印)', icon: 'mdi-printer', color: 'success' });
+                        btns.push({ action: 'print', label: 'Print RunCard (網頁列印)', icon: 'mdi-printer', color: 'success' });
+                        
+                        // 🌟 新增：匯出 Excel 實體檔案按鈕
+                        btns.push({ action: 'exportExcel', label: 'Export Excel (匯出 Excel)', icon: 'mdi-file-excel', color: 'primary' });
                     }
             
                     btns.push({ action: 'clear', label: 'Clear (清除)', icon: 'mdi-eraser' });
@@ -277,13 +291,20 @@
                 summary() { 
                     return [{ label: 'TOTAL LOTS', value: this.dataList.length }]; 
                 },
-
+            
                 isFt() {
                     if(!this.runCardDetail) return false;
                     const t = this.runCardDetail.runCardType || this.runCardDetail.RunCardType;
                     return t === 'FT';
                 },
-
+            
+                // 🌟 新增：判斷是否為 WS
+                isWs() {
+                    if(!this.runCardDetail) return false;
+                    const t = this.runCardDetail.runCardType || this.runCardDetail.RunCardType;
+                    return t === 'WS';
+                },
+            
                 hasFutureActions() {
                     if(!this.runCardDetail) return false;
                     const acts = this.runCardDetail.futureActions || this.runCardDetail.FutureActions;
@@ -395,10 +416,75 @@
                     window.location.href = '/Content/F5.html';
                 },
 
+                /* ──  新增：呼叫後端 API 下載實體 Excel 檔案 ── */
+                async doExportExcel() {
+                    if (!this.selectedLot) return;
+            
+                    this.setStatus('DOWNLOADING EXCEL...', 'info');
+                    document.body.style.cursor = 'wait';
+            
+                    const req = {
+                        LotId: this.selectedLot.LotId || this.selectedLot.lotId,
+                        Type: this.qry.type
+                    };
+            
+                    try {
+                        // 注意：檔案下載通常直接使用 fetch 處理 blob，避免部分 mesfetch 封裝不支援二進制格式
+                        const response = await fetch("/api/print/run-card/download-excel", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                // 若您的系統 API 需要 Token，請在這裡加上 (例如讀取 localStorage)
+                                // 'Authorization': 'Bearer ' + localStorage.getItem('token') 
+                            },
+                            body: JSON.stringify(req)
+                        });
+            
+                        if (response.ok) {
+                            // 1. 取得二進制資料
+                            const blob = await response.blob();
+                            
+                            // 2. 嘗試從 Header 取得後端設定的檔名，若無則自訂
+                            let fileName = `${req.Type}_${req.LotId}_RunCard.xlsx`;
+                            const disposition = response.headers.get('Content-Disposition');
+                            if (disposition && disposition.indexOf('filename=') !== -1) {
+                                fileName = disposition.split('filename=')[1].replace(/"/g, '');
+                            }
+            
+                            // 3. 建立隱藏的 a 標籤來觸發瀏覽器下載
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = fileName;
+                            document.body.appendChild(a);
+                            a.click();
+                            
+                            // 4. 清理記憶體與 DOM
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                            
+                            this.setStatus('DOWNLOAD SUCCESS', 'success');
+                        } else {
+                            const errorText = await response.text();
+                            VMessageBox.alert(errorText || '下載失敗', 'Error');
+                            this.setStatus('DOWNLOAD FAILED', 'error');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert('下載發生錯誤', 'Error');
+                        this.setStatus('DOWNLOAD FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+            
+                /* ── 將新增的方法註冊進 Action Bar 分派器 ── */
                 onAction(action) {
                     const map = {
                         query: this.doQuery,
                         print: this.doPrint,
+                        exportExcel: this.doExportExcel, // 🌟 綁定新方法
                         clear: this.doClear,
                         close: this.doClose
                     };
