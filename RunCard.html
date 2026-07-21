@@ -20,7 +20,7 @@
         .print-only {
             display: none;
         }
-        
+
         @media print {
             /* 隱藏系統外殼與查詢 UI */
             .page-layout, .v-application {
@@ -32,22 +32,24 @@
                 font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
                 color: #000;
             }
+
             @page {
                 size: landscape; /* 流程卡通常欄位多，建議橫印 */
                 margin: 10mm;
             }
-            
+
             .print-header {
                 text-align: center;
                 margin-bottom: 15px;
                 border-bottom: 2px solid #000;
                 padding-bottom: 5px;
             }
-            .print-header h2 {
-                font-size: 24px;
-                margin: 0 0 5px 0;
-            }
-            
+
+                .print-header h2 {
+                    font-size: 24px;
+                    margin: 0 0 5px 0;
+                }
+
             .section-title {
                 font-size: 16px;
                 font-weight: bold;
@@ -64,6 +66,7 @@
                 margin-bottom: 10px;
                 font-size: 14px;
             }
+
             .info-item span:first-child {
                 font-weight: bold;
             }
@@ -73,12 +76,14 @@
                 border-collapse: collapse;
                 margin-top: 5px;
             }
-            .print-table th, .print-table td {
-                border: 1px solid #000;
-                padding: 4px;
-                text-align: center;
-                font-size: 12px;
-            }
+
+                .print-table th, .print-table td {
+                    border: 1px solid #000;
+                    padding: 4px;
+                    text-align: center;
+                    font-size: 12px;
+                }
+
             .text-left {
                 text-align: left !important;
             }
@@ -87,7 +92,7 @@
 </head>
 <body>
     <div id="app" data-app>
-        
+
         <!-- 系統操作介面 -->
         <div class="page-layout">
             <mes-toolbar title="Print Run Card (流程卡列印)"></mes-toolbar>
@@ -95,15 +100,16 @@
             <div class="page-body">
                 <mes-search-criteria title="Select Criteria to query"
                                      :fields="criteriaFields"
-                                     :cols="4"
+                                     :cols="1"
                                      v-model="qry"
                                      ref="criteria"
-                                     @enter="doQuery"></mes-search-criteria>
-            
+                                     @enter="doQuery"
+                                     style="max-width: 450px"></mes-search-criteria>
+
                 <mes-action-bar :buttons="actionButtons"
                                 :auto-add-close="true"
                                 @action="onAction"></mes-action-bar>
-            
+
                 <!-- 查詢結果清單 -->
                 <div>
                     <mes-query-result ref="resultGrid"
@@ -114,11 +120,11 @@
                                       :selectable="1"
                                       @rowSelected="onRowSelected"
                                       @rowDeselected="onRowDeselected"
-                                      style="height: calc(100vh - 280px);"> 
+                                      style="height: calc(100vh - 280px);">
                     </mes-query-result>
                 </div>
             </div>
-            
+
             <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
         </div>
 
@@ -132,16 +138,16 @@
             <div class="info-grid">
                 <div class="info-item"><span>Lot ID:</span> {{ runCardDetail.lotId || runCardDetail.LotId }}</div>
                 <div class="info-item"><span>IPN:</span> {{ runCardDetail.ipn || runCardDetail.IPN }}</div>
-                
+
                 <!-- 依據 FT 或 WS 顯示不同 Qty -->
                 <div class="info-item" v-if="isWs"><span>Wafer Qty:</span> {{ runCardDetail.waferQty || runCardDetail.WaferQty }}</div>
                 <div class="info-item" v-else><span>Chip Qty:</span> {{ runCardDetail.chipQty || runCardDetail.ChipQty }}</div>
-                
+
                 <div class="info-item"><span>Owner:</span> {{ runCardDetail.lotOwner || runCardDetail.LotOwner }}</div>
                 <div class="info-item"><span>Route:</span> {{ runCardDetail.route || runCardDetail.Route }}</div>
                 <div class="info-item"><span>Start Date:</span> {{ runCardDetail.startDate || runCardDetail.StartDate }}</div>
             </div>
-            
+
             <!-- WS 專屬：顯示晶圓號碼清單 (橫跨整行) -->
             <div class="info-grid" v-if="isWs && (runCardDetail.waferNoList || runCardDetail.WaferNoList)">
                 <div class="info-item" style="grid-column: span 4;">
@@ -244,10 +250,18 @@
 
                     /* ── 條件欄位定義 ── */
                     criteriaFields: [
-                        { key: 'type', label: 'Type (FT/WS)', type: 'select', options: [{text: 'FT', value: 'FT'}, {text: 'WS', value: 'WS'}] },
+                        { key: 'ipn', label: 'IPN (料號)', type: 'input', placeholder: '支援 * 模糊查詢' },
+                        {
+                            key: 'type',
+                            label: 'Type (FT/WS)',
+                            type: 'combobox',
+                            options: [
+                                { label: 'FT', value: 'FT' },
+                                { label: 'WS', value: 'WS' },
+                            ]
+                        },
                         { key: 'step', label: 'Step (站點)', type: 'input', placeholder: '可模糊查詢' },
                         { key: 'lotId', label: 'Lot ID (批號)', type: 'input', placeholder: '支援 * 模糊查詢' },
-                        { key: 'ipn', label: 'IPN (料號)', type: 'input', placeholder: '支援 * 模糊查詢' }
                     ],
 
                     /* ── 表格資料與狀態 ── */
@@ -275,38 +289,38 @@
                     let btns = [
                         { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
                     ];
-            
+
                     // 當有勾選清單上的批號時，開放「網頁列印」與「匯出 Excel」按鈕
                     if (this.selectedLot) {
                         btns.push({ action: 'print', label: 'Print RunCard (網頁列印)', icon: 'mdi-printer', color: 'success' });
-                        
+
                         // 🌟 新增：匯出 Excel 實體檔案按鈕
                         btns.push({ action: 'exportExcel', label: 'Export Excel (匯出 Excel)', icon: 'mdi-file-excel', color: 'primary' });
                     }
-            
+
                     btns.push({ action: 'clear', label: 'Clear (清除)', icon: 'mdi-eraser' });
                     return btns;
                 },
-            
-                summary() { 
-                    return [{ label: 'TOTAL LOTS', value: this.dataList.length }]; 
+
+                summary() {
+                    return [{ label: 'TOTAL LOTS', value: this.dataList.length }];
                 },
-            
+
                 isFt() {
-                    if(!this.runCardDetail) return false;
+                    if (!this.runCardDetail) return false;
                     const t = this.runCardDetail.runCardType || this.runCardDetail.RunCardType;
                     return t === 'FT';
                 },
-            
+
                 // 🌟 新增：判斷是否為 WS
                 isWs() {
-                    if(!this.runCardDetail) return false;
+                    if (!this.runCardDetail) return false;
                     const t = this.runCardDetail.runCardType || this.runCardDetail.RunCardType;
                     return t === 'WS';
                 },
-            
+
                 hasFutureActions() {
-                    if(!this.runCardDetail) return false;
+                    if (!this.runCardDetail) return false;
                     const acts = this.runCardDetail.futureActions || this.runCardDetail.FutureActions;
                     return acts && acts.length > 0;
                 }
@@ -319,22 +333,22 @@
                         VMessageBox.alert('請選擇 Type (FT 或 WS)');
                         return;
                     }
-            
+
                     document.body.style.cursor = 'wait';
                     this.setStatus('QUERYING...', 'info');
                     this.selectedLot = null;
-            
+
                     try {
                         const response = await mesfetch("/api/print/run-card/query", this.qry);
-            
+
                         if (response.success || response.Success) {
                             const data = response.data || response.Data;
                             this.dataList = data;
-                            
+
                             this.$nextTick(() => {
-                                if(this.$refs.resultGrid) this.$refs.resultGrid.setData(this.dataList);
+                                if (this.$refs.resultGrid) this.$refs.resultGrid.setData(this.dataList);
                             });
-            
+
                             this.setStatus('QUERY SUCCESS', 'success');
                         } else {
                             VMessageBox.alert(response.message || response.Message || '查無資料');
@@ -365,10 +379,10 @@
 
                     try {
                         const response = await mesfetch("/api/print/run-card/detail", req);
-                        
+
                         if (response.success || response.Success) {
                             this.runCardDetail = response.data || response.Data;
-                            
+
                             // 等待 Vue 將 print-only 區塊渲染到畫面上後，觸發列印
                             this.$nextTick(() => {
                                 window.print();
@@ -395,7 +409,7 @@
                 onRowDeselected(row) {
                     this.selectedLot = null;
                 },
-                
+
                 /* ── 清除與輔助方法 ── */
                 doClearDataOnly() {
                     this.dataList = [];
@@ -403,7 +417,7 @@
                     this.runCardDetail = null;
                     if (this.$refs.resultGrid) this.$refs.resultGrid.setData([]);
                 },
-                
+
                 doClear() {
                     this.qry.step = '';
                     this.qry.lotId = '';
@@ -411,7 +425,7 @@
                     this.doClearDataOnly();
                     this.setStatus('CLEARED', '');
                 },
-            
+
                 doClose() {
                     window.location.href = '/Content/F5.html';
                 },
@@ -419,15 +433,15 @@
                 /* ──  新增：呼叫後端 API 下載實體 Excel 檔案 ── */
                 async doExportExcel() {
                     if (!this.selectedLot) return;
-            
+
                     this.setStatus('DOWNLOADING EXCEL...', 'info');
                     document.body.style.cursor = 'wait';
-            
+
                     const req = {
                         LotId: this.selectedLot.LotId || this.selectedLot.lotId,
                         Type: this.qry.type
                     };
-            
+
                     try {
                         // 注意：檔案下載通常直接使用 fetch 處理 blob，避免部分 mesfetch 封裝不支援二進制格式
                         const response = await fetch("/api/print/run-card/download-excel", {
@@ -439,18 +453,18 @@
                             },
                             body: JSON.stringify(req)
                         });
-            
+
                         if (response.ok) {
                             // 1. 取得二進制資料
                             const blob = await response.blob();
-                            
+
                             // 2. 嘗試從 Header 取得後端設定的檔名，若無則自訂
                             let fileName = `${req.Type}_${req.LotId}_RunCard.xlsx`;
                             const disposition = response.headers.get('Content-Disposition');
                             if (disposition && disposition.indexOf('filename=') !== -1) {
                                 fileName = disposition.split('filename=')[1].replace(/"/g, '');
                             }
-            
+
                             // 3. 建立隱藏的 a 標籤來觸發瀏覽器下載
                             const url = window.URL.createObjectURL(blob);
                             const a = document.createElement('a');
@@ -459,11 +473,11 @@
                             a.download = fileName;
                             document.body.appendChild(a);
                             a.click();
-                            
+
                             // 4. 清理記憶體與 DOM
                             a.remove();
                             window.URL.revokeObjectURL(url);
-                            
+
                             this.setStatus('DOWNLOAD SUCCESS', 'success');
                         } else {
                             const errorText = await response.text();
@@ -478,7 +492,7 @@
                         document.body.style.cursor = 'default';
                     }
                 },
-            
+
                 /* ── 將新增的方法註冊進 Action Bar 分派器 ── */
                 onAction(action) {
                     const map = {
@@ -498,7 +512,7 @@
 
                 // 容錯讀取 Spec 欄位的大小寫
                 getSpec(key) {
-                    if(!this.runCardDetail || !this.runCardDetail.specInfo && !this.runCardDetail.SpecInfo) return '';
+                    if (!this.runCardDetail || !this.runCardDetail.specInfo && !this.runCardDetail.SpecInfo) return '';
                     const spec = this.runCardDetail.specInfo || this.runCardDetail.SpecInfo;
                     const upperKey = key.charAt(0).toUpperCase() + key.slice(1);
                     return spec[key] || spec[upperKey] || '';
@@ -506,7 +520,7 @@
 
                 // 格式化日期時間
                 formatTime(isoStr) {
-                    if(!isoStr) return '';
+                    if (!isoStr) return '';
                     return isoStr.replace('T', ' ').substring(0, 19);
                 }
             }
