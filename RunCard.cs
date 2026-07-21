@@ -338,6 +338,34 @@ namespace MES.Net.Infrastructure.Repository.Print
                 
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, StepName = stepName });
         }
+
+        /// <summary>
+        /// 取得批號的基本資訊 (IPN, PlanId, ProdGroup, Owner 等)
+        /// </summary>
+        public async Task<LotBasicInfo> GetLotBasicInfoAsync(string lotId)
+        {
+            // 💡 請依據貴公司實際的 Oracle 資料表與欄位名稱進行替換
+            // 這裡以常見的 MES 主檔表 (例如 FWLOT 或 TBL_LOT) 為例示範
+            string sql = @"
+                SELECT 
+                    IPN AS IPN,
+                    PROCESS_PLAN_ID AS PlanId,       -- 途程代碼
+                    CURRENT_STEP_SEQ AS CurrentStepSeq, -- 目前站點序號
+                    PROD_GROUP AS ProdGroup,         -- 產品群組
+                    LOT_OWNER AS LotOwner,           -- 批號擁有者
+                    CURRENT_QTY AS Qty,              -- 目前數量 (Chip Qty)
+                    CREATE_TIME AS StartDate         -- 批號建立或開始時間
+                FROM 
+                    FWLOT -- 替換為實際的 Table Name
+                WHERE 
+                    WIP_ID = :LotId"; -- 替換為實際的 LotId 欄位名稱
+
+            // 使用 Dapper 的 QueryFirstOrDefaultAsync，查無資料會回傳 null
+            return await _dbConnection.QueryFirstOrDefaultAsync<LotBasicInfo>(
+                sql, 
+                new { LotId = lotId }
+            );
+        }
     }
 }
 
