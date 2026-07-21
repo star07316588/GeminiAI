@@ -222,20 +222,20 @@
         console.log('opts', opts);
         /* 先不傳 height，等 DOM 穩定後再設定 */
         this._tab = new Tabulator(this.$refs.tableEl, opts)
-        
+
         if (!this.selectable) {
-            this._tab.on("rangeChanged", function(range){
+            this._tab.on("rangeChanged", function (range) {
                 //range - range component for the selected range
                 try {
                     // 修正：只過濾出「可見 (isVisible)」的欄位來計算數量
                     let visibleColsCount = this.getColumns().filter(c => c.isVisible()).length;
-                    
+
                     if (visibleColsCount == range.getColumns().length + 1) {
                         this.options.clipboardCopyConfig.columnHeaders = true;
                     } else {
                         this.options.clipboardCopyConfig.columnHeaders = false;
                     }
-                }catch{}
+                } catch { }
             });
         }
         this.rowCount = this.data.length
