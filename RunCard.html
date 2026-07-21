@@ -118,8 +118,8 @@
                                   :summary="summary"
                                   :data="dataList"
                                   :selectable="1"
+                                  @selection-change="onSelectionChange"  <!-- 🌟 改為綁定這個事件 -->
                                   style="height: calc(100vh - 280px);">
-                                  <!-- 已經把無效的 @rowSelected 和 @rowDeselected 移除了 -->
                 </mes-query-result>
                 </div>
             </div>
@@ -270,9 +270,6 @@
 
                     /* ── 清單欄位定義 (對應 RunCardLotListDto) ── */
                     colGrid: [
-                        // 🌟 新增這行：加入 Tabulator 內建的勾選框
-                        { formatter: "rowSelection", titleFormatter: "rowSelection", hozAlign: "center", headerSort: false, width: 60 },
-                        
                         { title: 'Lot ID', field: 'LotId', width: 150 },
                         { title: 'Step', field: 'StepName', width: 120 },
                         { title: 'Description', field: 'Description', width: 'auto' },
@@ -329,41 +326,39 @@
             },
 
             methods: {
-                /* ── 執行批號清單查詢 ── */
+                /* ──  新增：接收共用元件拋出的勾選陣列 ── */
+                onSelectionChange(selectedData) {
+                    // selectedData 是一個包含所有被勾選 row data 的陣列
+                    if (selectedData && selectedData.length > 0) {
+                        this.selectedLot = selectedData[0]; // 取出第一筆
+                    } else {
+                        this.selectedLot = null; // 取消勾選時清空
+                    }
+                },
+            
+                /* ── 執行批號清單查詢 (還原為乾淨的寫法) ── */
                 async doQuery() {
                     if (!this.qry.type) {
                         VMessageBox.alert('請選擇 Type (FT 或 WS)');
                         return;
                     }
-                
+            
                     document.body.style.cursor = 'wait';
                     this.setStatus('QUERYING...', 'info');
-                    this.selectedLot = null;
-                
+                    this.selectedLot = null; // 每次查詢前清空選取
+            
                     try {
                         const response = await mesfetch("/api/print/run-card/query", this.qry);
-                
+            
                         if (response.success || response.Success) {
                             const data = response.data || response.Data;
                             this.dataList = data;
-                
+            
                             this.$nextTick(() => {
-                                if (this.$refs.resultGrid) {
-                                    // 1. 塞入資料
-                                    this.$refs.resultGrid.setData(this.dataList);
-                                    
-                                    // 2. 🌟 新增：繞過外殼，直接綁定 Tabulator 的原生選取事件
-                                    this.$refs.resultGrid.table.on("rowSelectionChanged", (data, rows) => {
-                                        // data 是目前所有被勾選的資料陣列
-                                        if (data.length > 0) {
-                                            this.selectedLot = data[0]; // 抓取第一筆勾選的資料
-                                        } else {
-                                            this.selectedLot = null;    // 取消勾選時清空
-                                        }
-                                    });
-                                }
+                                // 只要單純塞資料進去即可，事件交給共用元件處理
+                                if (this.$refs.resultGrid) this.$refs.resultGrid.setData(this.dataList);
                             });
-                
+            
                             this.setStatus('QUERY SUCCESS', 'success');
                         } else {
                             VMessageBox.alert(response.message || response.Message || '查無資料');
