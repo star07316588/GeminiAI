@@ -1,3 +1,5 @@
+{"success":false,"message":"Unauthorized: Token 無效或已過期"}
+
 目前已經可從後端傳回資料 const response = await mesfetch(url, params);
 該response確定有回傳資料，但在跑this.$refs.resultLotInfo.setData(response);
 最後卻有以下錯誤訊息可能是什麼原因
