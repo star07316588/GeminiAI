@@ -443,60 +443,72 @@
                 /* ──  新增：呼叫後端 API 下載實體 Excel 檔案 ── */
                 async doExportExcel() {
                     if (!this.selectedLot) return;
-
+                
                     this.setStatus('DOWNLOADING EXCEL...', 'info');
                     document.body.style.cursor = 'wait';
-
+                
                     const req = {
                         LotId: this.selectedLot.LotId || this.selectedLot.lotId,
                         Type: this.qry.type
                     };
-
+                
                     try {
-                        // 注意：檔案下載通常直接使用 fetch 處理 blob，避免部分 mesfetch 封裝不支援二進制格式
+                        // 1. 🌟 動態取得 Token：既然 localStorage 沒有，我們往 sessionStorage 找
+                        // (這裡列出幾個 MES 系統最常見的 Token 命名，系統會自動往下找有值的那一個)
+                        const token = sessionStorage.getItem('token') || 
+                                      sessionStorage.getItem('jwt') || 
+                                      sessionStorage.getItem('access_token') ||
+                                      localStorage.getItem('token') ||
+                                      (this.$store && this.$store.state.token) || '';
+                
                         const response = await fetch("/api/print/run-card/download-excel", {
                             method: 'POST',
+                            // 2. 🌟 加上這行：強制瀏覽器在發送請求時，自動帶上 .ASPXAUTH 等 Cookies
+                            credentials: 'include', 
                             headers: {
                                 'Content-Type': 'application/json',
-                                // 若您的系統 API 需要 Token，請在這裡加上 (例如讀取 localStorage)
-                                // 'Authorization': 'Bearer ' + localStorage.getItem('token') 
+                                // 3. 🌟 帶上剛剛抓到的 JWT Token
+                                'Authorization': token ? `Bearer ${token}` : ''
                             },
                             body: JSON.stringify(req)
                         });
-
+                
                         if (response.ok) {
-                            // 1. 取得二進制資料
+                            // 處理 Blob 下載邏輯
                             const blob = await response.blob();
-
-                            // 2. 嘗試從 Header 取得後端設定的檔名，若無則自訂
-                            let fileName = `${req.Type}_${req.LotId}_RunCard.xlsx`;
+                            
+                            // 嘗試從 Header 取得後端設定的檔名 (Content-Disposition)
+                            let filename = `RunCard_${req.LotId}.xlsx`;
                             const disposition = response.headers.get('Content-Disposition');
-                            if (disposition && disposition.indexOf('filename=') !== -1) {
-                                fileName = disposition.split('filename=')[1].replace(/"/g, '');
+                            if (disposition && disposition.indexOf('attachment') !== -1) {
+                                const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                                const matches = filenameRegex.exec(disposition);
+                                if (matches != null && matches[1]) { 
+                                    filename = matches[1].replace(/['"]/g, '');
+                                }
                             }
-
-                            // 3. 建立隱藏的 a 標籤來觸發瀏覽器下載
+                
+                            // 建立下載連結並觸發
                             const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.style.display = 'none';
-                            a.href = url;
-                            a.download = fileName;
-                            document.body.appendChild(a);
-                            a.click();
-
-                            // 4. 清理記憶體與 DOM
-                            a.remove();
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.setAttribute('download', filename);
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
                             window.URL.revokeObjectURL(url);
-
+                
                             this.setStatus('DOWNLOAD SUCCESS', 'success');
                         } else {
+                            // 下載失敗時的處理
                             const errorText = await response.text();
-                            VMessageBox.alert(errorText || '下載失敗', 'Error');
+                            console.error('Download failed:', errorText);
+                            VMessageBox.alert(`下載失敗: ${response.status} ${response.statusText}`, 'Error');
                             this.setStatus('DOWNLOAD FAILED', 'error');
                         }
                     } catch (error) {
                         console.error(error);
-                        VMessageBox.alert('下載發生錯誤', 'Error');
+                        VMessageBox.alert('匯出 Excel 發生未預期的錯誤', 'Error');
                         this.setStatus('DOWNLOAD FAILED', 'error');
                     } finally {
                         document.body.style.cursor = 'default';
