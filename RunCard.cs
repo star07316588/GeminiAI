@@ -585,6 +585,56 @@ namespace MES.Net.Infrastructure.Repository.Print
                 new { LotId = lotId }
             );
         }
+        /// <summary>
+        /// 取得該批號在進出站期間，被合併進來的來源批號 (Merge ID)
+        /// 對應舊版交易：FWMERGE
+        /// </summary>
+        public async Task<IEnumerable<string>> GetMergeIdsAsync(string lotId, DateTime trackInTime, DateTime trackOutTime)
+        {
+            // 💡 請依據貴司實際的 schema，將 TBL_LOT_HIST 與 MERGE_LOT_ID 替換為正確的名稱
+            var sql = @"
+                SELECT MERGE_LOT_ID 
+                FROM TBL_LOT_HIST
+                WHERE LOT_ID = :LotId
+                  AND TXN_NAME = 'FWMERGE'
+                  AND TXNTIMESTAMP >= :TrackInTime
+                  AND TXNTIMESTAMP <= :TrackOutTime
+                ORDER BY TXNTIMESTAMP ASC";
+
+            var result = await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                LotId = lotId, 
+                TrackInTime = trackInTime, 
+                TrackOutTime = trackOutTime 
+            });
+
+            return result;
+        }
+        /// <summary>
+        /// 取得該批號在進出站期間，拆分出去的子批號 (Split ID)
+        /// 對應舊版交易：FWSPLITLOT
+        /// </summary>
+        public async Task<IEnumerable<string>> GetSplitIdsAsync(string lotId, DateTime trackInTime, DateTime trackOutTime)
+        {
+            // 💡 請依據貴司實際的 schema，將 TBL_LOT_HIST 與 CHILD_LOT_ID 替換為正確的名稱
+            var sql = @"
+                SELECT CHILD_LOT_ID 
+                FROM TBL_LOT_HIST
+                WHERE LOT_ID = :LotId
+                  AND TXN_NAME = 'FWSPLITLOT'
+                  AND TXNTIMESTAMP >= :TrackInTime
+                  AND TXNTIMESTAMP <= :TrackOutTime
+                ORDER BY TXNTIMESTAMP ASC";
+
+            var result = await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                LotId = lotId, 
+                TrackInTime = trackInTime, 
+                TrackOutTime = trackOutTime 
+            });
+
+            return result;
+        }
     }
 }
 
