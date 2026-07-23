@@ -125,6 +125,32 @@ namespace MES.Net.Shared.DTOs.Print
         public string IncludeEngLot { get; set; }
         public string IncludeReworkLot { get; set; }
     }
+    /// <summary>
+    /// 存放自 TBL_SUB_PO 撈取的雷射打印 (Marking) 規格資訊
+    /// </summary>
+    public class RunCardPoSpecInfo
+    {
+        // ==========================================
+        // Top Line (正面刻印 1~10 行)
+        // ==========================================
+        public string TopLine1 { get; set; }
+        public string TopLine2 { get; set; }
+        public string TopLine3 { get; set; }
+        public string TopLine4 { get; set; }
+        public string TopLine5 { get; set; }
+        public string TopLine6 { get; set; }
+        public string TopLine7 { get; set; }
+        public string TopLine8 { get; set; }
+        public string TopLine9 { get; set; }
+        public string TopLine10 { get; set; }
+
+        // ==========================================
+        // Back Side (背面刻印 1~3 行)
+        // ==========================================
+        public string Back1 { get; set; }
+        public string Back2 { get; set; }
+        public string Back3 { get; set; }
+    }
 }
 
 using Dapper;
