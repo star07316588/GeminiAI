@@ -833,42 +833,42 @@ namespace MES.Net.Application.Services.Print
             using (var workbook = new XLWorkbook())
             {
                 var ws = workbook.Worksheets.Add(data.RunCardType + "_RunCard");
-                
+
                 // --- Title 區塊 (完全對應舊版座標) ---
                 // 標題大約在第 12 欄 (K~L)
-                ws.Cell(1, 12).Value = "Macronix Final Test Run Card"; 
+                ws.Cell(1, 12).Value = "Macronix Final Test Run Card";
                 // 日期在第 17 欄 (Q)
                 ws.Cell(2, 17).Value = "Date: " + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
-                
+
                 // --- Basic Information ---
                 ws.Cell(3, 1).Value = "Basic information :";
-                
+
                 // 左側欄位 (Label: 4, Value: 5)
-                ws.Cell(4, 4).Value = "Ipn :";         ws.Cell(4, 5).Value = data.IPN;
-                ws.Cell(5, 4).Value = "Lot id :";      ws.Cell(5, 5).Value = data.LotId;
-                ws.Cell(6, 4).Value = "Qty :";         ws.Cell(6, 5).Value = data.ChipQty;
-                ws.Cell(7, 4).Value = "Owner :";       ws.Cell(7, 5).Value = data.LotOwner;
-                ws.Cell(8, 4).Value = "EPN :";         ws.Cell(8, 5).Value = GetSpecValue(data.SpecInfo, "EPN");
-                ws.Cell(9, 4).Value = "CPN :";         ws.Cell(9, 5).Value = GetSpecValue(data.SpecInfo, "CPN");
-                ws.Cell(10, 4).Value = "CheckSum :";   ws.Cell(10, 5).Value = GetSpecValue(data.SpecInfo, "CheckSum");
+                ws.Cell(4, 4).Value = "Ipn :"; ws.Cell(4, 5).Value = data.IPN;
+                ws.Cell(5, 4).Value = "Lot id :"; ws.Cell(5, 5).Value = data.LotId;
+                ws.Cell(6, 4).Value = "Qty :"; ws.Cell(6, 5).Value = data.ChipQty;
+                ws.Cell(7, 4).Value = "Owner :"; ws.Cell(7, 5).Value = data.LotOwner;
+                ws.Cell(8, 4).Value = "EPN :"; ws.Cell(8, 5).Value = GetSpecValue(data.SpecInfo, "EPN");
+                ws.Cell(9, 4).Value = "CPN :"; ws.Cell(9, 5).Value = GetSpecValue(data.SpecInfo, "CPN");
+                ws.Cell(10, 4).Value = "CheckSum :"; ws.Cell(10, 5).Value = GetSpecValue(data.SpecInfo, "CheckSum");
                 ws.Cell(11, 4).Value = "Security Code :"; ws.Cell(11, 5).Value = GetSpecValue(data.SpecInfo, "SecurityCode");
                 ws.Cell(12, 4).Value = "Label spec :"; ws.Cell(12, 5).Value = GetSpecValue(data.SpecInfo, "Label");
                 ws.Cell(13, 4).Value = "Carrier Drawing spec :"; ws.Cell(13, 5).Value = GetSpecValue(data.SpecInfo, "CarrierSpecNo");
                 ws.Cell(14, 4).Value = "Carrier Type :"; ws.Cell(14, 5).Value = GetSpecValue(data.SpecInfo, "CarrierType");
                 ws.Cell(15, 4).Value = "Carrier Q'ty :"; ws.Cell(15, 5).Value = GetSpecValue(data.SpecInfo, "CarrierQty");
                 ws.Cell(16, 4).Value = "IC Outline Spec :"; ws.Cell(16, 5).Value = GetSpecValue(data.SpecInfo, "ICOutlineSpec");
-                ws.Cell(17, 4).Value = "Back1 :";      ws.Cell(17, 5).Value = GetSpecValue(data.SpecInfo, "Back1");
-                ws.Cell(18, 4).Value = "Back2 :";      ws.Cell(18, 5).Value = GetSpecValue(data.SpecInfo, "Back2");
-                ws.Cell(19, 4).Value = "Back3 :";      ws.Cell(19, 5).Value = GetSpecValue(data.SpecInfo, "Back3");
+                ws.Cell(17, 4).Value = "Back1 :"; ws.Cell(17, 5).Value = GetSpecValue(data.SpecInfo, "Back1");
+                ws.Cell(18, 4).Value = "Back2 :"; ws.Cell(18, 5).Value = GetSpecValue(data.SpecInfo, "Back2");
+                ws.Cell(19, 4).Value = "Back3 :"; ws.Cell(19, 5).Value = GetSpecValue(data.SpecInfo, "Back3");
 
                 // 右側欄位 (Label: 16, Value: 17)
-                ws.Cell(4, 16).Value = "Route :";      ws.Cell(4, 17).Value = data.Route;
+                ws.Cell(4, 16).Value = "Route :"; ws.Cell(4, 17).Value = data.Route;
                 ws.Cell(5, 16).Value = "Bake information :"; ws.Cell(5, 17).Value = GetSpecValue(data.SpecInfo, "BakeInformation");
-                ws.Cell(6, 16).Value = "Customer :";   ws.Cell(6, 17).Value = GetSpecValue(data.SpecInfo, "Customer");
-                ws.Cell(7, 16).Value = "Packing Spec :"; ws.Cell(7, 17).Value = GetSpecValue(data.SpecInfo, "PackageCode"); // 如果您的 DTO 叫 PackingSpec 請替換
-                ws.Cell(8, 16).Value = "Packing type :"; ws.Cell(8, 17).Value = GetSpecValue(data.SpecInfo, "PackingType");
+                ws.Cell(6, 16).Value = "Customer :"; ws.Cell(6, 17).Value = GetSpecValue(data.SpecInfo, "Customer");
+                ws.Cell(7, 16).Value = "Packing Spec :"; ws.Cell(7, 17).Value = GetSpecValue(data.SpecInfo, "BoxingSpec");
+                ws.Cell(8, 16).Value = "Packing type :"; ws.Cell(8, 17).Value = GetSpecValue(data.SpecInfo, "BoxingType");
                 ws.Cell(9, 16).Value = "Marking Spec :"; ws.Cell(9, 17).Value = GetSpecValue(data.SpecInfo, "MarkingSpec");
-                
+
                 // 處理舊版預設字眼 "SEE ATTACHMENT"
                 for (int i = 1; i <= 10; i++)
                 {
@@ -879,46 +879,46 @@ namespace MES.Net.Application.Services.Print
 
                 // --- Process Record (Step History) ---
                 ws.Cell(20, 1).Value = "Process Record :";
-                int currentRow = 21; 
-                
+                int currentRow = 21;
+
                 foreach (var hist in data.StepHistories)
                 {
                     // 左側欄位
-                    ws.Cell(currentRow, 4).Value = "Step name :";          ws.Cell(currentRow, 5).Value = hist.Description;
-                    ws.Cell(currentRow + 1, 4).Value = "Start time :";     ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString("yyyy/MM/dd HH:mm:ss");
+                    ws.Cell(currentRow, 4).Value = "Step name :"; ws.Cell(currentRow, 5).Value = hist.Description;
+                    ws.Cell(currentRow + 1, 4).Value = "Start time :"; ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString();
                     ws.Cell(currentRow + 2, 4).Value = "Start Operator :"; ws.Cell(currentRow + 2, 5).Value = hist.UserIn; // 舊系統稱呼為 Operator
-                    ws.Cell(currentRow + 3, 4).Value = "Start qty :";      ws.Cell(currentRow + 3, 5).Value = hist.QuantityIn;
-                    ws.Cell(currentRow + 4, 4).Value = "Bin1 :";           ws.Cell(currentRow + 4, 5).Value = hist.Bin1;
-                    ws.Cell(currentRow + 5, 4).Value = "Bin2 :";           ws.Cell(currentRow + 5, 5).Value = hist.Bin2;
-                    ws.Cell(currentRow + 6, 4).Value = "Bin3 :";           ws.Cell(currentRow + 6, 5).Value = hist.Bin3;
-                    ws.Cell(currentRow + 7, 4).Value = "Bin4 :";           ws.Cell(currentRow + 7, 5).Value = hist.Bin4;
-                    ws.Cell(currentRow + 8, 4).Value = "Bin5 :";           ws.Cell(currentRow + 8, 5).Value = hist.Bin5;
-                    ws.Cell(currentRow + 9, 4).Value = "Bin6 :";           ws.Cell(currentRow + 9, 5).Value = hist.Bin6;
+                    ws.Cell(currentRow + 3, 4).Value = "Start qty :"; ws.Cell(currentRow + 3, 5).Value = hist.QuantityIn;
+                    ws.Cell(currentRow + 4, 4).Value = "Bin1 :"; ws.Cell(currentRow + 4, 5).Value = hist.Bin1;
+                    ws.Cell(currentRow + 5, 4).Value = "Bin2 :"; ws.Cell(currentRow + 5, 5).Value = hist.Bin2;
+                    ws.Cell(currentRow + 6, 4).Value = "Bin3 :"; ws.Cell(currentRow + 6, 5).Value = hist.Bin3;
+                    ws.Cell(currentRow + 7, 4).Value = "Bin4 :"; ws.Cell(currentRow + 7, 5).Value = hist.Bin4;
+                    ws.Cell(currentRow + 8, 4).Value = "Bin5 :"; ws.Cell(currentRow + 8, 5).Value = hist.Bin5;
+                    ws.Cell(currentRow + 9, 4).Value = "Bin6 :"; ws.Cell(currentRow + 9, 5).Value = hist.Bin6;
 
                     // 右側欄位
-                    ws.Cell(currentRow, 16).Value = "Step id :";           ws.Cell(currentRow, 17).Value = hist.StepName;
-                    ws.Cell(currentRow + 1, 16).Value = "End time :";      ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString("yyyy/MM/dd HH:mm:ss");
-                    ws.Cell(currentRow + 2, 16).Value = "End Operator :";  ws.Cell(currentRow + 2, 17).Value = hist.UserOut;
-                    ws.Cell(currentRow + 3, 16).Value = "Pass qty :";      ws.Cell(currentRow + 3, 17).Value = hist.PassQty;
-                    ws.Cell(currentRow + 4, 16).Value = "Fail qty :";      ws.Cell(currentRow + 4, 17).Value = hist.FailQty;
-                    ws.Cell(currentRow + 5, 16).Value = "Yield :";         ws.Cell(currentRow + 5, 17).Value = hist.Yield.HasValue ? hist.Yield.Value.ToString("0.00%") : "";
-                    ws.Cell(currentRow + 6, 16).Value = "Tester id :";     ws.Cell(currentRow + 6, 17).Value = hist.Equipment; 
-                    ws.Cell(currentRow + 7, 16).Value = "Handler id :";    ws.Cell(currentRow + 7, 17).Value = ""; 
-                    
+                    ws.Cell(currentRow, 16).Value = "Step id :"; ws.Cell(currentRow, 17).Value = hist.StepName;
+                    ws.Cell(currentRow + 1, 16).Value = "End time :"; ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString();
+                    ws.Cell(currentRow + 2, 16).Value = "End Operator :"; ws.Cell(currentRow + 2, 17).Value = hist.UserOut;
+                    ws.Cell(currentRow + 3, 16).Value = "Pass qty :"; ws.Cell(currentRow + 3, 17).Value = hist.PassQty;
+                    ws.Cell(currentRow + 4, 16).Value = "Fail qty :"; ws.Cell(currentRow + 4, 17).Value = hist.FailQty;
+                    ws.Cell(currentRow + 5, 16).Value = "Yield :"; ws.Cell(currentRow + 5, 17).Value = hist.Yield.HasValue ? hist.Yield.Value.ToString("0.00%") : "";
+                    ws.Cell(currentRow + 6, 16).Value = "Tester id :"; ws.Cell(currentRow + 6, 17).Value = hist.Equipment;
+                    ws.Cell(currentRow + 7, 16).Value = "Handler id :"; ws.Cell(currentRow + 7, 17).Value = "";
+
                     // 🌟 刻意保留舊系統的拼寫傳統 
-                    ws.Cell(currentRow + 8, 16).Value = "Receipe :";       ws.Cell(currentRow + 8, 17).Value = hist.Recipe; 
-                    ws.Cell(currentRow + 9, 16).Value = "Fail describation :"; ws.Cell(currentRow + 9, 17).Value = hist.ScrapComment; 
-                    
+                    ws.Cell(currentRow + 8, 16).Value = "Receipe :"; ws.Cell(currentRow + 8, 17).Value = hist.Recipe;
+                    ws.Cell(currentRow + 9, 16).Value = "Fail describation :"; ws.Cell(currentRow + 9, 17).Value = hist.ScrapComment;
+
                     // 每個站點固定佔據 10 行空間
                     currentRow += 10;
                 }
 
                 // 簡單美化排版 (Label 靠右對齊，Value 靠左對齊)
-                ws.Columns(4).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
-                ws.Columns(16).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
-                ws.Columns(5).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
-                ws.Columns(17).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
-                
+                ws.Column(4).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+                ws.Column(16).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+                ws.Column(5).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                ws.Column(17).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+
                 // 微調欄寬
                 ws.Column(4).Width = 20;
                 ws.Column(16).Width = 20;
