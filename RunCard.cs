@@ -144,8 +144,14 @@ namespace MES.Net.Shared.DTOs.Print
         public string Back3 { get; set; }
     }
 
+/// <summary>
+    /// 存放 Lot 在各站點的過帳歷程與生產細節
+    /// </summary>
     public class RunCardStepHistory
     {
+        // ==========================================
+        // 1. 基本站點與過帳資訊
+        // ==========================================
         public string StepName { get; set; }
         public string Description { get; set; }
         public DateTime? TrackInTime { get; set; }
@@ -154,12 +160,25 @@ namespace MES.Net.Shared.DTOs.Print
         public string UserOut { get; set; }
         public int QuantityIn { get; set; }
         public int QuantityOut { get; set; }
-        
-        // 機台與配方資訊
+
+        // ==========================================
+        // 2. 機台與配方資訊
+        // ==========================================
         public string Equipment { get; set; }
-        public string Recipe { get; set; }
         
-        // 新增 FT 專用測試數據與處置
+        /// <summary>
+        /// 機台 Handler (透過 Eqp Attribute 的 SubSys1 與 SubSys2 決定)
+        /// </summary>
+        public string HandlerId { get; set; }
+        
+        /// <summary>
+        /// 機台配方 (由 PGName, Temperature 等參數組合)
+        /// </summary>
+        public string Recipe { get; set; }
+
+        // ==========================================
+        // 3. FT (測試) 專屬測試數據與處置
+        // ==========================================
         public int? PassQty { get; set; }
         public int? FailQty { get; set; }
         public string Bin1 { get; set; }
@@ -168,15 +187,34 @@ namespace MES.Net.Shared.DTOs.Print
         public string Bin4 { get; set; }
         public string Bin5 { get; set; }
         public string Bin6 { get; set; }
-        public double? Yield { get; set; } // 良率 (PassQty / InQty)
+        
+        /// <summary>
+        /// 良率 (PassQty / QuantityIn)
+        /// </summary>
+        public double? Yield { get; set; }
         
         public string ScrapComment { get; set; }
+        
+        /// <summary>
+        /// 合併批號清單 (對應 FWMERGE)
+        /// </summary>
         public string MergeIdList { get; set; }
+        
+        /// <summary>
+        /// 拆批批號清單 (對應 FWSPLITLOT)
+        /// </summary>
         public string SplitIdList { get; set; }
 
-        // 新增 WS 專用屬性
+        // ==========================================
+        // 4. WS (晶圓) 專屬屬性
+        // ==========================================
         public int WaferQty { get; set; }
-        public string WaferNoList { get; set; } // 例如: "01, 02, 05, 07~15, 25"
+        
+        /// <summary>
+        /// 晶圓號碼清單 (例如: "01, 02, 05, 07~15, 25")
+        /// </summary>
+        public string WaferNoList { get; set; }
+        
         public string GrossDie { get; set; }
     }
 
