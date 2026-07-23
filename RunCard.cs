@@ -144,7 +144,7 @@ namespace MES.Net.Shared.DTOs.Print
         public string Back3 { get; set; }
     }
 
-/// <summary>
+    /// <summary>
     /// 存放 Lot 在各站點的過帳歷程與生產細節
     /// </summary>
     public class RunCardStepHistory
