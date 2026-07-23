@@ -828,20 +828,26 @@ namespace MES.Net.Application.Services.Print
             return prop?.GetValue(specInfo)?.ToString() ?? string.Empty;
         }
 
-        public byte[] GenerateExcelReport(RunCardResponse data)
+public byte[] GenerateExcelReport(RunCardResponse data)
         {
             using (var workbook = new XLWorkbook())
             {
                 var ws = workbook.Worksheets.Add(data.RunCardType + "_RunCard");
 
                 // --- Title 區塊 (完全對應舊版座標) ---
-                // 標題大約在第 12 欄 (K~L)
-                ws.Cell(1, 12).Value = "Macronix Final Test Run Card";
+                var titleCell = ws.Cell(1, 12);
+                titleCell.Value = "Macronix Final Test Run Card";
+                // 🌟 新增：大標題放大為 18 並加粗體
+                titleCell.Style.Font.FontSize = 18;
+                titleCell.Style.Font.Bold = true;
+
                 // 日期在第 17 欄 (Q)
                 ws.Cell(2, 17).Value = "Date: " + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
 
                 // --- Basic Information ---
-                ws.Cell(3, 1).Value = "Basic information :";
+                var basicInfoTitle = ws.Cell(3, 1);
+                basicInfoTitle.Value = "Basic information :";
+                basicInfoTitle.Style.Font.Bold = true; // 區塊標題加粗
 
                 // 左側欄位 (Label: 4, Value: 5)
                 ws.Cell(4, 4).Value = "Ipn :"; ws.Cell(4, 5).Value = data.IPN;
@@ -878,7 +884,10 @@ namespace MES.Net.Application.Services.Print
                 }
 
                 // --- Process Record (Step History) ---
-                ws.Cell(20, 1).Value = "Process Record :";
+                var processRecordTitle = ws.Cell(20, 1);
+                processRecordTitle.Value = "Process Record :";
+                processRecordTitle.Style.Font.Bold = true; // 區塊標題加粗
+                
                 int currentRow = 21;
 
                 foreach (var hist in data.StepHistories)
@@ -918,6 +927,10 @@ namespace MES.Net.Application.Services.Print
                 ws.Column(16).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
                 ws.Column(5).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
                 ws.Column(17).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+
+                // 🌟 新增：最快速的方法！直接將存放 Label 的第 4 欄與第 16 欄整欄設定為粗體
+                ws.Column(4).Style.Font.Bold = true;
+                ws.Column(16).Style.Font.Bold = true;
 
                 // 微調欄寬
                 ws.Column(4).Width = 20;
