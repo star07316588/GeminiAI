@@ -62,7 +62,7 @@ namespace MES.Net.Shared.DTOs.Print
         public List<RunCardFutureAction> FutureActions { get; set; } = new List<RunCardFutureAction>();
     }
 
-public class RunCardSpecInfo
+    public class RunCardSpecInfo
     {
         // ==========================================
         // 1. 來自 TBL_IPN_MASTER 的基本規格
