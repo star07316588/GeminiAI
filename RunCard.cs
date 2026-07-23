@@ -62,19 +62,86 @@ namespace MES.Net.Shared.DTOs.Print
         public List<RunCardFutureAction> FutureActions { get; set; } = new List<RunCardFutureAction>();
     }
 
-    public class RunCardSpecInfo
+public class RunCardSpecInfo
     {
+        // ==========================================
+        // 1. 來自 TBL_IPN_MASTER 的基本規格
+        // ==========================================
         public string EPN { get; set; }
-        public string CPN { get; set; }
         public string CheckSum { get; set; }
-        public string Security { get; set; }
+        
+        /// <summary>
+        /// 對應 SQL: A.SECURITY AS Security
+        /// </summary>
+        public string Security { get; set; } 
+        
         public string PackageCode { get; set; }
-        public string Label { get; set; }
+        public string Brand { get; set; }
+        public string Grade { get; set; }
         public string CarrierSpecNo { get; set; }
+        
+        /// <summary>
+        /// 對應 SQL: A.ICDRAWING AS ICDrawing
+        /// </summary>
+        public string ICDrawing { get; set; } 
+        
+        public string MarkingSpec { get; set; }  // A.MARKING_SPEC_NO
+        public string BoxingSpec { get; set; }   // A.BOXING_SPEC_NO
+        public string BoxingType { get; set; }   // A.BOXING_TYPE
+
+        // ==========================================
+        // 2. 來自 TBL_PRM_BE_SPEC 的站點與烘烤規格
+        // ==========================================
+        public string CPN { get; set; }
         public string CarrierType { get; set; }
         public string CarrierQty { get; set; }
-        public string ICDrawing { get; set; }
-        // ... 其他由 TBL_IPN_MASTER 等表格撈出的規格欄位
+        
+        /// <summary>
+        /// 烘烤資訊 (組合字串)
+        /// 對應 SQL: B.BAKE_TIME || ' ' || B.BAKE_TEMP AS BakeInformation
+        /// </summary>
+        public string BakeInformation { get; set; }
+
+        // ==========================================
+        // 3. 來自 TBL_CUSTOMER_MASTER 的客戶資訊
+        // ==========================================
+        /// <summary>
+        /// 客戶資訊 (組合字串)
+        /// 對應 SQL: B.CUSTOMER_NO || ' ' || C.CUSTOMERNAME AS Customer
+        /// </summary>
+        public string Customer { get; set; }
+        
+        /// <summary>
+        /// 原始標籤 (供 C# 判斷邏輯使用)
+        /// 對應 SQL: C.LABELSPECNO AS RawLabel
+        /// </summary>
+        public string RawLabel { get; set; } 
+
+        // ==========================================
+        // 4. 透過 C# 業務邏輯動態決定的結果
+        // ==========================================
+        /// <summary>
+        /// 最終決定的 Label，由 Brand, Grade, PackageCode 與 RawLabel 動態推算
+        /// </summary>
+        public string Label { get; set; }
+
+        // ==========================================
+        // 5. 由 TBL_SUB_PO 查詢後塞入的雷射打印資訊
+        // ==========================================
+        public string TopLine1 { get; set; }
+        public string TopLine2 { get; set; }
+        public string TopLine3 { get; set; }
+        public string TopLine4 { get; set; }
+        public string TopLine5 { get; set; }
+        public string TopLine6 { get; set; }
+        public string TopLine7 { get; set; }
+        public string TopLine8 { get; set; }
+        public string TopLine9 { get; set; }
+        public string TopLine10 { get; set; }
+
+        public string Back1 { get; set; }
+        public string Back2 { get; set; }
+        public string Back3 { get; set; }
     }
 
     public class RunCardStepHistory
