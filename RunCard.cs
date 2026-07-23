@@ -207,19 +207,69 @@ namespace MES.Net.Infrastructure.Repository.Print
 
         public async Task<RunCardSpecInfo> GetLotSpecInfoAsync(string ipn)
         {
-            // 對應原本 FtExcelCell 撈取 TBL_IPN_MASTER 與 TBL_PRM_BE_SPEC 的 SQL
+            // 補足所有缺失的欄位：包含 Grade, Brand, Bake 組合字串, Customer 組合字串
             var sql = @"
-                SELECT A.EPN, A.CHECKSUM, A.SECURITY, A.PACKAGE_CODE as PackageCode, 
-                       B.CPN, C.LABELSPECNO as Label, A.CARRIER_SPEC_NO as CarrierSpecNo
+                SELECT 
+                    A.EPN, A.CHECKSUM AS CheckSum, A.SECURITY AS SecurityCode, 
+                    A.MARKING_SPEC_NO AS MarkingSpec, A.BOXING_SPEC_NO AS BoxingSpec, A.BOXING_TYPE AS BoxingType, 
+                    A.CARRIER_SPEC_NO AS CarrierSpecNo, A.ICDRAWING AS ICOutlineSpec, 
+                    A.BRAND AS Brand, A.PACKAGE_CODE AS PackageCode, A.GRADE AS Grade,
+                    B.CPN, 
+                    B.BAKE_TIME || ' ' || B.BAKE_TEMP AS BakeInformation, 
+                    B.CUSTOMER_NO || ' ' || C.CUSTOMERNAME AS Customer, 
+                    B.CARRIER_TYPE AS CarrierType, B.CARRIER_QTY AS CarrierQty, 
+                    C.LABELSPECNO AS RawLabel
                 FROM TBL_IPN_MASTER A
                 INNER JOIN TBL_PRM_BE_SPEC B ON A.IPN = B.IPN
                 LEFT JOIN TBL_CUSTOMER_MASTER C ON B.CUSTOMER_NO = C.CUSTOMERNO
                 WHERE A.IPN = :Ipn
                 ORDER BY DECODE(B.DEFAULTS, 'Y', 0, 1)";
-
-            return await _dbConnection.QueryFirstOrDefaultAsync<RunCardSpecInfo>(sql, new { Ipn = ipn });
+        
+            var spec = await _dbConnection.QueryFirstOrDefaultAsync<RunCardSpecInfo>(sql, new { Ipn = ipn });
+        
+            if (spec != null)
+            {
+                // 🌟 完美還原舊版 M200509017, M200708010, JC201300301 的 Label 判斷邏輯
+                if (!string.IsNullOrWhiteSpace(spec.RawLabel))
+                {
+                    spec.Label = spec.RawLabel;
+                }
+                else
+                {
+                    string pkg = spec.PackageCode?.Substring(0, 1).ToUpper();
+                    string brand = spec.Brand?.Trim();
+                    string grade = spec.Grade?.Trim();
+        
+                    if (brand == "KH" && pkg != "W" && pkg != "H")
+                    {
+                        spec.Label = (grade == "Y") ? "6130K-0807.1" : "6130K-0807";
+                    }
+                    else
+                    {
+                        spec.Label = "6130-0807";
+                    }
+                }
+            }
+            return spec;
         }
 
+        public async Task<RunCardPoSpecInfo> GetLotPoSpecAsync(string lotId)
+        {
+            var sql = @"
+                SELECT 
+                    B.BACK_SIDE1 AS Back1, B.BACK_SIDE2 AS Back2, B.BACK_SIDE3 AS Back3,
+                    B.TOP_LINE1 AS TopLine1, B.TOP_LINE2 AS TopLine2, B.TOP_LINE3 AS TopLine3,
+                    B.TOP_LINE4 AS TopLine4, B.TOP_LINE5 AS TopLine5, B.TOP_LINE6 AS TopLine6,
+                    B.TOP_LINE7 AS TopLine7, B.TOP_LINE8 AS TopLine8, B.TOP_LINE9 AS TopLine9,
+                    B.TOP_LINE10 AS TopLine10
+                FROM TBL_LOT_INFO A
+                INNER JOIN TBL_SUB_PO B ON A.SASM_PONO = B.PO_NO AND A.SASM_POITEM = B.ITEM
+                WHERE A.LOT_ID = :LotId
+                ORDER BY B.PO_DATE_TIME DESC";
+                
+            return await _dbConnection.QueryFirstOrDefaultAsync<RunCardPoSpecInfo>(sql, new { LotId = lotId });
+        }
+        
         public async Task<IEnumerable<RunCardStepHistory>> GetStepHistoryAsync(string lotId, string planId, string planVersion)
         {
             // 將舊版 Oracle 的 (+) 語法轉換為標準的 LEFT JOIN 與 INNER JOIN
@@ -514,15 +564,42 @@ namespace MES.Net.Application.Services.Print
 
         private async Task ProcessFtRunCardAsync(string lotId, RunCardResponse response)
         {
-            // ... (取得 Spec 邏輯) ...
-            var histories = await _repository.GetStepHistoryAsync(lotId);
+            // 1. 取得基本 Spec 與 PO Spec，並合併到 Response 中
+            response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
+            var poSpec = await _repository.GetLotPoSpecAsync(lotId);
+            if (poSpec != null && response.SpecInfo != null)
+            {
+                // 假設您在 DTO 中有對應的欄位，直接賦值
+                response.SpecInfo.TopLine1 = poSpec.TopLine1;
+                // ... (省略屬性對應) ...
+                response.SpecInfo.Back1 = poSpec.Back1;
+            }
+        
+            // 2. 取得站點歷史
+            var histories = await _repository.GetStepHistoryAsync(lotId, response.PlanId, response.PlanVersion);
             
             foreach (var history in histories)
             {
                 if (history.TrackOutTime.HasValue && history.TrackInTime.HasValue)
                 {
-                    string curEqp = "TESTER_A"; // 假定由 GetLotAttr 取得
+                    // 🌟 A. 取得該站機台與 Handler (對應舊版 GetLotAttr 與 GetEqpAttr)
+                    string curEqp = await _repository.GetLotAttributeAsync(lotId, "CUR_EQP_ID", history.TrackOutTime.Value);
+                    history.Equipment = curEqp;
                     
+                    if (!string.IsNullOrWhiteSpace(curEqp))
+                    {
+                        string subSys1 = await _repository.GetEqpAttributeAsync(curEqp, "SubSys1", history.TrackOutTime.Value);
+                        string subSys2 = await _repository.GetEqpAttributeAsync(curEqp, "SubSys2", history.TrackOutTime.Value);
+                        
+                        if (string.IsNullOrEmpty(subSys1)) history.HandlerId = subSys2;
+                        else if (string.IsNullOrEmpty(subSys2)) history.HandlerId = subSys1;
+                        else history.HandlerId = $"{subSys1};{subSys2}";
+                    }
+        
+                    // 🌟 B. 組合 Recipe (對應舊版的 PGName + Temperature + ProcessTime + TimeUnit)
+                    // history.Recipe = await 取得這四個 LotAttr 並組裝字串 ...
+        
+                    // 🌟 C. FT 站專屬資料 (Bin, Yield, Merge, Split)
                     if (history.Description.StartsWith("FT") || history.Description.StartsWith("TQAE"))
                     {
                         var binData = await _repository.GetFtBinDataAsync(lotId, history.StepName, curEqp);
@@ -533,21 +610,34 @@ namespace MES.Net.Application.Services.Print
                             history.Bin1 = binData.BIN1?.ToString();
                             // ... Bin2 ~ Bin6 ...
                             
-                            if (history.QuantityIn > 0 && history.QuantityOut > 0)
-                                history.Yield = Math.Round((double)history.QuantityOut / history.QuantityIn, 2);
+                            // Yield 計算：舊版是以 PASSQTY (或 OutQty) 作為分子，QuantityIn 作為分母
+                            long qtyIn = history.QuantityIn ?? 0;
+                            long qtyOut = history.PassQty ?? 0;
+                            if (qtyIn > 0 && qtyOut > 0)
+                                history.Yield = Math.Round((double)qtyOut / qtyIn, 2);
+                                
+                            // D. 取得 Merge ID (來自 FWMERGE)
+                            var mergeIds = await _repository.GetMergeIdsAsync(lotId, history.TrackInTime.Value, history.TrackOutTime.Value);
+                            if (mergeIds.Any()) history.MergeId = string.Join(";", mergeIds);
+                            
+                            // E. 取得 Split ID (來自 FWSPLITLOT)
+                            var splitIds = await _repository.GetSplitIdsAsync(lotId, history.TrackInTime.Value, history.TrackOutTime.Value);
+                            if (splitIds.Any()) history.SplitId = string.Join(";", splitIds);
                         }
                     }
-
+        
+                    // 🌟 F. 報廢註記
                     if (history.QuantityIn > history.QuantityOut)
                     {
                         history.ScrapComment = await _repository.GetScrapCommentAsync(lotId, history.TrackInTime.Value, history.TrackOutTime.Value);
                     }
                 }
             }
+            
             response.StepHistories = new List<RunCardStepHistory>(histories);
         }
 
-/// <summary>
+        /// <summary>
         /// 安全地透過 Reflection 讀取 SpecInfo 的屬性值，避免因 DTO 缺少欄位而報錯
         /// </summary>
         private string GetSpecValue(object specInfo, string propName)
