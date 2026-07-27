@@ -828,7 +828,7 @@ namespace MES.Net.Application.Services.Print
             return prop?.GetValue(specInfo)?.ToString() ?? string.Empty;
         }
 
-public byte[] GenerateExcelReport(RunCardResponse data)
+        public byte[] GenerateExcelReport(RunCardResponse data)
         {
             using (var workbook = new XLWorkbook())
             {
@@ -837,7 +837,7 @@ public byte[] GenerateExcelReport(RunCardResponse data)
                 // --- Title 區塊 (完全對應舊版座標) ---
                 var titleCell = ws.Cell(1, 12);
                 titleCell.Value = "Macronix Final Test Run Card";
-                // 🌟 新增：大標題放大為 18 並加粗體
+                // 🌟 大標題放大為 18 並加粗體
                 titleCell.Style.Font.FontSize = 18;
                 titleCell.Style.Font.Bold = true;
 
@@ -883,19 +883,68 @@ public byte[] GenerateExcelReport(RunCardResponse data)
                     ws.Cell(9 + i, 17).Value = string.IsNullOrWhiteSpace(topValue) ? "SEE ATTACHMENT" : topValue;
                 }
 
+                // 宣告一個動態行號，從第 20 行開始往下長
+                int currentRow = 20;
+
+                // --- 🌟 Future Actions / Comments (新增區塊) ---
+                if (data.FutureActions != null && data.FutureActions.Count > 0)
+                {
+                    var commentTitle = ws.Cell(currentRow, 1);
+                    commentTitle.Value = "Comments :";
+                    commentTitle.Style.Font.Bold = true; // 區塊標題加粗
+                    currentRow++;
+
+                    // 標題列 (還原舊版座標: C=3, F=6, K=11, Q=17)
+                    ws.Cell(currentRow, 3).Value = "Step No";
+                    ws.Cell(currentRow, 6).Value = "DateTime";
+                    ws.Cell(currentRow, 11).Value = "Commentor";
+                    ws.Cell(currentRow, 17).Value = "Comment";
+
+                    ws.Cell(currentRow, 3).Style.Font.Bold = true;
+                    ws.Cell(currentRow, 6).Style.Font.Bold = true;
+                    ws.Cell(currentRow, 11).Style.Font.Bold = true;
+                    ws.Cell(currentRow, 17).Style.Font.Bold = true;
+                    
+                    currentRow++;
+
+                    foreach (var act in data.FutureActions)
+                    {
+                        ws.Cell(currentRow, 3).Value = act.Step;
+                        
+                        // 支援 DateTime 或 String 的格式化輸出
+                        if (act.SetTime is DateTime dt)
+                            ws.Cell(currentRow, 6).Value = dt.ToString("yyyy/MM/dd HH:mm:ss");
+                        else
+                            ws.Cell(currentRow, 6).Value = act.SetTime?.ToString();
+                            
+                        ws.Cell(currentRow, 11).Value = act.UserId;
+                        ws.Cell(currentRow, 17).Value = act.Comments;
+
+                        // 讓內容靠左對齊
+                        ws.Cell(currentRow, 3).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                        ws.Cell(currentRow, 6).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                        ws.Cell(currentRow, 11).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                        ws.Cell(currentRow, 17).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+
+                        currentRow++;
+                    }
+                    
+                    currentRow++; // 留白一行區隔
+                }
+
                 // --- Process Record (Step History) ---
-                var processRecordTitle = ws.Cell(20, 1);
+                var processRecordTitle = ws.Cell(currentRow, 1);
                 processRecordTitle.Value = "Process Record :";
                 processRecordTitle.Style.Font.Bold = true; // 區塊標題加粗
                 
-                int currentRow = 21;
+                currentRow++;
 
                 foreach (var hist in data.StepHistories)
                 {
                     // 左側欄位
                     ws.Cell(currentRow, 4).Value = "Step name :"; ws.Cell(currentRow, 5).Value = hist.Description;
-                    ws.Cell(currentRow + 1, 4).Value = "Start time :"; ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString();
-                    ws.Cell(currentRow + 2, 4).Value = "Start Operator :"; ws.Cell(currentRow + 2, 5).Value = hist.UserIn; // 舊系統稱呼為 Operator
+                    ws.Cell(currentRow + 1, 4).Value = "Start time :"; ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString("yyyy/MM/dd HH:mm:ss");
+                    ws.Cell(currentRow + 2, 4).Value = "Start Operator :"; ws.Cell(currentRow + 2, 5).Value = hist.UserIn; 
                     ws.Cell(currentRow + 3, 4).Value = "Start qty :"; ws.Cell(currentRow + 3, 5).Value = hist.QuantityIn;
                     ws.Cell(currentRow + 4, 4).Value = "Bin1 :"; ws.Cell(currentRow + 4, 5).Value = hist.Bin1;
                     ws.Cell(currentRow + 5, 4).Value = "Bin2 :"; ws.Cell(currentRow + 5, 5).Value = hist.Bin2;
@@ -906,15 +955,15 @@ public byte[] GenerateExcelReport(RunCardResponse data)
 
                     // 右側欄位
                     ws.Cell(currentRow, 16).Value = "Step id :"; ws.Cell(currentRow, 17).Value = hist.StepName;
-                    ws.Cell(currentRow + 1, 16).Value = "End time :"; ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString();
+                    ws.Cell(currentRow + 1, 16).Value = "End time :"; ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString("yyyy/MM/dd HH:mm:ss");
                     ws.Cell(currentRow + 2, 16).Value = "End Operator :"; ws.Cell(currentRow + 2, 17).Value = hist.UserOut;
                     ws.Cell(currentRow + 3, 16).Value = "Pass qty :"; ws.Cell(currentRow + 3, 17).Value = hist.PassQty;
                     ws.Cell(currentRow + 4, 16).Value = "Fail qty :"; ws.Cell(currentRow + 4, 17).Value = hist.FailQty;
                     ws.Cell(currentRow + 5, 16).Value = "Yield :"; ws.Cell(currentRow + 5, 17).Value = hist.Yield.HasValue ? hist.Yield.Value.ToString("0.00%") : "";
                     ws.Cell(currentRow + 6, 16).Value = "Tester id :"; ws.Cell(currentRow + 6, 17).Value = hist.Equipment;
-                    ws.Cell(currentRow + 7, 16).Value = "Handler id :"; ws.Cell(currentRow + 7, 17).Value = "";
+                    ws.Cell(currentRow + 7, 16).Value = "Handler id :"; ws.Cell(currentRow + 7, 17).Value = hist.HandlerId;
 
-                    // 🌟 刻意保留舊系統的拼寫傳統 
+                    // 刻意保留舊系統的拼寫傳統 
                     ws.Cell(currentRow + 8, 16).Value = "Receipe :"; ws.Cell(currentRow + 8, 17).Value = hist.Recipe;
                     ws.Cell(currentRow + 9, 16).Value = "Fail describation :"; ws.Cell(currentRow + 9, 17).Value = hist.ScrapComment;
 
@@ -928,7 +977,7 @@ public byte[] GenerateExcelReport(RunCardResponse data)
                 ws.Column(5).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
                 ws.Column(17).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
 
-                // 🌟 新增：最快速的方法！直接將存放 Label 的第 4 欄與第 16 欄整欄設定為粗體
+                // 🌟 所有欄位名稱 (第4欄與第16欄) 直接整欄加粗體
                 ws.Column(4).Style.Font.Bold = true;
                 ws.Column(16).Style.Font.Bold = true;
 
