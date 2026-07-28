@@ -908,6 +908,8 @@ namespace MES.Net.Application.Services.Print
                         ws.Cell(currentRow + 7, 4).Value = "Bin4 :"; ws.Cell(currentRow + 7, 5).Value = hist.Bin4;
                         ws.Cell(currentRow + 8, 4).Value = "Bin5 :"; ws.Cell(currentRow + 8, 5).Value = hist.Bin5;
                         ws.Cell(currentRow + 9, 4).Value = "Bin6 :"; ws.Cell(currentRow + 9, 5).Value = hist.Bin6;
+                        ws.Cell(currentRow + 10, 4).Value = "Split Lot :"; ws.Cell(currentRow + 10, 5).Value = hist.SplitId;
+                        ws.Cell(currentRow + 11, 4).Value = "Merge Lot :"; ws.Cell(currentRow + 11, 5).Value = hist.MergeId;
         
                         ws.Cell(currentRow, 16).Value = "Step id :"; ws.Cell(currentRow, 17).Value = hist.StepName;
                         ws.Cell(currentRow + 1, 16).Value = "End time :"; ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString("yyyy/MM/dd HH:mm:ss");
@@ -920,7 +922,7 @@ namespace MES.Net.Application.Services.Print
                         ws.Cell(currentRow + 8, 16).Value = "Receipe :"; ws.Cell(currentRow + 8, 17).Value = hist.Recipe;
                         ws.Cell(currentRow + 9, 16).Value = "Fail describation :"; ws.Cell(currentRow + 9, 17).Value = hist.ScrapComment;
         
-                        currentRow += 10;
+                        currentRow += 13;
                     }
                     
                     // --- Comments 區塊 ---
