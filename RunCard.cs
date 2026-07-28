@@ -10,6 +10,7 @@ namespace MES.Net.Shared.DTOs.Print
         public string LotId { get; set; }
         public string IPN { get; set; }
         public string Type { get; set; } // "FT" 或 "WS"
+        public List<string> LotIds { get; set; } // 🌟 新增：給 Excel 多筆匯出使用
     }
 
     public class LotBasicInfo
@@ -1104,39 +1105,26 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = ex.Message });
             }
         }
-        /// <summary>
-        /// 下載 Excel 實體檔案
-        /// </summary>
-        [HttpPost, Route("download-excel"), AuthorizeToken]
-        public async Task<IHttpActionResult> DownloadExcel([FromBody] PrintRunCardRequest request)
+        [HttpPost("download-excel")]
+        public async Task<IActionResult> DownloadExcel([FromBody] PrintRunCardRequest request)
         {
-            try
+            if (request.LotIds == null || !request.LotIds.Any())
+                return BadRequest("未勾選任何批號");
+        
+            var dataList = new List<RunCardResponse>();
+        
+            // 🌟 迴圈取得每一筆 Lot 的資料
+            foreach (var lotId in request.LotIds)
             {
-                // 1. 取得完整組裝資料
-                var data = await _service.GetRunCardDataAsync(request);
-                
-                // 2. 產出 Excel 二進制流
-                byte[] excelBytes = ((RunCardService)_service).GenerateExcelReport(data);
-                
-                // 3. 設定檔名並回傳實體檔案
-                string fileName = $"{request.Type}_{data.LotId}_{DateTime.Now:yyyyMMddHHmm}.xlsx";
-                
-                var result = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
-                {
-                    Content = new System.Net.Http.ByteArrayContent(excelBytes)
-                };
-                result.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-                result.Content.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("attachment")
-                {
-                    FileName = fileName
-                };
-                
-                return ResponseMessage(result);
+                // 沿用您原本的單筆查詢邏輯
+                var singleRequest = new PrintRunCardRequest { LotId = lotId, Type = request.Type };
+                var data = await _runCardService.GetRunCardDataAsync(singleRequest);
+                dataList.Add(data);
             }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+        
+            // 將 List 傳入產生 Excel
+            var excelBytes = _runCardService.GenerateExcelReport(dataList);
+            return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"{request.Type}_RunCards.xlsx");
         }
     }
 }
