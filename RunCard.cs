@@ -1118,7 +1118,13 @@ namespace MES.Net.Web.Controllers.Print
         
             // 將 List 傳入產生 Excel
             var excelBytes = _runCardService.GenerateExcelReport(dataList);
-            return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"{request.Type}_RunCards.xlsx");
+            result.Content = new ByteArrayContent(excelBytes);
+            result.Content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            result.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+            {
+                FileName = "RunCards.xlsx"
+            };
+            return result;
         }
     }
 }
