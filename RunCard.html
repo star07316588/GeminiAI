@@ -267,6 +267,8 @@
                     dataList: [],
                     selectedLot: null,      // Grid 中選取的批號
                     runCardDetail: null,    // 呼叫 Detail API 取回的報表物件
+                    selectedLot: null,
+                    selectedLots: [], // 🌟 新增：用來存放所有被勾選的批號陣列
 
                     /* ── 清單欄位定義 (對應 RunCardLotListDto) ── */
                     colGrid: [
@@ -328,11 +330,12 @@
             methods: {
                 /* ──  新增：接收共用元件拋出的勾選陣列 ── */
                 onSelectionChange(selectedData) {
-                    // selectedData 是一個包含所有被勾選 row data 的陣列
-                    if (selectedData && selectedData.length > 0) {
-                        this.selectedLot = selectedData[0]; // 取出第一筆
+                    this.selectedLots = selectedData || []; // 儲存所有勾選的資料
+                    
+                    if (this.selectedLots.length > 0) {
+                        this.selectedLot = this.selectedLots[0]; // 保留第一筆給單筆網頁列印使用
                     } else {
-                        this.selectedLot = null; // 取消勾選時清空
+                        this.selectedLot = null;
                     }
                 },
             
@@ -448,7 +451,8 @@
                     document.body.style.cursor = 'wait';
                 
                     const req = {
-                        LotId: this.selectedLot.LotId || this.selectedLot.lotId,
+                        // 🌟 將所有勾選的 LotId 轉為字串陣列
+                        LotIds: this.selectedLots.map(x => x.LotId || x.lotId), 
                         Type: this.qry.type
                     };
                 
