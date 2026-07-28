@@ -1122,7 +1122,7 @@ namespace MES.Net.Web.Controllers.Print
             result.Content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             result.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
             {
-                FileName = "RunCards.xlsx"
+                FileName = $"{request.Type}_{data.LotId}_{DateTime.Now:yyyyMMddHHmm}.xlsx";
             };
             return result;
         }
