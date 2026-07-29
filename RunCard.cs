@@ -1216,22 +1216,42 @@ namespace MES.Net.Web.Controllers.Print
             }
         }
 
-        /// <summary>
-        /// 取得單一 Lot 的完整流程卡資料 (對應原 CmdOK_Click 產出報表資料)
+/// <summary>
+        /// 取得多筆 Lot 的完整流程卡資料 (對應網頁多筆連續列印)
         /// </summary>
         [HttpPost, Route("detail"), AuthorizeToken]
         public async Task<IHttpActionResult> GetRunCardDetail([FromBody] PrintRunCardRequest request)
         {
             try
             {
-                if (request == null || string.IsNullOrWhiteSpace(request.LotId))
-                    return Ok(new { Success = false, Message = "請提供 LotId" });
+                // 1. 🌟 將驗證條件改為檢查 LotIds 陣列是否為空
+                if (request == null || request.LotIds == null || !request.LotIds.Any())
+                    return Ok(new { Success = false, Message = "請提供至少一筆 LotId" });
 
-                var data = await _service.GetRunCardDataAsync(request);
-                return Ok(new { Success = true, Data = data });
+                var dataList = new List<RunCardResponse>();
+
+                // 2. 🌟 迴圈取得每一筆 Lot 的資料
+                foreach (var lotId in request.LotIds)
+                {
+                    // 沿用您原本 Service 處理單筆的邏輯，組裝成單筆 Request 往下傳
+                    var singleRequest = new PrintRunCardRequest 
+                    { 
+                        LotId = lotId, 
+                        Type = request.Type 
+                    };
+
+                    var data = await _service.GetRunCardDataAsync(singleRequest);
+                    
+                    // 將單筆結果加入陣列
+                    dataList.Add(data);
+                }
+
+                // 3. 🌟 回傳陣列資料 (前端的 response.Data 就會是一個 Array 了)
+                return Ok(new { Success = true, Data = dataList });
             }
             catch (Exception ex)
             {
+                // 若迴圈中發生例外，可以將例外訊息傳回前端
                 return Ok(new { Success = false, Message = ex.Message });
             }
         }
