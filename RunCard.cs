@@ -895,125 +895,112 @@ namespace MES.Net.Application.Services.Print
         public byte[] GenerateExcelReport(List<RunCardResponse> dataList)
         {
             if (dataList == null || !dataList.Any()) return null;
-        
+
             using (var workbook = new XLWorkbook())
             {
-                var ws = workbook.Worksheets.Add(dataList.First().RunCardType + "_RunCard");
+                // 判斷整批匯出的類型是 FT 還是 WS
+                string runCardType = dataList.First().RunCardType;
+                var ws = workbook.Worksheets.Add(runCardType + "_RunCard");
                 
-                int rowOffset = 0; // 🌟 核心：控制每一筆批號向下偏移的行數
-        
+                int rowOffset = 0; // 控制每一筆批號向下偏移的行數
+
                 foreach (var data in dataList)
                 {
-                    // --- Title 區塊 ---
+                    // ==========================================
+                    // 共用 Title 區塊
+                    // ==========================================
                     var titleCell = ws.Cell(rowOffset + 1, 12);
-                    titleCell.Value = "Macronix Final Test Run Card";
+                    titleCell.Value = runCardType == "WS" ? "Macronix WaferSort Run Card" : "Macronix Final Test Run Card";
                     titleCell.Style.Font.FontSize = 18;
                     titleCell.Style.Font.Bold = true;
-        
+
                     ws.Cell(rowOffset + 2, 17).Value = "Date: " + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
-        
-                    // --- Basic Information ---
+
                     var basicInfoTitle = ws.Cell(rowOffset + 3, 1);
                     basicInfoTitle.Value = "Basic information :";
                     basicInfoTitle.Style.Font.Bold = true;
-        
-                    // 左側欄位
-                    ws.Cell(rowOffset + 4, 4).Value = "Ipn :"; ws.Cell(rowOffset + 4, 5).Value = data.IPN;
-                    ws.Cell(rowOffset + 5, 4).Value = "Lot id :"; ws.Cell(rowOffset + 5, 5).Value = data.LotId;
-                    ws.Cell(rowOffset + 6, 4).Value = "Qty :"; ws.Cell(rowOffset + 6, 5).Value = data.ChipQty;
-                    ws.Cell(rowOffset + 7, 4).Value = "Owner :"; ws.Cell(rowOffset + 7, 5).Value = data.LotOwner;
-                    ws.Cell(rowOffset + 8, 4).Value = "EPN :"; ws.Cell(rowOffset + 8, 5).Value = GetSpecValue(data.SpecInfo, "EPN");
-                    ws.Cell(rowOffset + 9, 4).Value = "CPN :"; ws.Cell(rowOffset + 9, 5).Value = GetSpecValue(data.SpecInfo, "CPN");
-                    ws.Cell(rowOffset + 10, 4).Value = "CheckSum :"; ws.Cell(rowOffset + 10, 5).Value = GetSpecValue(data.SpecInfo, "CheckSum");
-                    ws.Cell(rowOffset + 11, 4).Value = "Security Code :"; ws.Cell(rowOffset + 11, 5).Value = GetSpecValue(data.SpecInfo, "SecurityCode");
-                    ws.Cell(rowOffset + 12, 4).Value = "Label spec :"; ws.Cell(rowOffset + 12, 5).Value = GetSpecValue(data.SpecInfo, "Label");
-                    ws.Cell(rowOffset + 13, 4).Value = "Carrier Drawing spec :"; ws.Cell(rowOffset + 13, 5).Value = GetSpecValue(data.SpecInfo, "CarrierSpecNo");
-                    ws.Cell(rowOffset + 14, 4).Value = "Carrier Type :"; ws.Cell(rowOffset + 14, 5).Value = GetSpecValue(data.SpecInfo, "CarrierType");
-                    ws.Cell(rowOffset + 15, 4).Value = "Carrier Q'ty :"; ws.Cell(rowOffset + 15, 5).Value = GetSpecValue(data.SpecInfo, "CarrierQty");
-                    ws.Cell(rowOffset + 16, 4).Value = "IC Outline Spec :"; ws.Cell(rowOffset + 16, 5).Value = GetSpecValue(data.SpecInfo, "ICOutlineSpec");
-                    ws.Cell(rowOffset + 17, 4).Value = "Back1 :"; ws.Cell(rowOffset + 17, 5).Value = GetSpecValue(data.SpecInfo, "Back1");
-                    ws.Cell(rowOffset + 18, 4).Value = "Back2 :"; ws.Cell(rowOffset + 18, 5).Value = GetSpecValue(data.SpecInfo, "Back2");
-                    ws.Cell(rowOffset + 19, 4).Value = "Back3 :"; ws.Cell(rowOffset + 19, 5).Value = GetSpecValue(data.SpecInfo, "Back3");
-        
-                    // 右側欄位
-                    ws.Cell(rowOffset + 4, 16).Value = "Route :"; ws.Cell(rowOffset + 4, 17).Value = data.Route;
-                    ws.Cell(rowOffset + 5, 16).Value = "Bake information :"; ws.Cell(rowOffset + 5, 17).Value = GetSpecValue(data.SpecInfo, "BakeInformation");
-                    ws.Cell(rowOffset + 6, 16).Value = "Customer :"; ws.Cell(rowOffset + 6, 17).Value = GetSpecValue(data.SpecInfo, "Customer");
-                    ws.Cell(rowOffset + 7, 16).Value = "Packing Spec :"; ws.Cell(rowOffset + 7, 17).Value = GetSpecValue(data.SpecInfo, "BoxingSpec");
-                    ws.Cell(rowOffset + 8, 16).Value = "Packing type :"; ws.Cell(rowOffset + 8, 17).Value = GetSpecValue(data.SpecInfo, "BoxingType");
-                    ws.Cell(rowOffset + 9, 16).Value = "Marking Spec :"; ws.Cell(rowOffset + 9, 17).Value = GetSpecValue(data.SpecInfo, "MarkingSpec");
-        
-                    for (int i = 1; i <= 10; i++)
+
+                    int currentRow = rowOffset + 4; // Basic Info 的起始行
+
+                    // ==========================================
+                    // 根據 FT 或 WS 繪製不同的 Basic Info
+                    // ==========================================
+                    if (runCardType == "WS")
                     {
-                        string topValue = GetSpecValue(data.SpecInfo, $"TopLine{i}");
-                        ws.Cell(rowOffset + 9 + i, 16).Value = $"TopLine{i} :";
-                        ws.Cell(rowOffset + 9 + i, 17).Value = string.IsNullOrWhiteSpace(topValue) ? "SEE ATTACHMENT" : topValue;
+                        // --- WS 專屬 Basic Information ---
+                        ws.Cell(currentRow, 4).Value = "IPN :"; ws.Cell(currentRow, 5).Value = data.IPN;
+                        ws.Cell(currentRow + 1, 4).Value = "Lot Id :"; ws.Cell(currentRow + 1, 5).Value = data.LotId;
+                        ws.Cell(currentRow + 2, 4).Value = "Wqty :"; ws.Cell(currentRow + 2, 5).Value = data.WaferQty;
+                        ws.Cell(currentRow + 3, 4).Value = "Cqty :"; ws.Cell(currentRow + 3, 5).Value = data.ChipQty;
+                        ws.Cell(currentRow + 4, 4).Value = "Owner :"; ws.Cell(currentRow + 4, 5).Value = data.LotOwner;
+
+                        ws.Cell(currentRow, 16).Value = "Route :"; ws.Cell(currentRow, 17).Value = data.Route;
+                        ws.Cell(currentRow + 1, 16).Value = "Receive date :"; ws.Cell(currentRow + 1, 17).Value = data.StartDate; // 或對應的收料日
+                        ws.Cell(currentRow + 2, 16).Value = "LotStatus :"; ws.Cell(currentRow + 2, 17).Value = data.Status;
+                        ws.Cell(currentRow + 3, 16).Value = "GrossDie :"; ws.Cell(currentRow + 3, 17).Value = data.GrossDie;
+                        
+                        currentRow += 6; // 往下推移
                     }
-        
-                    int currentRow = rowOffset + 20;
-     
-                    // --- Process Record 區塊 ---
-                    var processRecordTitle = ws.Cell(currentRow, 1);
-                    processRecordTitle.Value = "Process Record :";
-                    processRecordTitle.Style.Font.Bold = true;
-                    currentRow++;
-        
-                    foreach (var hist in data.StepHistories)
+                    else
                     {
-                        ws.Cell(currentRow, 4).Value = "Step name :"; ws.Cell(currentRow, 5).Value = hist.Description;
-                        ws.Cell(currentRow + 1, 4).Value = "Start time :"; ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString("yyyy/MM/dd HH:mm:ss");
-                        ws.Cell(currentRow + 2, 4).Value = "Start Operator :"; ws.Cell(currentRow + 2, 5).Value = hist.UserIn;
-                        ws.Cell(currentRow + 3, 4).Value = "Start qty :"; ws.Cell(currentRow + 3, 5).Value = hist.QuantityIn;
-                        ws.Cell(currentRow + 4, 4).Value = "Bin1 :"; ws.Cell(currentRow + 4, 5).Value = hist.Bin1;
-                        ws.Cell(currentRow + 5, 4).Value = "Bin2 :"; ws.Cell(currentRow + 5, 5).Value = hist.Bin2;
-                        ws.Cell(currentRow + 6, 4).Value = "Bin3 :"; ws.Cell(currentRow + 6, 5).Value = hist.Bin3;
-                        ws.Cell(currentRow + 7, 4).Value = "Bin4 :"; ws.Cell(currentRow + 7, 5).Value = hist.Bin4;
-                        ws.Cell(currentRow + 8, 4).Value = "Bin5 :"; ws.Cell(currentRow + 8, 5).Value = hist.Bin5;
-                        ws.Cell(currentRow + 9, 4).Value = "Bin6 :"; ws.Cell(currentRow + 9, 5).Value = hist.Bin6;
-                        ws.Cell(currentRow + 10, 4).Value = "Split Lot :"; ws.Cell(currentRow + 10, 5).Value = hist.SplitId;
-                        ws.Cell(currentRow + 11, 4).Value = "Merge Lot :"; ws.Cell(currentRow + 11, 5).Value = hist.MergeId;
-        
-                        ws.Cell(currentRow, 16).Value = "Step id :"; ws.Cell(currentRow, 17).Value = hist.StepName;
-                        ws.Cell(currentRow + 1, 16).Value = "End time :"; ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString("yyyy/MM/dd HH:mm:ss");
-                        ws.Cell(currentRow + 2, 16).Value = "End Operator :"; ws.Cell(currentRow + 2, 17).Value = hist.UserOut;
-                        ws.Cell(currentRow + 3, 16).Value = "Pass qty :"; ws.Cell(currentRow + 3, 17).Value = hist.PassQty;
-                        ws.Cell(currentRow + 4, 16).Value = "Fail qty :"; ws.Cell(currentRow + 4, 17).Value = hist.FailQty;
-                        ws.Cell(currentRow + 5, 16).Value = "Yield :"; ws.Cell(currentRow + 5, 17).Value = hist.Yield.HasValue ? hist.Yield.Value.ToString("0.00%") : "";
-                        ws.Cell(currentRow + 6, 16).Value = "Tester id :"; ws.Cell(currentRow + 6, 17).Value = hist.Equipment;
-                        ws.Cell(currentRow + 7, 16).Value = "Handler id :"; ws.Cell(currentRow + 7, 17).Value = hist.HandlerId;
-                        ws.Cell(currentRow + 8, 16).Value = "Receipe :"; ws.Cell(currentRow + 8, 17).Value = hist.Recipe;
-                        ws.Cell(currentRow + 9, 16).Value = "Fail describation :"; ws.Cell(currentRow + 9, 17).Value = hist.ScrapComment;
-        
-                        currentRow += 13;
+                        // --- FT 專屬 Basic Information ---
+                        ws.Cell(currentRow, 4).Value = "Ipn :"; ws.Cell(currentRow, 5).Value = data.IPN;
+                        ws.Cell(currentRow + 1, 4).Value = "Lot id :"; ws.Cell(currentRow + 1, 5).Value = data.LotId;
+                        ws.Cell(currentRow + 2, 4).Value = "Qty :"; ws.Cell(currentRow + 2, 5).Value = data.ChipQty;
+                        ws.Cell(currentRow + 3, 4).Value = "Owner :"; ws.Cell(currentRow + 3, 5).Value = data.LotOwner;
+                        ws.Cell(currentRow + 4, 4).Value = "EPN :"; ws.Cell(currentRow + 4, 5).Value = GetSpecValue(data.SpecInfo, "EPN");
+                        ws.Cell(currentRow + 5, 4).Value = "CPN :"; ws.Cell(currentRow + 5, 5).Value = GetSpecValue(data.SpecInfo, "CPN");
+                        ws.Cell(currentRow + 6, 4).Value = "CheckSum :"; ws.Cell(currentRow + 6, 5).Value = GetSpecValue(data.SpecInfo, "CheckSum");
+                        ws.Cell(currentRow + 7, 4).Value = "Security Code :"; ws.Cell(currentRow + 7, 5).Value = GetSpecValue(data.SpecInfo, "SecurityCode");
+                        ws.Cell(currentRow + 8, 4).Value = "Label spec :"; ws.Cell(currentRow + 8, 5).Value = GetSpecValue(data.SpecInfo, "Label");
+                        ws.Cell(currentRow + 9, 4).Value = "Carrier Drawing spec :"; ws.Cell(currentRow + 9, 5).Value = GetSpecValue(data.SpecInfo, "CarrierSpecNo");
+                        ws.Cell(currentRow + 10, 4).Value = "Carrier Type :"; ws.Cell(currentRow + 10, 5).Value = GetSpecValue(data.SpecInfo, "CarrierType");
+                        ws.Cell(currentRow + 11, 4).Value = "Carrier Q'ty :"; ws.Cell(currentRow + 11, 5).Value = GetSpecValue(data.SpecInfo, "CarrierQty");
+                        ws.Cell(currentRow + 12, 4).Value = "IC Outline Spec :"; ws.Cell(currentRow + 12, 5).Value = GetSpecValue(data.SpecInfo, "ICOutlineSpec");
+                        ws.Cell(currentRow + 13, 4).Value = "Back1 :"; ws.Cell(currentRow + 13, 5).Value = GetSpecValue(data.SpecInfo, "Back1");
+                        ws.Cell(currentRow + 14, 4).Value = "Back2 :"; ws.Cell(currentRow + 14, 5).Value = GetSpecValue(data.SpecInfo, "Back2");
+                        ws.Cell(currentRow + 15, 4).Value = "Back3 :"; ws.Cell(currentRow + 15, 5).Value = GetSpecValue(data.SpecInfo, "Back3");
+
+                        ws.Cell(currentRow, 16).Value = "Route :"; ws.Cell(currentRow, 17).Value = data.Route;
+                        ws.Cell(currentRow + 1, 16).Value = "Bake information :"; ws.Cell(currentRow + 1, 17).Value = GetSpecValue(data.SpecInfo, "BakeInformation");
+                        ws.Cell(currentRow + 2, 16).Value = "Customer :"; ws.Cell(currentRow + 2, 17).Value = GetSpecValue(data.SpecInfo, "Customer");
+                        ws.Cell(currentRow + 3, 16).Value = "Packing Spec :"; ws.Cell(currentRow + 3, 17).Value = GetSpecValue(data.SpecInfo, "BoxingSpec");
+                        ws.Cell(currentRow + 4, 16).Value = "Packing type :"; ws.Cell(currentRow + 4, 17).Value = GetSpecValue(data.SpecInfo, "BoxingType");
+                        ws.Cell(currentRow + 5, 16).Value = "Marking Spec :"; ws.Cell(currentRow + 5, 17).Value = GetSpecValue(data.SpecInfo, "MarkingSpec");
+
+                        for (int i = 1; i <= 10; i++)
+                        {
+                            string topValue = GetSpecValue(data.SpecInfo, $"TopLine{i}");
+                            ws.Cell(currentRow + 5 + i, 16).Value = $"TopLine{i} :";
+                            ws.Cell(currentRow + 5 + i, 17).Value = string.IsNullOrWhiteSpace(topValue) ? "SEE ATTACHMENT" : topValue;
+                        }
+                        
+                        currentRow += 16;
                     }
-                    
-                    // --- Comments 區塊 ---
+
+                    // ==========================================
+                    // 共用 Comments 區塊
+                    // ==========================================
                     if (data.FutureActions != null && data.FutureActions.Count > 0)
                     {
                         var commentTitle = ws.Cell(currentRow, 1);
                         commentTitle.Value = "Comments :";
                         commentTitle.Style.Font.Bold = true;
                         currentRow++;
-        
-                        ws.Cell(currentRow, 3).Value = "Step No";
-                        ws.Cell(currentRow, 6).Value = "DateTime";
-                        ws.Cell(currentRow, 11).Value = "Commentor";
-                        ws.Cell(currentRow, 17).Value = "Comment";
-                        
-                        // 區塊標題加粗
-                        ws.Cell(currentRow, 3).Style.Font.Bold = true;
-                        ws.Cell(currentRow, 6).Style.Font.Bold = true;
-                        ws.Cell(currentRow, 11).Style.Font.Bold = true;
-                        ws.Cell(currentRow, 17).Style.Font.Bold = true;
+
+                        ws.Cell(currentRow, 3).Value = "Step No"; ws.Cell(currentRow, 3).Style.Font.Bold = true;
+                        ws.Cell(currentRow, 6).Value = "DateTime"; ws.Cell(currentRow, 6).Style.Font.Bold = true;
+                        ws.Cell(currentRow, 11).Value = "Commentor"; ws.Cell(currentRow, 11).Style.Font.Bold = true;
+                        ws.Cell(currentRow, 17).Value = "Comment"; ws.Cell(currentRow, 17).Style.Font.Bold = true;
                         currentRow++;
-        
+
                         foreach (var act in data.FutureActions)
                         {
                             ws.Cell(currentRow, 3).Value = act.Step;
                             ws.Cell(currentRow, 6).Value = (act.SetTime is DateTime dt) ? dt.ToString("yyyy/MM/dd HH:mm:ss") : act.SetTime?.ToString();
                             ws.Cell(currentRow, 11).Value = act.UserId;
                             ws.Cell(currentRow, 17).Value = act.Comments;
-        
+
                             ws.Cell(currentRow, 3).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
                             ws.Cell(currentRow, 6).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
                             ws.Cell(currentRow, 11).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
@@ -1022,26 +1009,109 @@ namespace MES.Net.Application.Services.Print
                         }
                         currentRow++;
                     }
+
+                    // ==========================================
+                    // 根據 FT 或 WS 繪製不同的 Process Record
+                    // ==========================================
+                    var processRecordTitle = ws.Cell(currentRow, 1);
+                    processRecordTitle.Value = "Process Record :";
+                    processRecordTitle.Style.Font.Bold = true;
+                    currentRow++;
+
+                    foreach (var hist in data.StepHistories)
+                    {
+                        if (runCardType == "WS")
+                        {
+                            // --- WS 專屬歷史區塊 (完全對應舊版座標) ---
+                            ws.Cell(currentRow, 4).Value = "Step name :"; ws.Cell(currentRow, 5).Value = hist.Description;
+                            ws.Cell(currentRow, 12).Value = "Step id :"; ws.Cell(currentRow, 13).Value = hist.StepName;
+
+                            ws.Cell(currentRow + 1, 4).Value = "Start time :"; ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString("yyyy/MM/dd HH:mm:ss");
+                            ws.Cell(currentRow + 1, 12).Value = "End time :"; ws.Cell(currentRow + 1, 13).Value = hist.TrackOutTime?.ToString("yyyy/MM/dd HH:mm:ss");
+
+                            ws.Cell(currentRow + 2, 4).Value = "Operator :"; ws.Cell(currentRow + 2, 5).Value = hist.UserIn;
+                            ws.Cell(currentRow + 2, 12).Value = "Testerid :"; ws.Cell(currentRow + 2, 13).Value = hist.Equipment;
+                            ws.Cell(currentRow + 2, 20).Value = "TestWaferID :"; ws.Cell(currentRow + 2, 21).Value = hist.WaferNoList;
+
+                            ws.Cell(currentRow + 3, 4).Value = "Pass Qty :"; ws.Cell(currentRow + 3, 5).Value = hist.QuantityOut; 
+                            ws.Cell(currentRow + 3, 12).Value = "Fail Qty :"; ws.Cell(currentRow + 3, 13).Value = (hist.QuantityIn - hist.QuantityOut); 
+                            ws.Cell(currentRow + 3, 20).Value = "Yield :"; ws.Cell(currentRow + 3, 21).Value = hist.Yield.HasValue ? (hist.Yield.Value * 100).ToString("0.##") + "%" : "";
+
+                            // WS 特有的 TDS Summary
+                            ws.Cell(currentRow + 4, 1).Value = "TDS Summary :";
+                            for (int w = 1; w <= 25; w++) 
+                            {
+                                ws.Cell(currentRow + 5, w).Value = w; // 畫出 1~25 的 Wafer Slot 表頭
+                            }
+                            
+                            ws.Cell(currentRow + 7, 4).Value = "TDS Qty :"; // 對應舊版的空白或總和
+                            ws.Cell(currentRow + 8, 4).Value = "目檢片 :"; 
+
+                            currentRow += 10;
+                        }
+                        else
+                        {
+                            // --- FT 專屬歷史區塊 ---
+                            ws.Cell(currentRow, 4).Value = "Step name :"; ws.Cell(currentRow, 5).Value = hist.Description;
+                            ws.Cell(currentRow + 1, 4).Value = "Start time :"; ws.Cell(currentRow + 1, 5).Value = hist.TrackInTime?.ToString("yyyy/MM/dd HH:mm:ss");
+                            ws.Cell(currentRow + 2, 4).Value = "Start Operator :"; ws.Cell(currentRow + 2, 5).Value = hist.UserIn;
+                            ws.Cell(currentRow + 3, 4).Value = "Start qty :"; ws.Cell(currentRow + 3, 5).Value = hist.QuantityIn;
+                            ws.Cell(currentRow + 4, 4).Value = "Bin1 :"; ws.Cell(currentRow + 4, 5).Value = hist.Bin1;
+                            ws.Cell(currentRow + 5, 4).Value = "Bin2 :"; ws.Cell(currentRow + 5, 5).Value = hist.Bin2;
+                            ws.Cell(currentRow + 6, 4).Value = "Bin3 :"; ws.Cell(currentRow + 6, 5).Value = hist.Bin3;
+                            ws.Cell(currentRow + 7, 4).Value = "Bin4 :"; ws.Cell(currentRow + 7, 5).Value = hist.Bin4;
+                            ws.Cell(currentRow + 8, 4).Value = "Bin5 :"; ws.Cell(currentRow + 8, 5).Value = hist.Bin5;
+                            ws.Cell(currentRow + 9, 4).Value = "Bin6 :"; ws.Cell(currentRow + 9, 5).Value = hist.Bin6;
+
+                            ws.Cell(currentRow, 16).Value = "Step id :"; ws.Cell(currentRow, 17).Value = hist.StepName;
+                            ws.Cell(currentRow + 1, 16).Value = "End time :"; ws.Cell(currentRow + 1, 17).Value = hist.TrackOutTime?.ToString("yyyy/MM/dd HH:mm:ss");
+                            ws.Cell(currentRow + 2, 16).Value = "End Operator :"; ws.Cell(currentRow + 2, 17).Value = hist.UserOut;
+                            ws.Cell(currentRow + 3, 16).Value = "Pass qty :"; ws.Cell(currentRow + 3, 17).Value = hist.PassQty;
+                            ws.Cell(currentRow + 4, 16).Value = "Fail qty :"; ws.Cell(currentRow + 4, 17).Value = hist.FailQty;
+                            ws.Cell(currentRow + 5, 16).Value = "Yield :"; ws.Cell(currentRow + 5, 17).Value = hist.Yield.HasValue ? hist.Yield.Value.ToString("0.00%") : "";
+                            ws.Cell(currentRow + 6, 16).Value = "Tester id :"; ws.Cell(currentRow + 6, 17).Value = hist.Equipment;
+                            ws.Cell(currentRow + 7, 16).Value = "Handler id :"; ws.Cell(currentRow + 7, 17).Value = hist.HandlerId;
+                            ws.Cell(currentRow + 8, 16).Value = "Receipe :"; ws.Cell(currentRow + 8, 17).Value = hist.Recipe;
+                            ws.Cell(currentRow + 9, 16).Value = "Fail describation :"; ws.Cell(currentRow + 9, 17).Value = hist.ScrapComment;
+
+                            currentRow += 10;
+                        }
+                    }
                     
-                    // 🌟 每一筆 Lot 結束後，加入水平分頁符號 (對應舊版的 HPageBreaks.Add)
+                    // 水平分頁符號，切分多個 Lot
                     ws.PageSetup.AddHorizontalPageBreak(currentRow);
-                    
-                    // 將 currentRow 加上幾行空白當作下一筆 Lot 的起點
                     rowOffset = currentRow + 2; 
                 }
-        
-                // --- 全域樣式設定 (移到迴圈外，一次套用到整欄) ---
-                ws.Column(4).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
-                ws.Column(16).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
-                ws.Column(5).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
-                ws.Column(17).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
-        
-                ws.Column(4).Style.Font.Bold = true;
-                ws.Column(16).Style.Font.Bold = true;
-        
-                ws.Column(4).Width = 20;
-                ws.Column(16).Width = 20;
-        
+
+                // ==========================================
+                // 全域樣式設定 (靠右/加粗)
+                // ==========================================
+                if (runCardType == "WS")
+                {
+                    ws.Column(4).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+                    ws.Column(12).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+                    ws.Column(20).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+
+                    ws.Column(5).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                    ws.Column(13).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                    ws.Column(21).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+
+                    ws.Column(4).Style.Font.Bold = true;
+                    ws.Column(12).Style.Font.Bold = true;
+                    ws.Column(16).Style.Font.Bold = true; // Route, LotStatus
+                    ws.Column(20).Style.Font.Bold = true; // TestWaferID, Yield
+                }
+                else
+                {
+                    ws.Column(4).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+                    ws.Column(16).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+                    ws.Column(5).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+                    ws.Column(17).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
+
+                    ws.Column(4).Style.Font.Bold = true;
+                    ws.Column(16).Style.Font.Bold = true;
+                }
+
                 using (var stream = new MemoryStream())
                 {
                     workbook.SaveAs(stream);
