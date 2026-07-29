@@ -127,8 +127,14 @@
 <body>
     <div id="app" data-app>
 
-        <!-- 系統操作介面 -->
-        <div class="page-layout">
+<template>
+    <!-- Vue 只能有一個根節點，我們用一個乾淨的 div 把兩大區塊包起來 -->
+    <div>
+        
+        <!-- ========================================== -->
+        <!-- 1. 系統操作介面 (加上 no-print，列印時整塊隱藏) -->
+        <!-- ========================================== -->
+        <div class="page-layout no-print">
             <mes-toolbar title="Print Run Card (流程卡列印)"></mes-toolbar>
 
             <div class="page-body">
@@ -146,22 +152,25 @@
 
                 <!-- 查詢結果清單 -->
                 <div>
-                <mes-query-result ref="resultGrid"
-                                  title="Lot List (請點選要列印的批號)"
-                                  :columns="colGrid"
-                                  :summary="summary"
-                                  :data="dataList"
-                                  :selectable="1"
-                                  @selection-change="onSelectionChange"  <!-- 🌟 改為綁定這個事件 -->
-                                  style="height: calc(100vh - 280px);">
-                </mes-query-result>
+                    <mes-query-result ref="resultGrid"
+                                      title="Lot List (請點選要列印的批號)"
+                                      :columns="colGrid"
+                                      :summary="summary"
+                                      :data="dataList"
+                                      :selectable="1"
+                                      @selection-change="onSelectionChange"
+                                      style="height: calc(100vh - 280px);">
+                    </mes-query-result>
                 </div>
             </div>
 
             <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
         </div>
 
-    <!-- 列印專用報表版面 (最外層隱藏，透過 v-for 產生多張報表) -->
+
+        <!-- ========================================== -->
+        <!-- 2. 列印專用報表版面 (平常隱藏，列印時顯示並分頁) -->
+        <!-- ========================================== -->
         <div class="print-only" v-if="runCardDetails && runCardDetails.length > 0">
             <!-- 🌟 每一筆 Lot 就是一張獨立的紙，套用 page-break -->
             <div v-for="(detail, index) in runCardDetails" :key="index" class="page-break">
@@ -170,12 +179,12 @@
                     <h2>{{ detail.runCardType || detail.RunCardType }} RUN CARD ({{ detail.lotType || detail.LotType }})</h2>
                 </div>
 
-                <!-- 1. 基本資訊 -->
+                <!-- 基本資訊 -->
                 <div class="info-grid">
                     <div class="info-item"><span>Lot ID:</span> {{ detail.lotId || detail.LotId }}</div>
                     <div class="info-item"><span>IPN:</span> {{ detail.ipn || detail.IPN }}</div>
 
-                    <!-- 依據 FT 或 WS 顯示不同 Qty (直接判斷 detail 的型別) -->
+                    <!-- 依據 FT 或 WS 顯示不同 Qty -->
                     <div class="info-item" v-if="(detail.runCardType || detail.RunCardType) === 'WS'">
                         <span>Wafer Qty:</span> {{ detail.waferQty || detail.WaferQty }}
                     </div>
@@ -188,18 +197,17 @@
                     <div class="info-item"><span>Start Date:</span> {{ detail.startDate || detail.StartDate }}</div>
                 </div>
 
-                <!-- WS 專屬：顯示晶圓號碼清單 (橫跨整行) -->
+                <!-- WS 專屬：顯示晶圓號碼清單 -->
                 <div class="info-grid" v-if="(detail.runCardType || detail.RunCardType) === 'WS' && (detail.waferNoList || detail.WaferNoList)">
                     <div class="info-item" style="grid-column: span 4;">
                         <span>Wafer No:</span> {{ detail.waferNoList || detail.WaferNoList }}
                     </div>
                 </div>
 
-                <!-- 2. 規格資訊 (Spec Info) -->
+                <!-- 規格資訊 (Spec Info) -->
                 <div v-if="detail.specInfo || detail.SpecInfo">
                     <div class="section-title">Specification Info</div>
                     <div class="info-grid">
-                        <!-- 🌟 注意：如果您的 getSpec 方法本來是抓單筆，建議直接像下面這樣取值最安全 -->
                         <div class="info-item"><span>EPN:</span> {{ (detail.specInfo || detail.SpecInfo).epn || (detail.specInfo || detail.SpecInfo).EPN }}</div>
                         <div class="info-item"><span>CPN:</span> {{ (detail.specInfo || detail.SpecInfo).cpn || (detail.specInfo || detail.SpecInfo).CPN }}</div>
                         <div class="info-item"><span>Pkg Code:</span> {{ (detail.specInfo || detail.SpecInfo).packageCode || (detail.specInfo || detail.SpecInfo).PackageCode }}</div>
@@ -208,7 +216,7 @@
                     </div>
                 </div>
 
-                <!-- 3. 未來處置/註記 (Future Actions) -->
+                <!-- 未來處置/註記 (Future Actions) -->
                 <div v-if="(detail.futureActions || detail.FutureActions) && (detail.futureActions || detail.FutureActions).length > 0">
                     <div class="section-title">Future Actions / Holds</div>
                     <table class="print-table">
@@ -227,14 +235,13 @@
                                 <td>{{ act.actionType || act.ActionType }}</td>
                                 <td class="text-left">{{ act.comments || act.Comments }}</td>
                                 <td>{{ act.userId || act.UserId }}</td>
-                                <!-- 🌟 formatTime 方法如果只傳入字串/時間，可以繼續沿用 -->
                                 <td>{{ formatTime(act.setTime || act.SetTime) }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <!-- 4. 生產履歷 (Step History) -->
+                <!-- 生產履歷 (Step History) -->
                 <div class="section-title">Step History</div>
                 <table class="print-table">
                     <thead>
@@ -265,8 +272,11 @@
                     </tbody>
                 </table>
                 
-            </div> <!-- 結束單張報表的 .page-break -->
-        </div> <!-- 結束 .print-only -->
+            </div> <!-- End of .page-break -->
+        </div> <!-- End of .print-only -->
+
+    </div>
+</template>
 
     <script src="/Scripts/vue.min.js"></script>
     <script src="/Scripts/vuetify.min.js"></script>
