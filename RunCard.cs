@@ -1,3 +1,22 @@
+
+            FwLot olot = Infrastructure.ExternalServices.WipServiceWrapper.Instance.LotById(request.LotId);
+            
+            // 初始化 Response
+            var response = new RunCardResponse
+            {
+                LotId = request.LotId,
+                RunCardType = request.Type.ToUpper(),
+
+                // 帶入實際查詢到的資料
+                IPN = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.Ipn),
+                PlanId = olot.PlanId,
+                Route = olot.PlanId,
+                PlanVersion = olot.PlanVersion,
+                CurrentStepSeq = olot.CurrentStep.Steps[0].Id,
+                LotOwner = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.LotOwner),
+                StartDate = olot.StartDate.ToString("yyyy/MM/dd HH:mm:ss"), // 視您的 DTO 型別調整
+                ChipQty = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.ChipQty) // 假設您的基本表有數量欄位
+            };
 using System;
 using System.Collections.Generic;
 
