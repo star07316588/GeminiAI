@@ -16,37 +16,42 @@
             margin-bottom: 10px;
         }
 
-        /* 只在列印模式下生效 */
-        @media print {
-            /* 原本隱藏的列印區塊，在列印時顯示 */
-            .print-only {
-                display: block !important;
-            }
-            
-            /* 讓網頁其他不該印出來的東西 (例如導覽列、按鈕) 隱藏 */
-            .no-print, .el-header, .el-menu {
-                display: none !important;
-            }
-        
-            /* 🌟 最重要的一段：控制換頁 */
-            .page-break {
-                page-break-after: always; /* 告訴印表機這個區塊印完就換下一張紙 */
-                break-after: page;
-            }
-        
-            /* 🌟 最後一筆印完，不需要再多吐出一張白紙 */
-            .page-break:last-child {
-                page-break-after: auto;
-                break-after: auto;
-            }
+        /* ── 列印專用樣式 ── */
+        .print-only {
+            display: none;
         }
-        
-        /* 在一般螢幕瀏覽時，把列印區塊隱藏起來 */
-        @media screen {
-            .print-only {
-                display: none;
-            }
-        }
+
+                /* 只在列印模式下生效 */
+                @media print {
+                    /* 原本隱藏的列印區塊，在列印時顯示 */
+                    .print-only {
+                        display: block !important;
+                    }
+
+                    /* 讓網頁其他不該印出來的東西 (例如導覽列、按鈕) 隱藏 */
+                    .no-print, .el-header, .el-menu {
+                        display: none !important;
+                    }
+
+                    /* 🌟 最重要的一段：控制換頁 */
+                    .page-break {
+                        page-break-after: always; /* 告訴印表機這個區塊印完就換下一張紙 */
+                        break-after: page;
+                    }
+
+                        /* 🌟 最後一筆印完，不需要再多吐出一張白紙 */
+                        .page-break:last-child {
+                            page-break-after: auto;
+                            break-after: auto;
+                        }
+                }
+
+                /* 在一般螢幕瀏覽時，把列印區塊隱藏起來 */
+                @media screen {
+                    .print-only {
+                        display: none;
+                    }
+                }
 
             @page {
                 size: landscape; /* 流程卡通常欄位多，建議橫印 */
@@ -102,7 +107,6 @@
             .text-left {
                 text-align: left !important;
             }
-        }
     </style>
 </head>
 <body>
