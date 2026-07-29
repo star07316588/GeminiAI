@@ -276,6 +276,48 @@ namespace MES.Net.Shared.DTOs.Print
         public string Back2 { get; set; }
         public string Back3 { get; set; }
     }
+            // 1. 取得 Gross Die
+            public async Task<string> GetGrossDieAsync(string ipn)
+            {
+                string sql = "SELECT GROSS_DIE FROM TBL_IPN_MASTER WHERE IPN = :Ipn";
+                return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { Ipn = ipn });
+            }
+            
+            // 2. 取得測試資料 TBL_WS_TDS_SUM (宣告一個輕量級類別來接回傳值)
+            public class WsTdsSumDto 
+            { 
+                public string TesterId { get; set; }
+                public string UserId { get; set; }
+                public string WaferId { get; set; } 
+            }
+            
+            public async Task<IEnumerable<WsTdsSumDto>> GetWsTdsSumAsync(string lotId, string stepName, DateTime trackOutTime)
+            {
+                string sql = @"
+                    SELECT TESTER_ID AS TesterId, USER_ID AS UserId, WAFER_IDN AS WaferId
+                    FROM TBL_WS_TDS_SUM
+                    WHERE LOT_ID = :LotId
+                      AND STEPNO = :StepName
+                      AND TIME_STAMP <= :TrackOutTime
+                      AND DELETE_FLAG <> 'Y'
+                    ORDER BY USER_ID, TESTER_ID, WAFER_IDN";
+                    
+                return await _dbConnection.QueryAsync<WsTdsSumDto>(sql, new { LotId = lotId, StepName = stepName, TrackOutTime = trackOutTime });
+            }
+            
+            // 3. 取得目檢紀錄 TBL_MANUAL_TESTQTY
+            public async Task<IEnumerable<string>> GetManualTestWafersAsync(string lotId, string stepName)
+            {
+                string sql = @"
+                    SELECT DISTINCT WAFERID
+                    FROM TBL_MANUAL_TESTQTY
+                    WHERE LOT_ID = :LotId
+                      AND STEPNO = :StepName
+                      AND DELETE_FLAG <> 'Y'
+                    ORDER BY WAFERID";
+                    
+                return await _dbConnection.QueryAsync<string>(sql, new { LotId = lotId, StepName = stepName });
+            }
 }
 
 using Dapper;
@@ -689,53 +731,54 @@ namespace MES.Net.Application.Services.Print
 
         public async Task<RunCardResponse> GetRunCardDataAsync(PrintRunCardRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.LotId))
-                throw new ArgumentException("LotId is required.");
-            if (string.IsNullOrWhiteSpace(request.Type))
-                throw new ArgumentException("RunCard Type (FT/WS) is required.");
-        
-            // 1. 撈取共用 Lot 基本資訊 (取代原本寫死的假資料)
-            var lotInfo = await _runCardRepository.GetLotBasicInfoAsync(request.LotId);
-            if (lotInfo == null)
-            {
-                throw new Exception($"LotId [{request.LotId}] not found or basic info is missing.");
-            }
-        
-            // 初始化 Response
-            var response = new RunCardResponse
-            {
-                LotId = request.LotId,
-                RunCardType = request.Type.ToUpper(),
-                
-                // 帶入實際查詢到的資料
-                IPN = lotInfo.IPN,
-                PlanId = lotInfo.PlanId,
-                CurrentStepSeq = lotInfo.CurrentStepSeq,
-                LotOwner = lotInfo.LotOwner,
-                StartDate = lotInfo.StartDate?.ToString("yyyy/MM/dd HH:mm:ss"), // 視您的 DTO 型別調整
-                ChipQty = lotInfo.Qty // 假設您的基本表有數量欄位
-            };
-        
-            // 2. 判斷 LotType 與 Route (共用邏輯)
-            response.LotType = await _getLotTypeRepository.GetLotTypeAsync(request.LotId);
-            response.Route = await _getStepPathRepository.GetStepPathAsync(response.PlanId, response.CurrentStepSeq);
-        
-            // 3. ⭐️ 核心分流：依據 FT 或 WS 處理差異化的 Spec 與 History
-            if (response.RunCardType == "FT")
-            {
-                await ProcessFtRunCardAsync(request.LotId, response);
-            }
-            else if (response.RunCardType == "WS")
-            {
-                await ProcessWsRunCardAsync(request.LotId, response);
-            }
-            else
-            {
-                throw new ArgumentException("Invalid RunCard Type. Must be 'FT' or 'WS'.");
-            }
-        
-            // 4. 處理 Future Actions 
-            // 💡 修正：將 "ProdGroup" 與 "Owner" 替換為實際變數 lotInfo.ProdGroup 與 response.LotOwner
+                if (string.IsNullOrWhiteSpace(request.LotId))
+                    throw new ArgumentException("LotId is required.");
+                if (string.IsNullOrWhiteSpace(request.Type))
+                    throw new ArgumentException("RunCard Type (FT/WS) is required.");
+            
+                // 🌟 1. 透過共用模組取得 FwLot 物件
+                FwLot olot = Infrastructure.ExternalServices.WipServiceWrapper.Instance.LotById(request.LotId);
+                if (olot == null) throw new Exception($"LotId [{request.LotId}] not found in MES.");
+            
+                // 🌟 2. 初始化 Response，直接拔取 oLot 屬性 (取代所有假資料)
+                var response = new RunCardResponse
+                {
+                    LotId = request.LotId,
+                    RunCardType = request.Type.ToUpper(),
+                    
+                    IPN = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.Ipn),
+                    PlanId = olot.PlanId,
+                    PlanVersion = olot.PlanVersion,
+                    CurrentStepSeq = olot.CurrentStep.Steps[0].Id,
+                    LotOwner = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.LotOwner),
+                    Route = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.Route), // 舊版有抓 Route
+                    StartDate = olot.StartDate.ToString("yyyy/MM/dd HH:mm:ss"),
+                    Status = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.Status), // WS 特有
+                    
+                    // 數字型態轉換 (確保安全解析)
+                    ChipQty = int.TryParse(olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.ChipQty), out int cQty) ? cQty : 0,
+                    WaferQty = int.TryParse(olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.WaferQty), out int wQty) ? wQty : 0
+                };
+            
+                // 取得 LotType
+                response.LotType = await _getLotTypeRepository.GetLotTypeAsync(request.LotId);
+            
+                // 3. 核心分流：依據 FT 或 WS 處理差異化的 Spec 與 History
+                if (response.RunCardType == "FT")
+                {
+                    await ProcessFtRunCardAsync(olot, response); // 記得將簽章改為傳入 olot
+                }
+                else if (response.RunCardType == "WS")
+                {
+                    await ProcessWsRunCardAsync(olot, response); // 🌟 進入 WS 處理邏輯
+                }
+                else
+                {
+                    throw new ArgumentException("Invalid RunCard Type.");
+                }
+            
+                // 4. 處理 Future Actions (沿用原本邏輯，傳入 oLot 取出的 ProdGroup 與 Owner)
+                string prodGroup = olot.CustomAttributes(Shared.Constants.FwAttributes.LotCustomAttributes.ProdGroup);
             var rawActions = await _runCardRepository.GetFutureActionsAsync(
                 request.LotId, 
                 response.IPN, 
@@ -1010,51 +1053,55 @@ namespace MES.Net.Application.Services.Print
         // ====================================================================
         // 私有方法：專門處理 WS 的邏輯 (對應原 VB6 的 WsExcelCell)
         // ====================================================================
-        private async Task ProcessWsRunCardAsync(string lotId, RunCardResponse response)
-        {
-            // 1. 取得 Spec 資訊 (與 FT 相同或取不同的欄位)
-            response.SpecInfo = await _repository.GetLotSpecInfoAsync(response.IPN);
-
-            // 2. 🌟 WS 專屬：取得晶圓清單與數量
-            var wafers = await _repository.GetWaferListAsync(lotId);
-            if (wafers != null && wafers.Any())
+            private async Task ProcessWsRunCardAsync(FwLot olot, RunCardResponse response)
             {
-                response.WaferQty = wafers.Count();
-                // 將 Wafer ID 陣列轉為逗號分隔字串，或撰寫縮寫邏輯 (如: 01~15)
-                response.WaferNoList = string.Join(", ", wafers.Select(w => w.Substring(w.Length - 2))); 
-            }
-
-            // 3. 取得生產履歷，並還原 WS 測試屬性
-            var histories = await _repository.GetStepHistoryAsync(lotId);
+                string lotId = olot.Id;
             
-            foreach (var history in histories)
-            {
-                if (history.TrackOutTime.HasValue)
+                // 1. 取得 Gross Die (WS 報表特有，放在 Basic Info 右側)
+                response.GrossDie = await _repository.GetGrossDieAsync(response.IPN);
+            
+                // 2. 取得共同的站點歷史
+                var histories = await _repository.GetStepHistoryAsync(lotId, response.PlanId, response.PlanVersion);
+            
+                foreach (var history in histories)
                 {
-                    // 還原機台與 Recipe (與 FT 共用邏輯)
-                    string curEqp = await _repository.GetLotAttrAsync(lotId, "CurEqpId", history.TrackOutTime.Value);
-                    string pgName = await _repository.GetLotAttrAsync(lotId, "PgName", history.TrackOutTime.Value);
-                    history.Recipe = pgName;
-                    history.Equipment = curEqp;
-
-                    // 🌟 WS 專屬：若站點名稱包含 CP (Circuit Probe) 或 WS，則撈取測試良率
-                    if (history.Description.Contains("CP") || history.Description.Contains("WS"))
+                    if (history.TrackOutTime.HasValue && history.TrackInTime.HasValue)
                     {
-                        var wsData = await _repository.GetWsTestDataAsync(lotId, history.StepName);
-                        if (wsData != null)
+                        // 🌟 A. WS 良率計算 (Out / In)
+                        if (history.QuantityIn > 0 && history.QuantityOut > 0)
                         {
-                            history.PassQty = (int?)wsData.PASSQTY;
-                            history.FailQty = (int?)wsData.FAILQTY;
-                            
-                            // 記錄 TDS 版本於註解欄位 (或其他您定義的 DTO 欄位)
-                            history.ScrapComment = $"TDS: {wsData.TDSVERSION}"; 
+                            history.Yield = Math.Round((double)history.QuantityOut / history.QuantityIn, 4);
+                        }
+            
+                        // 🌟 B. 取得機台測試資料 (對應舊版 TBL_WS_TDS_SUM)
+                        var tdsData = await _repository.GetWsTdsSumAsync(lotId, history.StepName, history.TrackOutTime.Value);
+                        if (tdsData != null && tdsData.Any())
+                        {
+                            // 舊版邏輯會將相同 User 與 Tester 的 Wafer ID 串接在一起，這裡簡化為直接串接該站點所有的 Wafer ID
+                            var waferIds = tdsData.Select(x => x.WaferId).Where(w => !string.IsNullOrEmpty(w)).Distinct();
+                            history.WaferNoList = string.Join(";", waferIds);
+            
+                            // 取第一筆當作主要機台與人員 (或者依據您的 DTO 設計串接)
+                            history.Equipment = tdsData.First().TesterId;
+                            // history.UserIn = tdsData.First().UserId; // 如果需要覆寫的話
+                        }
+            
+                        // 🌟 C. 取得目檢片 (對應舊版 TBL_MANUAL_TESTQTY)
+                        var manualWafers = await _repository.GetManualTestWafersAsync(lotId, history.StepName);
+                        if (manualWafers != null && manualWafers.Any())
+                        {
+                            string manualList = string.Join(";", manualWafers);
+                            // 依據舊版邏輯，如果該站沒有機台測試，可能就是純目檢站，將 Wafer ID 填入
+                            if (string.IsNullOrEmpty(history.WaferNoList))
+                            {
+                                history.WaferNoList = manualList;
+                            }
                         }
                     }
                 }
-            }
             
-            response.StepHistories = new List<RunCardStepHistory>(histories);
-        }
+                response.StepHistories = new List<RunCardStepHistory>(histories);
+            }
     }
 }
 
