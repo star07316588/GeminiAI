@@ -11,130 +11,90 @@
     <link href="/Content/css/tabulator.min.css" rel="stylesheet">
     <link href="/Content/css/site.css?v=260522" rel="stylesheet">
 
-<style>
-    /* ── 一般網頁佈局樣式 ── */
-    .msc-panel, .mab-bar {
-        margin-bottom: 10px;
-    }
-
-    /* 預設在螢幕上隱藏列印區塊 */
-    .print-only {
-        display: none;
-    }
-
-    /* ── 列印專用樣式 (@media print) ── */
-    @media print {
-        /* 1. 🌟 強制隱藏所有不需要印出來的網頁 UI */
-        /* 您可以把 .no-print 加在原有的查詢表單或 Grid 最外層 */
-        .no-print, 
-        .el-header, 
-        .el-menu, 
-        .el-aside,
-        .msc-panel, 
-        .mab-bar {
-            display: none !important;
-        }
-
-        /* 2. 🌟 釋放網頁最外層容器的限制 (非常關鍵，否則會印不完整或跑版) */
-        html, body, #app, .el-main, .el-container {
-            height: auto !important;
-            min-height: auto !important;
-            overflow: visible !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background-color: #fff !important;
-        }
-
-        /* 3. 顯示列印區塊並佔滿版面 */
-        .print-only {
-            display: block !important;
-            width: 100% !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-        }
-
-        /* 4. 控制換頁 */
-        .page-break {
-            page-break-after: always;
-            break-after: page;
-        }
-        .page-break:last-child {
-            page-break-after: auto;
-            break-after: auto;
-        }
-
-        /* 5. 紙張與版型設定 */
-        @page {
-            size: landscape; /* 橫式列印 */
-            margin: 10mm;
-        }
-
-        .print-header {
-            text-align: center;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #000;
-            padding-bottom: 5px;
-        }
-
-        .print-header h2 {
-            font-size: 24px;
-            margin: 0 0 5px 0;
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            background-color: #eee !important; 
-            -webkit-print-color-adjust: exact; /* 確保印表機印出灰色背景 */
-            print-color-adjust: exact;
-            padding: 4px;
-            margin: 15px 0 5px 0;
-            border: 1px solid #000;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 5px;
+    <style>
+        .msc-panel, .mab-bar {
             margin-bottom: 10px;
-            font-size: 14px;
         }
 
-        .info-item span:first-child {
-            font-weight: bold;
+        /* ── 列印專用樣式 ── */
+        .print-only {
+            display: none;
         }
 
-        .print-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 5px;
-        }
+        @media print {
+            /* 隱藏系統外殼與查詢 UI */
+            .page-layout, .v-application {
+                display: none !important;
+            }
+            /* 顯示列印專用區塊 */
+            .print-only {
+                display: block !important;
+                font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
+                color: #000;
+            }
 
-        .print-table th, .print-table td {
-            border: 1px solid #000;
-            padding: 4px;
-            text-align: center;
-            font-size: 12px;
-        }
+            @page {
+                size: landscape; /* 流程卡通常欄位多，建議橫印 */
+                margin: 10mm;
+            }
 
-        .text-left {
-            text-align: left !important;
+            .print-header {
+                text-align: center;
+                margin-bottom: 15px;
+                border-bottom: 2px solid #000;
+                padding-bottom: 5px;
+            }
+
+                .print-header h2 {
+                    font-size: 24px;
+                    margin: 0 0 5px 0;
+                }
+
+            .section-title {
+                font-size: 16px;
+                font-weight: bold;
+                background-color: #eee;
+                padding: 4px;
+                margin: 15px 0 5px 0;
+                border: 1px solid #000;
+            }
+
+            .info-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
+                margin-bottom: 10px;
+                font-size: 14px;
+            }
+
+            .info-item span:first-child {
+                font-weight: bold;
+            }
+
+            .print-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 5px;
+            }
+
+                .print-table th, .print-table td {
+                    border: 1px solid #000;
+                    padding: 4px;
+                    text-align: center;
+                    font-size: 12px;
+                }
+
+            .text-left {
+                text-align: left !important;
+            }
         }
-    }
-</style>
+    </style>
 </head>
 <body>
     <div id="app" data-app>
 
-<template>
-    <!-- Vue 只能有一個根節點，我們用一個乾淨的 div 把兩大區塊包起來 -->
-    <div>
-        
-        <!-- ========================================== -->
-        <!-- 1. 系統操作介面 (加上 no-print，列印時整塊隱藏) -->
-        <!-- ========================================== -->
-        <div class="page-layout no-print">
+        <!-- 系統操作介面 -->
+        <div class="page-layout">
             <mes-toolbar title="Print Run Card (流程卡列印)"></mes-toolbar>
 
             <div class="page-body">
@@ -159,7 +119,7 @@
                                       :data="dataList"
                                       :selectable="1"
                                       @selection-change="onSelectionChange"
-                                      style="height: calc(100vh - 280px);">
+                                    style="height: calc(100vh - 280px);">
                     </mes-query-result>
                 </div>
             </div>
@@ -167,116 +127,101 @@
             <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
         </div>
 
+        <!-- 列印專用報表版面 -->
+        <div class="print-only" v-if="runCardDetail">
+            <div class="print-header">
+                <h2>{{ runCardDetail.runCardType || runCardDetail.RunCardType }} RUN CARD ({{ runCardDetail.lotType || runCardDetail.LotType }})</h2>
+            </div>
 
-        <!-- ========================================== -->
-        <!-- 2. 列印專用報表版面 (平常隱藏，列印時顯示並分頁) -->
-        <!-- ========================================== -->
-        <div class="print-only" v-if="runCardDetails && runCardDetails.length > 0">
-            <!-- 🌟 每一筆 Lot 就是一張獨立的紙，套用 page-break -->
-            <div v-for="(detail, index) in runCardDetails" :key="index" class="page-break">
-                
-                <div class="print-header">
-                    <h2>{{ detail.runCardType || detail.RunCardType }} RUN CARD ({{ detail.lotType || detail.LotType }})</h2>
+            <!-- 1. 基本資訊 -->
+            <div class="info-grid">
+                <div class="info-item"><span>Lot ID:</span> {{ runCardDetail.lotId || runCardDetail.LotId }}</div>
+                <div class="info-item"><span>IPN:</span> {{ runCardDetail.ipn || runCardDetail.IPN }}</div>
+
+                <!-- 依據 FT 或 WS 顯示不同 Qty -->
+                <div class="info-item" v-if="isWs"><span>Wafer Qty:</span> {{ runCardDetail.waferQty || runCardDetail.WaferQty }}</div>
+                <div class="info-item" v-else><span>Chip Qty:</span> {{ runCardDetail.chipQty || runCardDetail.ChipQty }}</div>
+
+                <div class="info-item"><span>Owner:</span> {{ runCardDetail.lotOwner || runCardDetail.LotOwner }}</div>
+                <div class="info-item"><span>Route:</span> {{ runCardDetail.route || runCardDetail.Route }}</div>
+                <div class="info-item"><span>Start Date:</span> {{ runCardDetail.startDate || runCardDetail.StartDate }}</div>
+            </div>
+
+            <!-- WS 專屬：顯示晶圓號碼清單 (橫跨整行) -->
+            <div class="info-grid" v-if="isWs && (runCardDetail.waferNoList || runCardDetail.WaferNoList)">
+                <div class="info-item" style="grid-column: span 4;">
+                    <span>Wafer No:</span> {{ runCardDetail.waferNoList || runCardDetail.WaferNoList }}
                 </div>
+            </div>
 
-                <!-- 基本資訊 -->
+            <!-- 2. 規格資訊 (Spec Info) -->
+            <div v-if="runCardDetail.specInfo || runCardDetail.SpecInfo">
+                <div class="section-title">Specification Info</div>
                 <div class="info-grid">
-                    <div class="info-item"><span>Lot ID:</span> {{ detail.lotId || detail.LotId }}</div>
-                    <div class="info-item"><span>IPN:</span> {{ detail.ipn || detail.IPN }}</div>
-
-                    <!-- 依據 FT 或 WS 顯示不同 Qty -->
-                    <div class="info-item" v-if="(detail.runCardType || detail.RunCardType) === 'WS'">
-                        <span>Wafer Qty:</span> {{ detail.waferQty || detail.WaferQty }}
-                    </div>
-                    <div class="info-item" v-else>
-                        <span>Chip Qty:</span> {{ detail.chipQty || detail.ChipQty }}
-                    </div>
-
-                    <div class="info-item"><span>Owner:</span> {{ detail.lotOwner || detail.LotOwner }}</div>
-                    <div class="info-item"><span>Route:</span> {{ detail.route || detail.Route }}</div>
-                    <div class="info-item"><span>Start Date:</span> {{ detail.startDate || detail.StartDate }}</div>
+                    <div class="info-item"><span>EPN:</span> {{ getSpec('epn') }}</div>
+                    <div class="info-item"><span>CPN:</span> {{ getSpec('cpn') }}</div>
+                    <div class="info-item"><span>Pkg Code:</span> {{ getSpec('packageCode') }}</div>
+                    <div class="info-item"><span>Label:</span> {{ getSpec('label') }}</div>
+                    <div class="info-item"><span>Carrier Spec:</span> {{ getSpec('carrierSpecNo') }}</div>
                 </div>
+            </div>
 
-                <!-- WS 專屬：顯示晶圓號碼清單 -->
-                <div class="info-grid" v-if="(detail.runCardType || detail.RunCardType) === 'WS' && (detail.waferNoList || detail.WaferNoList)">
-                    <div class="info-item" style="grid-column: span 4;">
-                        <span>Wafer No:</span> {{ detail.waferNoList || detail.WaferNoList }}
-                    </div>
-                </div>
-
-                <!-- 規格資訊 (Spec Info) -->
-                <div v-if="detail.specInfo || detail.SpecInfo">
-                    <div class="section-title">Specification Info</div>
-                    <div class="info-grid">
-                        <div class="info-item"><span>EPN:</span> {{ (detail.specInfo || detail.SpecInfo).epn || (detail.specInfo || detail.SpecInfo).EPN }}</div>
-                        <div class="info-item"><span>CPN:</span> {{ (detail.specInfo || detail.SpecInfo).cpn || (detail.specInfo || detail.SpecInfo).CPN }}</div>
-                        <div class="info-item"><span>Pkg Code:</span> {{ (detail.specInfo || detail.SpecInfo).packageCode || (detail.specInfo || detail.SpecInfo).PackageCode }}</div>
-                        <div class="info-item"><span>Label:</span> {{ (detail.specInfo || detail.SpecInfo).label || (detail.specInfo || detail.SpecInfo).Label }}</div>
-                        <div class="info-item"><span>Carrier Spec:</span> {{ (detail.specInfo || detail.SpecInfo).carrierSpecNo || (detail.specInfo || detail.SpecInfo).CarrierSpecNo }}</div>
-                    </div>
-                </div>
-
-                <!-- 未來處置/註記 (Future Actions) -->
-                <div v-if="(detail.futureActions || detail.FutureActions) && (detail.futureActions || detail.FutureActions).length > 0">
-                    <div class="section-title">Future Actions / Holds</div>
-                    <table class="print-table">
-                        <thead>
-                            <tr>
-                                <th width="15%">Step</th>
-                                <th width="10%">Type</th>
-                                <th width="50%">Comments</th>
-                                <th width="10%">User</th>
-                                <th width="15%">Set Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(act, idx) in (detail.futureActions || detail.FutureActions)" :key="idx">
-                                <td>{{ act.step || act.Step }}</td>
-                                <td>{{ act.actionType || act.ActionType }}</td>
-                                <td class="text-left">{{ act.comments || act.Comments }}</td>
-                                <td>{{ act.userId || act.UserId }}</td>
-                                <td>{{ formatTime(act.setTime || act.SetTime) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- 生產履歷 (Step History) -->
-                <div class="section-title">Step History</div>
+            <!-- 3. 未來處置/註記 (Future Actions) -->
+            <div v-if="hasFutureActions">
+                <div class="section-title">Future Actions / Holds</div>
                 <table class="print-table">
                     <thead>
                         <tr>
                             <th width="15%">Step</th>
-                            <th width="15%">Description</th>
-                            <th width="15%">Equipment (Handler)</th>
-                            <th width="15%">Recipe / PgName</th>
-                            <th width="5%">Qty</th>
+                            <th width="10%">Type</th>
+                            <th width="50%">Comments</th>
                             <th width="10%">User</th>
-                            <th width="15%">Track Out Time</th>
-                            <th width="10%" v-if="(detail.runCardType || detail.RunCardType) === 'FT'">Pass/Fail</th>
+                            <th width="15%">Set Time</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(hist, idx) in (detail.stepHistories || detail.StepHistories)" :key="idx">
-                            <td class="text-left">{{ hist.stepName || hist.StepName }}</td>
-                            <td class="text-left">{{ hist.description || hist.Description }}</td>
-                            <td>{{ hist.equipment || hist.Equipment }}</td>
-                            <td>{{ hist.recipe || hist.Recipe }}</td>
-                            <td>{{ hist.quantityOut || hist.QuantityOut }}</td>
-                            <td>{{ hist.userOut || hist.UserOut }}</td>
-                            <td>{{ formatTime(hist.trackOutTime || hist.TrackOutTime) }}</td>
-                            <td v-if="(detail.runCardType || detail.RunCardType) === 'FT'">
-                                {{ hist.passQty || hist.PassQty }} / {{ hist.failQty || hist.FailQty }}
-                            </td>
+                        <tr v-for="(act, idx) in (runCardDetail.futureActions || runCardDetail.FutureActions)" :key="idx">
+                            <td>{{ act.step || act.Step }}</td>
+                            <td>{{ act.actionType || act.ActionType }}</td>
+                            <td class="text-left">{{ act.comments || act.Comments }}</td>
+                            <td>{{ act.userId || act.UserId }}</td>
+                            <td>{{ formatTime(act.setTime || act.SetTime) }}</td>
                         </tr>
                     </tbody>
                 </table>
-                
-            </div> <!-- End of .page-break -->
-        </div> <!-- End of .print-only -->
+            </div>
+
+            <!-- 4. 生產履歷 (Step History) -->
+            <div class="section-title">Step History</div>
+            <table class="print-table">
+                <thead>
+                    <tr>
+                        <th width="15%">Step</th>
+                        <th width="15%">Description</th>
+                        <th width="15%">Equipment (Handler)</th>
+                        <th width="15%">Recipe / PgName</th>
+                        <th width="5%">Qty</th>
+                        <th width="10%">User</th>
+                        <th width="15%">Track Out Time</th>
+                        <th width="10%" v-if="isFt">Pass/Fail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(hist, idx) in (runCardDetail.stepHistories || runCardDetail.StepHistories)" :key="idx">
+                        <td class="text-left">{{ hist.stepName || hist.StepName }}</td>
+                        <td class="text-left">{{ hist.description || hist.Description }}</td>
+                        <td>{{ hist.equipment || hist.Equipment }}</td>
+                        <td>{{ hist.recipe || hist.Recipe }}</td>
+                        <td>{{ hist.quantityOut || hist.QuantityOut }}</td>
+                        <td>{{ hist.userOut || hist.UserOut }}</td>
+                        <td>{{ formatTime(hist.trackOutTime || hist.TrackOutTime) }}</td>
+                        <td v-if="isFt">{{ hist.passQty || hist.PassQty }} / {{ hist.failQty || hist.FailQty }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
     </div>
-</template>
 
     <script src="/Scripts/vue.min.js"></script>
     <script src="/Scripts/vuetify.min.js"></script>
@@ -386,37 +331,37 @@
                 /* ──  新增：接收共用元件拋出的勾選陣列 ── */
                 onSelectionChange(selectedData) {
                     this.selectedLots = selectedData || []; // 儲存所有勾選的資料
-                    
+
                     if (this.selectedLots.length > 0) {
                         this.selectedLot = this.selectedLots[0]; // 保留第一筆給單筆網頁列印使用
                     } else {
                         this.selectedLot = null;
                     }
                 },
-            
+
                 /* ── 執行批號清單查詢 (還原為乾淨的寫法) ── */
                 async doQuery() {
                     if (!this.qry.type) {
                         VMessageBox.alert('請選擇 Type (FT 或 WS)');
                         return;
                     }
-            
+
                     document.body.style.cursor = 'wait';
                     this.setStatus('QUERYING...', 'info');
                     this.selectedLot = null; // 每次查詢前清空選取
-            
+
                     try {
                         const response = await mesfetch("/api/print/run-card/query", this.qry);
-            
+
                         if (response.success || response.Success) {
                             const data = response.data || response.Data;
                             this.dataList = data;
-            
+
                             this.$nextTick(() => {
                                 // 只要單純塞資料進去即可，事件交給共用元件處理
                                 if (this.$refs.resultGrid) this.$refs.resultGrid.setData(this.dataList);
                             });
-            
+
                             this.setStatus('QUERY SUCCESS', 'success');
                         } else {
                             VMessageBox.alert(response.message || response.Message || '查無資料');
@@ -435,35 +380,27 @@
 
                 /* ── 點擊列印：呼叫 Detail API 並觸發 Browser Print ── */
                 async doPrint() {
-                    // 1. 檢查是否有勾選資料 (改用 selectedLots 判斷)
-                    if (!this.selectedLots || this.selectedLots.length === 0) {
-                        VMessageBox.alert('請先勾選要列印的批號', '提示');
-                        return;
-                    }
-                
+                    if (!this.selectedLot) return;
+
                     document.body.style.cursor = 'wait';
                     this.setStatus('GENERATING RUN CARD...', 'info');
-                
-                    // 2. 組裝 Payload，將所有勾選的 LotId 轉為陣列
+
                     const req = {
-                        LotIds: this.selectedLots.map(x => x.LotId || x.lotId), 
+                        LotId: this.selectedLot.LotId || this.selectedLot.lotId,
                         Type: this.qry.type
                     };
-                
+
                     try {
-                        // 3. 呼叫後端 API (後端需配合接收 LotIds 陣列，並回傳 List 資料)
                         const response = await mesfetch("/api/print/run-card/detail", req);
-                
+
                         if (response.success || response.Success) {
-                            // 4. 將回傳的「多筆」資料存入陣列變數中
-                            // 🌟 提醒：請記得在 Vue 的 data() 中新增 `runCardDetails: []`
-                            this.runCardDetails = response.data || response.Data;
-                
-                            // 5. 等待 Vue 將所有批號的 print-only 區塊完整渲染到畫面上後，觸發列印
+                            this.runCardDetail = response.data || response.Data;
+
+                            // 等待 Vue 將 print-only 區塊渲染到畫面上後，觸發列印
                             this.$nextTick(() => {
                                 window.print();
                             });
-                
+
                             this.setStatus('PRINT SUCCESS', 'success');
                         } else {
                             VMessageBox.alert(response.message || response.Message || '產生流程卡失敗');
@@ -506,32 +443,31 @@
                     window.location.href = '/Content/F5.html';
                 },
 
-                /* ──  新增：呼叫後端 API 下載實體 Excel 檔案 ── */
                 async doExportExcel() {
                     if (!this.selectedLot) return;
-                
+
                     this.setStatus('DOWNLOADING EXCEL...', 'info');
                     document.body.style.cursor = 'wait';
-                
+
                     const req = {
                         // 🌟 將所有勾選的 LotId 轉為字串陣列
-                        LotIds: this.selectedLots.map(x => x.LotId || x.lotId), 
+                        LotIds: this.selectedLots.map(x => x.LotId || x.lotId),
                         Type: this.qry.type
                     };
-                
+
                     try {
                         // 1. 🌟 動態取得 Token：既然 localStorage 沒有，我們往 sessionStorage 找
                         // (這裡列出幾個 MES 系統最常見的 Token 命名，系統會自動往下找有值的那一個)
-                        const token = sessionStorage.getItem('token') || 
-                                      sessionStorage.getItem('jwt') || 
-                                      sessionStorage.getItem('access_token') ||
-                                      localStorage.getItem('token') ||
-                                      (this.$store && this.$store.state.token) || '';
-                
+                        const token = sessionStorage.getItem('mes_token') ||
+                            sessionStorage.getItem('jwt') ||
+                            sessionStorage.getItem('access_token') ||
+                            localStorage.getItem('token') ||
+                            (this.$store && this.$store.state.token) || '';
+
                         const response = await fetch("/api/print/run-card/download-excel", {
                             method: 'POST',
                             // 2. 🌟 加上這行：強制瀏覽器在發送請求時，自動帶上 .ASPXAUTH 等 Cookies
-                            credentials: 'include', 
+                            credentials: 'include',
                             headers: {
                                 'Content-Type': 'application/json',
                                 // 3. 🌟 帶上剛剛抓到的 JWT Token
@@ -539,22 +475,22 @@
                             },
                             body: JSON.stringify(req)
                         });
-                
+
                         if (response.ok) {
                             // 處理 Blob 下載邏輯
                             const blob = await response.blob();
-                            
+
                             // 嘗試從 Header 取得後端設定的檔名 (Content-Disposition)
                             let filename = `RunCard_${req.LotId}.xlsx`;
                             const disposition = response.headers.get('Content-Disposition');
                             if (disposition && disposition.indexOf('attachment') !== -1) {
                                 const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
                                 const matches = filenameRegex.exec(disposition);
-                                if (matches != null && matches[1]) { 
+                                if (matches != null && matches[1]) {
                                     filename = matches[1].replace(/['"]/g, '');
                                 }
                             }
-                
+
                             // 建立下載連結並觸發
                             const url = window.URL.createObjectURL(blob);
                             const link = document.createElement('a');
@@ -564,7 +500,7 @@
                             link.click();
                             link.remove();
                             window.URL.revokeObjectURL(url);
-                
+
                             this.setStatus('DOWNLOAD SUCCESS', 'success');
                         } else {
                             // 下載失敗時的處理
@@ -582,12 +518,11 @@
                     }
                 },
 
-                /* ── 將新增的方法註冊進 Action Bar 分派器 ── */
                 onAction(action) {
                     const map = {
                         query: this.doQuery,
                         print: this.doPrint,
-                        exportExcel: this.doExportExcel, // 🌟 綁定新方法
+                        exportExcel: this.doExportExcel,
                         clear: this.doClear,
                         close: this.doClose
                     };
