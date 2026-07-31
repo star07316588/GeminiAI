@@ -11,6 +11,7 @@
     <link href="/Content/css/site.css?v=260522" rel="stylesheet">
 
     <style>
+<style>
         /* 讓選擇卡片置中對齊，模擬原本彈跳視窗的感覺 */
         .center-container {
             display: flex;
@@ -27,6 +28,19 @@
         .btn-spacing {
             margin-bottom: 20px;
         }
+        
+        /* 🌟 新增：專屬的按鈕字體樣式 */
+        .menu-btn-text {
+            color: #000000 !important; /* 強制字體為黑色 */
+            font-size: 22px !important; /* 將字體調大 */
+            letter-spacing: 1px;
+        }
+        /* 讓 Icon 也變黑色，並稍微放大配合字體 */
+        .menu-btn-text .v-icon {
+            color: #000000 !important;
+            font-size: 28px !important; 
+        }
+    </style>
     </style>
 </head>
 <body>
@@ -45,10 +59,10 @@
                 <v-card-text class="text-center">
                     <!-- E-Test 按鈕 -->
                     <v-btn 
-                        color="primary" 
+                        color="grey lighten-2" 
                         block 
                         x-large 
-                        class="btn-spacing font-weight-bold" 
+                        class="btn-spacing font-weight-bold menu-btn-text" 
                         @click="openForm('E-Test')">
                         <v-icon left>mdi-monitor-dashboard</v-icon>
                         E-Test
@@ -56,30 +70,15 @@
 
                     <!-- FT-FVI 按鈕 -->
                     <v-btn 
-                        color="info" 
+                        color="grey lighten-2" 
                         block 
                         x-large 
-                        class="btn-spacing font-weight-bold" 
+                        class="btn-spacing font-weight-bold menu-btn-text" 
                         @click="openForm('FT-FVI')">
                         <v-icon left>mdi-memory</v-icon>
                         FT-FVI
                     </v-btn>
                 </v-card-text>
-
-                <v-divider></v-divider>
-
-                <v-card-actions class="justify-center mt-4">
-                    <!-- Close 按鈕 -->
-                    <v-btn 
-                        color="grey darken-1" 
-                        dark 
-                        width="150" 
-                        large 
-                        class="font-weight-bold"
-                        @click="doClose">
-                        Close
-                    </v-btn>
-                </v-card-actions>
             </v-card>
         </div>
 
