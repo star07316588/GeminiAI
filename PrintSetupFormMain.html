@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Setup Form Main</title>
+
+    <!-- 引用 MES 標準樣式與 Vuetify -->
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        /* 讓選擇卡片置中對齊，模擬原本彈跳視窗的感覺 */
+        .center-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: calc(100vh - 64px); /* 扣除 toolbar 高度 */
+            background-color: #f5f5f5;
+        }
+        .menu-card {
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn-spacing {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="page-layout" data-app>
+        
+        <!-- 上方 Toolbar -->
+        <mes-toolbar title="Print Setup Form (站點選擇)"></mes-toolbar>
+
+        <!-- 置中選擇區塊 -->
+        <div class="center-container">
+            <v-card width="450" class="menu-card">
+                <v-card-title class="justify-center text-h5 font-weight-bold mb-4">
+                    PrintSetupForm
+                </v-card-title>
+                
+                <v-card-text class="text-center">
+                    <!-- E-Test 按鈕 -->
+                    <v-btn 
+                        color="primary" 
+                        block 
+                        x-large 
+                        class="btn-spacing font-weight-bold" 
+                        @click="openForm('E-Test')">
+                        <v-icon left>mdi-monitor-dashboard</v-icon>
+                        E-Test
+                    </v-btn>
+
+                    <!-- FT-FVI 按鈕 -->
+                    <v-btn 
+                        color="info" 
+                        block 
+                        x-large 
+                        class="btn-spacing font-weight-bold" 
+                        @click="openForm('FT-FVI')">
+                        <v-icon left>mdi-memory</v-icon>
+                        FT-FVI
+                    </v-btn>
+                </v-card-text>
+
+                <v-divider></v-divider>
+
+                <v-card-actions class="justify-center mt-4">
+                    <!-- Close 按鈕 -->
+                    <v-btn 
+                        color="grey darken-1" 
+                        dark 
+                        width="150" 
+                        large 
+                        class="font-weight-bold"
+                        @click="doClose">
+                        Close
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+
+    <script>
+        var vapp = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    // 接收從其他頁面或系統外殼傳來的參數 (模擬 VB 的 Property Let)
+                    context: {
+                        lotId: '',
+                        eqpId: ''
+                    }
+                };
+            },
+            mounted() {
+                // 初始化：從 URL Query String 取得 LotId 與 EqpId
+                this.initContext();
+            },
+            methods: {
+                /* ── 初始化參數 ── */
+                initContext() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    this.context.lotId = urlParams.get('lotId') || '';
+                    this.context.eqpId = urlParams.get('eqpId') || '';
+                },
+
+                /* ── 開啟對應的表單 (對應 cmdChooseMachine_Click) ── */
+                openForm(type) {
+                    // 準備要傳遞給下一頁的 URL 參數
+                    const queryString = `?lotId=${this.context.lotId}&eqpId=${this.context.eqpId}`;
+
+                    if (type === 'E-Test') {
+                        // 導向 E-Test 頁面
+                        window.location.href = `/Print/PrintSetupForm${queryString}`;
+                    } else if (type === 'FT-FVI') {
+                        // 導向 FT-FVI 頁面
+                        window.location.href = `/Print/PrintFtFVISetupForm${queryString}`;
+                    }
+                },
+
+                /* ── 關閉視窗 (對應 cmdCancel_Click) ── */
+                doClose() {
+                    // 若是開在 iframe 或新分頁，可根據您的 MES 系統架構呼叫關閉方法
+                    // 例如回到首頁或關閉分頁
+                    window.location.href = '/Content/F5.html'; 
+                }
+            }
+        });
+    </script>
+</body>
+</html>
