@@ -57,7 +57,6 @@ namespace MES.Net.Infrastructure.Repository.Print
 {
     public interface IPrintSetupFormRepository
     {
-        Task<SetupLotBasicInfo> GetLotBasicInfoAsync(string lotId);
         Task<dynamic> GetLotAttributeAsync(string lotId);
         Task<dynamic> GetLotInfoAsync(string lotId);
         Task<string> GetFollowProductAsync(string lotId, string erunTicNo, string stage);
@@ -77,22 +76,9 @@ namespace MES.Net.Infrastructure.Repository.Print
             _dbConnection = new OracleConnection(_connString);
         }
 
-        // 模擬原本 FwuRetrieveLot 取得 WIP 資訊 (可替換為貴司現有的 Core Service)
-        public async Task<SetupLotBasicInfo> GetLotBasicInfoAsync(string lotId)
-        {
-            // 這裡簡化表示，實際 MES 系統可能會從 FWLOT 與 FWLOT_PN2M 取得
-            string sql = @"
-                SELECT LOTID, STATUS, IPN, LOT_OWNER as Owner, 
-                       STEP_ID as CurrentStepId, STEP_NAME as CurrentStepName,
-                       CUR_EQP_ID as CurEqpId, SPLITASSIGNEQID as SplitAssignEqId
-                FROM VIEW_LOT_BASIC_INFO -- 請依據實際環境替換 View 或 Table
-                WHERE LOTID = :LotId";
-            return await _dbConnection.QueryFirstOrDefaultAsync<SetupLotBasicInfo>(sql, new { LotId = lotId });
-        }
-
         public async Task<dynamic> GetLotAttributeAsync(string lotId)
         {
-            string sql = "SELECT STAGE, ROUTE as Path FROM fwadmin.tbl_lot_attribute WHERE lotid = :LotId";
+            string sql = "SELECT STAGE, ROUTE as PATH FROM fwadmin.tbl_lot_attribute WHERE lotid = :LotId";
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId });
         }
 
@@ -138,7 +124,6 @@ namespace MES.Net.Infrastructure.Repository.Print
 
         public async Task<IEnumerable<string>> GetSubSystemsAsync(string sql, object param)
         {
-            // 動態傳入組裝好的 SubSystem 查詢 SQL
             return await _dbConnection.QueryAsync<string>(sql, param);
         }
     }
@@ -149,6 +134,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using MES.Net.Shared.DTOs.Print;
 using MES.Net.Infrastructure.Repository.Print;
+using MES.Net.Infrastructure.ExternalServices; // 引入 WipServiceWrapper
+using MES.Net.Shared.Constants.FwAttributes;   // 假設貴司常數定義於此
 
 namespace MES.Net.Application.Services.Print
 {
@@ -171,59 +158,71 @@ namespace MES.Net.Application.Services.Print
             lotId = lotId?.ToUpper()?.Trim();
             if (string.IsNullOrEmpty(lotId)) throw new ArgumentException("LotId cannot be empty.");
 
-            // 1. 取得 Lot 基本資訊
-            var lotBasic = await _repo.GetLotBasicInfoAsync(lotId);
-            if (lotBasic == null) throw new Exception($"此 Lot ({lotId}) 不存在 !! (This Lot was not exist.)");
+            // 1. 使用貴司共用模組取得 FwLot 物件
+            var olot = WipServiceWrapper.Instance.LotById(lotId);
+            if (olot == null) 
+            {
+                throw new Exception($"此 Lot ({lotId}) 不存在 !! (This Lot was not exist.)");
+            }
+
+            // 取得當前站點資訊
+            string stepId = olot.CurrentStep.Steps[0].Id;
+            string stepDesc = olot.CurrentStep.Steps[0].Description ?? "";
 
             // 檢查是否在測試站別 (SORT, FT, TQAE, PROGRAMMER)
-            var stepDesc = lotBasic.CurrentStepName?.ToUpper() ?? "";
-            if (!(stepDesc.StartsWith("SORT") || stepDesc.StartsWith("FT") || 
-                  stepDesc.StartsWith("TQAE") || stepDesc.StartsWith("PROGRAMMER")))
+            var stepDescUpper = stepDesc.ToUpper();
+            if (!(stepDescUpper.StartsWith("SORT") || stepDescUpper.StartsWith("FT") || 
+                  stepDescUpper.StartsWith("TQAE") || stepDescUpper.StartsWith("PROGRAMMER")))
             {
                 throw new Exception("此Lot未在測試站別, 無法列印 !! (This Lot was not in Testing Step.)");
             }
 
-            var response = new PrintSetupFormQueryResponse
-            {
-                LotId = lotBasic.LotId,
-                LotStatus = lotBasic.Status,
-                IPN = lotBasic.Ipn,
-                LotOwner = lotBasic.Owner
-            };
+            // 取得機台號碼 (優先取 CurEqpId，若無則取 SplitAssignEqId)
+            // (註: 這裡的 "CurEqpId" 等字串請依貴司常數定義自行替換)
+            string curEqpId = olot.CustomAttributes("CurEqpId"); 
+            string splitAssignEqId = olot.CustomAttributes("SplitAssignEqId");
+            string targetEqId = !string.IsNullOrEmpty(curEqpId) ? curEqpId : splitAssignEqId;
 
-            // 2. 取得 Lot Attribute (Stage, Path)
-            var attr = await _repo.GetLotAttributeAsync(lotId);
-            response.Stage = attr?.STAGE ?? "";
-            string path = attr?.PATH ?? "";
-
-            // 3. 取得 TesterId
-            string targetEqId = !string.IsNullOrEmpty(lotBasic.CurEqpId) ? lotBasic.CurEqpId : lotBasic.SplitAssignEqId;
             if (string.IsNullOrEmpty(targetEqId))
             {
                 throw new Exception("此Lot之測試機台不存在 !! (The Equipment of this Lot was not exited.)");
             }
+
+            // 2. 初始化 Response 並塞入 Lot 基本資料
+            var response = new PrintSetupFormQueryResponse
+            {
+                LotId = lotId,
+                LotStatus = olot.CustomAttributes("Status"), // 或對應貴司 Status 常數
+                IPN = olot.CustomAttributes(LotCustomAttributes.Ipn),
+                LotOwner = olot.CustomAttributes(LotCustomAttributes.LotOwner)
+            };
+
+            // 3. 取得 Lot Attribute (Stage, Path) 
+            // (註: 依據 VB 寫法，這兩欄來自 tbl_lot_attribute 表)
+            var attr = await _repo.GetLotAttributeAsync(lotId);
+            response.Stage = attr?.STAGE ?? "";
+            string path = attr?.PATH ?? "";
+
+            // 4. 設定 TesterId 選單
             response.TesterIdList.Add(new SelectItem { Text = targetEqId, Value = targetEqId });
             response.SelectedTesterId = targetEqId;
             
             string eqType2 = await _repo.GetEqType2Async(targetEqId);
 
-            // 4. 取得 Step 列表
-            string stepNo = lotBasic.CurrentStepId;
-            string stepName = lotBasic.CurrentStepName;
-
+            // 5. 設定 Step 選單
             if (response.Stage != "FT")
             {
-                response.StepList.Add(new SelectItem { Value = stepNo, Text = $"{stepNo} {stepName}" });
-                response.SelectedStep = stepNo;
+                response.StepList.Add(new SelectItem { Value = stepId, Text = $"{stepId} {stepDesc}" });
+                response.SelectedStep = stepId;
             }
             else
             {
                 var ftSteps = await _repo.GetFtRouteStepsAsync(path);
                 response.StepList = ftSteps.ToList();
-                response.SelectedStep = stepNo; // 預設選取目前站別
+                response.SelectedStep = stepId; // 預設選取目前站別
             }
 
-            // 5. 取得 Lot Info 相關資訊
+            // 6. 取得 Lot Info 相關資訊 (Tbl_Lot_Info / Tbl_Erun_Req)
             var lotInfo = await _repo.GetLotInfoAsync(lotId);
             string erunTicNo = lotInfo?.ERUNTICNO ?? "";
             string tecnLotId = lotInfo?.TECNLOTID ?? "";
@@ -236,15 +235,15 @@ namespace MES.Net.Application.Services.Print
                 followProd = await _repo.GetFollowProductAsync(lotId, erunTicNo, response.Stage) ?? "";
             }
 
-            string bodySize = await _repo.GetIpnBodySizeAsync(lotBasic.Ipn) ?? "";
+            string bodySize = await _repo.GetIpnBodySizeAsync(response.IPN) ?? "";
 
-            // 6. 組合查詢 SubSystem 的 SQL (依據 Erun, Tecn 或 Prod Spec)
+            // 7. 組合查詢 SubSystem 的 SQL
             string subSystemSql = BuildSubSystemSql(response.Stage, erunTicNo, followProd, tecnLotId, path, assignProbeCard, assignLoadBoard);
             
             var subSystems = await _repo.GetSubSystemsAsync(subSystemSql, new
             {
                 ErunTicNo = erunTicNo,
-                StepNo = stepNo,
+                StepNo = stepId,
                 EqType2 = eqType2,
                 Path = path,
                 TecnLotId = tecnLotId,
@@ -252,16 +251,10 @@ namespace MES.Net.Application.Services.Print
                 // ProdGroup 等參數視實際 SQL 組裝帶入
             });
 
-            // 整理 SubSystem 格式 (Subsystem,MaxSite)
+            // 整理 SubSystem 格式
             foreach (var sys in subSystems)
             {
                 response.SubSystemList.Add(new SelectItem { Text = sys, Value = sys });
-            }
-
-            // 若只有一筆則預設選取
-            if (response.SubSystemList.Count == 1)
-            {
-                // 在前端實作時，若只有一筆可以直接觸發 Change 事件
             }
 
             return response;
@@ -269,40 +262,19 @@ namespace MES.Net.Application.Services.Print
 
         private string BuildSubSystemSql(string stage, string erunTicNo, string followProd, string tecnLotId, string path, string assignProbeCard, string assignLoadBoard)
         {
-            // 將原本複雜的 If...Else 轉換為取得對應的 SQL 字串
-            // 這裡為了版面簡潔，示意最主要的骨架，實際可依據 VB 原始碼的 WHERE 條件完整映射
+            // (維持前一版的 SQL 組裝邏輯)
             string sql = "";
-            
-            if (stage != "FT")
+            if (!string.IsNullOrEmpty(erunTicNo) && followProd == "N")
             {
-                if (!string.IsNullOrEmpty(erunTicNo) && followProd == "N")
-                {
-                    sql = "SELECT (SUBSYSTEM || ',' || '') FROM TBL_ERUN_RECIPE WHERE DOCNO = :ErunTicNo AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
-                }
-                else if (!string.IsNullOrEmpty(tecnLotId))
-                {
-                    sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_LOT_STEP_EQ_SPEC WHERE :TecnLotId LIKE TECNLOTID AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
-                }
-                else
-                {
-                    sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_PROD_STEP_EQ_SPEC WHERE STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DOCSTATUS = 'Active' AND PATH = :Path";
-                }
+                sql = "SELECT (SUBSYSTEM || ',' || '') FROM TBL_ERUN_RECIPE WHERE DOCNO = :ErunTicNo AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
             }
-            else // FT
+            else if (!string.IsNullOrEmpty(tecnLotId))
             {
-                // FT 邏輯
-                if (!string.IsNullOrEmpty(erunTicNo) && followProd == "N")
-                {
-                    sql = "SELECT (SUBSYSTEM || ',' || '') FROM TBL_ERUN_RECIPE WHERE DOCNO = :ErunTicNo AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
-                }
-                else if (!string.IsNullOrEmpty(tecnLotId))
-                {
-                    sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_LOT_STEP_EQ_SPEC WHERE :TecnLotId LIKE TECNLOTID AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
-                }
-                else
-                {
-                    sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_PROD_STEP_EQ_SPEC WHERE STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DOCSTATUS = 'Active' AND PATH = :Path";
-                }
+                sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_LOT_STEP_EQ_SPEC WHERE :TecnLotId LIKE TECNLOTID AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
+            }
+            else
+            {
+                sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_PROD_STEP_EQ_SPEC WHERE STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DOCSTATUS = 'Active' AND PATH = :Path";
             }
             return sql;
         }
