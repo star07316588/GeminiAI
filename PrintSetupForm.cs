@@ -248,6 +248,49 @@ namespace MES.Net.Infrastructure.Repository.Print
                   AND DOCSTATUS = 'Active'";
             return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { ProdGroup = prodGroup, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path, MaxSite = maxSite });
         }
+        /// <summary>
+        /// 翻譯自: GetFTAccByPgm
+        /// </summary>
+        public async Task<FtAccDto> GetFTAccByPgmAsync(string stepName, string bodySize, string pgId, string pgName)
+        {
+            // 統一參考 DB FUNCTION FUN_GET_FT_ACC_BYPGM[cite: 6]
+            string sql = @"
+                SELECT fun_get_ft_acc_bypgm(:StepName, :BodySize, :PgId, :PgName, 'loadboard') as Loadboard,
+                       fun_get_ft_acc_bypgm(:StepName, :BodySize, :PgId, :PgName, 'contactboard') as Contactboard,
+                       fun_get_ft_acc_bypgm(:StepName, :BodySize, :PgId, :PgName, 'burninboard') as Burninboard
+                FROM DUAL";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<FtAccDto>(sql, 
+                new { StepName = stepName, BodySize = bodySize, PgId = pgId, PgName = pgName });
+        }
+
+        /// <summary>
+        /// 翻譯自: GetPgIdAndNameFromFutAct
+        /// </summary>
+        public async Task<FutActPgmDto> GetPgIdAndNameFromFutActAsync(string lotId, string stepNo, string eqType2, string subSysType, string path)
+        {
+            // Get PgId and PgName from table "Tbl_Lot_FutAct"[cite: 7]
+            // 並限制 HoldPosition = 'STEP_IN'[cite: 7]
+            string sql = @"
+                SELECT PGID as PgId, PGNAME as PgName, DOC_NO as DocNo, PGMODE as PgMode
+                FROM TBL_LOT_FUTACT
+                WHERE LOT_ID = :LotId AND STEP_NO = :StepNo AND DELETE_FLAG = 'N'
+                  AND HOLD_POSITION = 'STEP_IN' ";
+
+            if (!string.IsNullOrEmpty(eqType2))
+            {
+                sql += " AND NVL(EQTYPE2, :EqType2) = :EqType2 ";
+            }
+            if (!string.IsNullOrEmpty(path))
+            {
+                sql += " AND PATH = :Path ";
+            }
+            sql += " ORDER BY CREATE_TIME DESC ";
+
+            // 註：SubSystem 的動態組裝條件可在此依傳入的 subSysType 切割後加上
+            return await _dbConnection.QueryFirstOrDefaultAsync<FutActPgmDto>(sql, 
+                new { LotId = lotId, StepNo = stepNo, EqType2 = eqType2, Path = path });
+        }
     }
 }
 
@@ -489,7 +532,117 @@ namespace MES.Net.Application.Services.Print
 
             return response;
         }
-    }
+
+        public partial class PrintSetupFormService
+    {
+        /// <summary>
+        /// 翻譯自: GetPGM (原位於 frmPrintSetupForm.frm 內)
+        /// 包含對 GetPgIdAndNameFromFutAct 的隱藏呼叫
+        /// </summary>
+        private async Task<string> GetPGMAsync(string lotId, string stepNo, string path, string eqType2, string subSysType, string originalPgName, RecipeSpecData specData)
+        {
+            // 1. 先搜尋 Future Action[cite: 7]
+            var futAct = await _repo.GetPgIdAndNameFromFutActAsync(lotId, stepNo, eqType2, subSysType, path);
+            
+            if (futAct != null && !string.IsNullOrEmpty(futAct.PgName))
+            {
+                return futAct.PgName; // 若 Future Action 有設定，以此為準
+            }
+
+            // 2. 若沒有，則進行屬性替換比對邏輯 (RefStepName, RefPgName -> ReplacePgName)
+            string resultPgmName = originalPgName;
+
+            // 假設貴司已封裝取得 Lot_PN2M 擴充屬性 (Tested1stPgName 等) 的 Wrapper
+            // var attPg1 = WipServiceWrapper.Instance.LotCustomAttribute(lotId, "Tested1stPgName");
+            string attPg1 = ""; // 示意
+
+            if (!string.IsNullOrEmpty(specData.RefStepName01))
+            {
+                if (specData.RefStepName01 == "1" && attPg1 == specData.RefPgName01)
+                {
+                    resultPgmName = specData.ReplacePgName01;
+                }
+                // ... 依序實作 02, 03 的比對邏輯
+            }
+
+            return resultPgmName;
+        }
+
+        /// <summary>
+        /// 翻譯自: GetTecnPgmRecipeAttr
+        /// 處理複雜的 TECN 層級覆蓋邏輯 (Level 1~6)
+        /// </summary>
+        private async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(
+            string lotId, string ipn, string prodGroupKey, string prodCode, string stage, 
+            string stepId, string stepName, string eqType2, string pgId, string pgName)
+        {
+            var result = new TecnPgmRecipeAttrDto();
+
+            // 判斷測試模式
+            string testMode = stepName;
+            if (stepName.StartsWith("SORT"))
+            {
+                testMode = "S" + stepName.Replace("SORT", "");[cite: 4]
+            }
+            else if (stepName.StartsWith("TQAE"))
+            {
+                // 若為 TQAE 站，需呼叫 Get_TQAE_Mapping_Act_PGmode 來決定 testMode[cite: 4]
+                // testMode = ... 
+            }
+
+            // 執行 Level 1 到 6 的迴圈尋找 PGM (略過 Level 5)[cite: 4]
+            for (int level = 1; level <= 6; level++)
+            {
+                if (level == 5) continue;[cite: 4]
+
+                string description = level switch
+                {
+                    1 => lotId,
+                    2 or 3 => ipn,
+                    4 => prodGroupKey,
+                    6 => prodCode,
+                    _ => ""
+                };[cite: 4]
+
+                // TODO: 呼叫 Repository 執行對 TBL_TECN_PGM 的查詢 (傳入 Level, EqType2, Description)
+                // var tecnRecord = await _repo.GetTecnPgmRecordAsync(level, description, testMode, ...);
+                
+                // 若找到資料且 ComparePgmAttr == "PASS"[cite: 4]
+                // 且 Level 1 時，確認 TBL_LOT_TECN_CONTROL_LIST 的 Action 不為 Delete[cite: 4]
+                // {
+                //      若符合，則填入 result.RefPgm, result.RefTemp 等資訊並 break;
+                // }
+            }
+
+            // TQAE站點如果查無資料，在原代碼中還會進行第二次轉換嘗試 (將 TF 轉為 TQ 等字串處理)[cite: 4]
+            if (stepName.StartsWith("TQAE") && result.RefPgm != null)
+            {
+                if (result.RefPgm.StartsWith("TF"))
+                    result.RefPgm = "TQ" + result.RefPgm.Substring(2);[cite: 4]
+                else if (result.RefPgm.StartsWith("F"))
+                    result.RefPgm = "Q" + result.RefPgm.Substring(1);[cite: 4]
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 翻譯自: GetSwapPGName
+        /// 判斷產品變更與取代規則
+        /// </summary>
+        private async Task<string> GetSwapPGNameAsync(string lotId, string prodGroup, string stepName, string eqType2, string originalPgName)
+        {
+            // 查詢 TBL_PROD_STEP_SPEC 取出該群組下的所有 SORT 站點，建立順序 (iCurStepIndex)[cite: 5]
+            
+            // 查詢 VIEW_WS_LOT_PGM_REC_SEQUENCE 取得該 Lot 的測試紀錄順序[cite: 5]
+            
+            // 查詢 TBL_WS_PGM_REPLACE 取出設定檔，逐一比對 Sequence 是否符合設定檔的前置站點組合[cite: 5]
+            
+            // 若找到符合的設定且 SwapFlag == "Y"[cite: 5]
+            // 會回傳對應的取代程式名稱，若有衝突則回傳 "X" (代表需分批)[cite: 5]
+            
+            return originalPgName; // 實作細節需依賴 Dapper 多重查詢與迴圈封裝
+        }
     }
 }
 
