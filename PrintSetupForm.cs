@@ -143,6 +143,15 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<RecipeSpecData> GetErunRecipeAsync(string erunTicNo, string stepNo, string eqType2, string subSystem);
         Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string stepNo, string eqType2, string subSystem, string path, string maxSite);
         Task<RecipeSpecData> GetProdStepEqSpecAsync(string prodGroup, string stepNo, string eqType2, string subSystem, string path, string maxSite);
+        // === GetTecnPgmRecipeAttr 所需的查詢 ===
+        Task<dynamic> GetIpnMasterForTecnAsync(string ipn);
+        Task<IEnumerable<dynamic>> GetTecnPgmRecordsAsync(string eqType2, string testMode, int level, string description, string pgName, string tecnNo);
+        Task<string> GetTecnControlActionAsync(string tecnNo, string lotId);
+
+        // === GetSwapPGName 所需的查詢 ===
+        Task<IEnumerable<string>> GetProdStepSpecStepsAsync(string prodGroup);
+        Task<IEnumerable<dynamic>> GetLotPgmRecSequenceAsync(string lotId);
+        Task<IEnumerable<dynamic>> GetWsPgmReplaceAsync(string prodGroup);
     }
 
     public class PrintSetupFormRepository : IPrintSetupFormRepository
@@ -290,6 +299,73 @@ namespace MES.Net.Infrastructure.Repository.Print
             // 註：SubSystem 的動態組裝條件可在此依傳入的 subSysType 切割後加上
             return await _dbConnection.QueryFirstOrDefaultAsync<FutActPgmDto>(sql, 
                 new { LotId = lotId, StepNo = stepNo, EqType2 = eqType2, Path = path });
+        }
+
+        /* ---------------------------------------------------------
+           GetTecnPgmRecipeAttr 相關 SQL
+        --------------------------------------------------------- */
+        public async Task<dynamic> GetIpnMasterForTecnAsync(string ipn)
+        {
+            string sql = @"SELECT IPN, PRODGROUPKEY, MASK_OPTION, BE_OPTION 
+                           FROM TBL_IPN_MASTER WHERE IPN = :Ipn";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { Ipn = ipn });
+        }
+
+        public async Task<IEnumerable<dynamic>> GetTecnPgmRecordsAsync(string eqType2, string testMode, int level, string description, string pgName, string tecnNo)
+        {
+            // 對應 VB 中 sSQL_1 與 sSQL_2 的組裝[cite: 4]
+            string sql = @"
+                SELECT TECNNO, TECNLEVEL, PGNAME, PGID, STATUS, SOURCE, TEMP_C as Temp, 
+                       (CASE WHEN TO_CHAR(SYSDATE, 'YYYYMMDD HH24MISS') || '000' BETWEEN STARTTIME AND ENDTIME THEN 'N' ELSE 'Y' END) as OverTime
+                FROM TBL_TECN_PGM
+                WHERE TESTERTYPE = :EqType2 
+                  AND TESTMODE = :TestMode 
+                  AND TECNLEVEL = :Level ";
+
+            if (!string.IsNullOrEmpty(pgName)) sql += " AND PGNAME = :PgName ";
+            
+            if (level < 4 && !string.IsNullOrEmpty(tecnNo))
+                sql += " AND TECNNO = :TecnNo ";
+            else
+                sql += " AND :Description LIKE DESCRIPTION "; // VB: '" & sDescription & "' like A.DESCRIPTION[cite: 4]
+
+            return await _dbConnection.QueryAsync(sql, new { EqType2 = eqType2, TestMode = testMode, Level = level, Description = description, PgName = pgName, TecnNo = tecnNo });
+        }
+
+        public async Task<string> GetTecnControlActionAsync(string tecnNo, string lotId)
+        {
+            // 查詢 TBL_LOT_TECN_CONTROL_LIST 的 Action[cite: 4]
+            string sql = @"
+                SELECT ACTION FROM TBL_LOT_TECN_CONTROL_LIST
+                WHERE TECNNO = :TecnNo AND LOTID = :LotId AND DELETEFLAG = 'N'
+                ORDER BY CREATETIME DESC, ACTIONTIME DESC";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { TecnNo = tecnNo, LotId = lotId });
+        }
+
+        /* ---------------------------------------------------------
+           GetSwapPGName 相關 SQL
+        --------------------------------------------------------- */
+        public async Task<IEnumerable<string>> GetProdStepSpecStepsAsync(string prodGroup)
+        {
+            string sql = @"SELECT DISTINCT STEP_NAME FROM TBL_PROD_STEP_SPEC 
+                           WHERE PROD_GROUP = :ProdGroup AND DOC_STATUS = 'Active' AND STEP_NAME LIKE 'SORT%' 
+                           ORDER BY STEP_NO";
+            return await _dbConnection.QueryAsync<string>(sql, new { ProdGroup = prodGroup });
+        }
+
+        public async Task<IEnumerable<dynamic>> GetLotPgmRecSequenceAsync(string lotId)
+        {
+            string sql = @"SELECT PRODGROUP, STEP, PGM FROM VIEW_WS_LOT_PGM_REC_SEQUENCE WHERE CURLOTID = :LotId";
+            return await _dbConnection.QueryAsync(sql, new { LotId = lotId });
+        }
+
+        public async Task<IEnumerable<dynamic>> GetWsPgmReplaceAsync(string prodGroup)
+        {
+            string sql = @"SELECT STEP1, STEP2, STEP3, STEP4, STEP5, STEP6, STEP7, STEP8, STEP9, STEP10, STEP11, STEP12, STEP13, STEP14, STEP15,
+                                  PGM1, PGM2, PGM3, PGM4, PGM5, PGM6, PGM7, PGM8, PGM9, PGM10, PGM11, PGM12, PGM13, PGM14, PGM15,
+                                  SWAPFLAG1, SWAPFLAG2, SWAPFLAG3, SWAPFLAG4, SWAPFLAG5, SWAPFLAG6, SWAPFLAG7, SWAPFLAG8, SWAPFLAG9, SWAPFLAG10, SWAPFLAG11, SWAPFLAG12, SWAPFLAG13, SWAPFLAG14, SWAPFLAG15
+                           FROM TBL_WS_PGM_REPLACE WHERE PRODGROUP = :ProdGroup";
+            return await _dbConnection.QueryAsync(sql, new { ProdGroup = prodGroup });
         }
     }
 }
@@ -642,6 +718,177 @@ namespace MES.Net.Application.Services.Print
             // 會回傳對應的取代程式名稱，若有衝突則回傳 "X" (代表需分批)[cite: 5]
             
             return originalPgName; // 實作細節需依賴 Dapper 多重查詢與迴圈封裝
+        }
+        /// <summary>
+        /// 翻譯自: GetTecnPgmRecipeAttr
+        /// </summary>
+        public async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(
+            string ipnTecnNo, string lotId, string ipn, string stepId, string stepName, 
+            string eqType2, string prodGroupKey, string prodCode, string stage, string pgId, string pgName)
+        {
+            var result = new TecnPgmRecipeAttrDto();
+
+            // 若參數不足，補齊 IPN/ProdGroupKey/ProdCode[cite: 4]
+            if (!string.IsNullOrEmpty(lotId) && (string.IsNullOrEmpty(ipn) || string.IsNullOrEmpty(prodGroupKey) || string.IsNullOrEmpty(prodCode)))
+            {
+                var ipnData = await _repo.GetIpnMasterForTecnAsync(ipn);
+                if (ipnData != null)
+                {
+                    if (string.IsNullOrEmpty(ipn)) ipn = ipnData.IPN;
+                    if (string.IsNullOrEmpty(prodGroupKey)) prodGroupKey = ipnData.PRODGROUPKEY;
+                    if (string.IsNullOrEmpty(prodCode))
+                    {
+                        prodCode = stage == "WS" ? (ipn.Substring(0, 4) + ipnData.MASK_OPTION) : (ipn.Substring(0, 4) + ipnData.BE_OPTION);
+                    }
+                }
+            }
+
+            // 判斷 TestMode[cite: 4]
+            string testMode = stepName;
+            if (stepName.StartsWith("SORT")) testMode = "S" + stepName.Replace("SORT", "");
+            // TQAE 的 mapping 邏輯可依據您的 Get_TQAE_Mapping_Act_PGmode 實作補充
+
+            // 開始 1~6 階層掃描[cite: 4]
+            for (int level = 1; level <= 6; level++)
+            {
+                if (level == 5) continue;[cite: 4]
+
+                string description = level switch
+                {
+                    1 => lotId,
+                    2 or 3 => ipn,
+                    4 => prodGroupKey,
+                    6 => prodCode,
+                    _ => ""
+                };[cite: 4]
+
+                // 查詢資料庫[cite: 4]
+                var records = await _repo.GetTecnPgmRecordsAsync(eqType2, testMode, level, description, "", ipnTecnNo);
+
+                // 若為 TQAE 且無資料，原邏輯會嘗試再次用不同的條件查詢 (此處簡化示意)
+                
+                foreach (var record in records)
+                {
+                    // 若有 ComparePgmAttr 檢核邏輯，可以在此處呼叫
+                    // if (ComparePgmAttr(...) == "PASS")
+                    
+                    result.RefPgmTecnNo = record.TECNNO;
+
+                    // 檢查 Lot Tecn Control List 的 Delete 狀態 (僅 Level 1)[cite: 4]
+                    if (level == 1)
+                    {
+                        string action = await _repo.GetTecnControlActionAsync(result.RefPgmTecnNo, lotId);
+                        if (action == "Delete")
+                        {
+                            result.RefPgmTecnNo = "";
+                            continue; // 跳過此筆，相當於 VB 的 GoTo PGMContinue[cite: 4]
+                        }
+                    }
+
+                    result.RefPgId = record.PGID;
+                    result.RefPgmSource = record.SOURCE;
+                    result.RefPgm = record.PGNAME;
+                    result.RefTemp = record.TEMP;
+
+                    if (!string.IsNullOrEmpty(result.RefTemp))
+                    {
+                        result.RefTempTecnNo = record.TECNNO;
+                        result.RefTempSource = record.SOURCE;
+                    }
+
+                    result.RefOverTime = record.OVERTIME;
+                    result.RefLevel = record.TECNLEVEL?.ToString();
+                    
+                    break; // 找到就跳出迴圈
+                }
+
+                if (!string.IsNullOrEmpty(result.RefPgm)) break; // 找到 PGM 就可以結束 1~6 階層的掃描
+            }
+
+            // (選填) PGM 無變更 TEMP, 單獨取 TEMP 資訊的邏輯也可比照上述迴圈補上[cite: 4]
+
+            return result;
+        }
+
+        /// <summary>
+        /// 翻譯自: GetSwapPGName
+        /// 利用 C# List/LINQ 處理複雜陣列比對
+        /// </summary>
+        public async Task<string> GetSwapPGNameAsync(string lotId, string prodGroup, string stepName, string eqType2, string originalPgName, bool bSpecQuery = false)
+        {
+            // 1. 取得該 ProdGroup 的 SORT 站點順序
+            var specSteps = (await _repo.GetProdStepSpecStepsAsync(prodGroup)).ToList();
+            int curStepIndex = specSteps.IndexOf(stepName) + 1; // 1-based
+            if (curStepIndex <= 0) return ""; // 未實測此 Prodgroup 的站點
+
+            // 2. 取得 LOT 實際測過的 Sequence[cite: 5]
+            var lotSeqs = (await _repo.GetLotPgmRecSequenceAsync(lotId)).ToList();
+            if (!lotSeqs.Any()) return "";
+
+            // 3. 取得 Replace 設定檔[cite: 5]
+            var replaceRules = (await _repo.GetWsPgmReplaceAsync(prodGroup)).ToList();
+
+            var matchedPgmList = new List<string>();
+
+            // 4. 開始比對 Sequence (對應 VB6 中極度複雜的字串 Split 與迴圈)[cite: 5]
+            foreach (var lotSeq in lotSeqs)
+            {
+                if (bSpecQuery && lotSeqs.IndexOf(lotSeq) > 0) break;
+
+                string[] vSteps = lotSeq.STEP?.ToString().Split(',') ?? new string[0];
+                string[] vPgms = lotSeq.PGM?.ToString().Split(',') ?? new string[0];
+
+                foreach (var rule in replaceRules)
+                {
+                    int stepMatchedCount = 0;
+                    bool bMatch = true;
+
+                    // 比對設定檔的 STEP1~15 是否與實際 LOT 測過的 vSteps 完全吻合[cite: 5]
+                    for (int i = 0; i < vSteps.Length; i++)
+                    {
+                        stepMatchedCount++;
+                        if (string.IsNullOrEmpty(vSteps[i]) || vSteps[i] == stepName) break;
+
+                        // 取出 rule 中對應的 Step 和 Pgm (例如 STEP1, PGM1)
+                        var dictRule = rule as IDictionary<string, object>;
+                        string ruleStep = dictRule[$"STEP{i + 1}"]?.ToString();
+                        string rulePgm = dictRule[$"PGM{i + 1}"]?.ToString();
+
+                        if (vSteps[i] != ruleStep || vPgms[i] != rulePgm)
+                        {
+                            bMatch = false;
+                            break;
+                        }
+                    }
+
+                    if (bMatch && stepMatchedCount > 0)
+                    {
+                        var dictRule = rule as IDictionary<string, object>;
+                        string tempSwapFlag = dictRule[$"SWAPFLAG{stepMatchedCount}"]?.ToString();
+                        string tempPgName = dictRule[$"PGM{stepMatchedCount}"]?.ToString();
+
+                        if (tempSwapFlag == "Y")
+                        {
+                            // 若 CheckSwapPGNameAttr 檢查過關，則加入結果[cite: 5]
+                            // if (CheckSwapPGNameAttr(eqType2, tempPgName, originalPgName))
+                            matchedPgmList.Add(tempPgName);
+                        }
+                    }
+                }
+            }
+
+            // 5. 判斷是否有衝突[cite: 5]
+            if (matchedPgmList.Distinct().Count() > 1)
+            {
+                return "X"; // 有衝突需分批[cite: 5]
+            }
+
+            if (matchedPgmList.Any())
+            {
+                return matchedPgmList.First();
+            }
+
+            return "";
         }
     }
 }
