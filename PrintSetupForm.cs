@@ -89,6 +89,36 @@ namespace MES.Net.Shared.DTOs.Print
         public string ReplacePgName01 { get; set; }
         // ... (視需求擴充 02, 03)
     }
+    // 對應 GetFTAccByPgm 的回傳值
+    public class FtAccDto
+    {
+        public string Loadboard { get; set; }
+        public string Contactboard { get; set; }
+        public string Burninboard { get; set; }
+    }
+
+    // 對應 GetPgIdAndNameFromFutAct 的回傳值
+    public class FutActPgmDto
+    {
+        public string PgId { get; set; }
+        public string PgName { get; set; }
+        public string DocNo { get; set; }
+        public string PgMode { get; set; }
+    }
+
+    // 對應 GetTecnPgmRecipeAttr 的回傳值
+    public class TecnPgmRecipeAttrDto
+    {
+        public string RefPgmTecnNo { get; set; }
+        public string RefPgm { get; set; }
+        public string RefPgId { get; set; }
+        public string RefPgmSource { get; set; }
+        public string RefTempTecnNo { get; set; }
+        public string RefTemp { get; set; }
+        public string RefTempSource { get; set; }
+        public string RefOverTime { get; set; }
+        public string RefLevel { get; set; }
+    }
 }
 
 using Dapper;
