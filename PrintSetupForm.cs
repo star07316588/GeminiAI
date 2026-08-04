@@ -43,6 +43,52 @@ namespace MES.Net.Shared.DTOs.Print
         public string CurEqpId { get; set; }
         public string SplitAssignEqId { get; set; }
     }
+
+    public class PrintSetupSubsystemRequest
+    {
+        public string LotId { get; set; }
+        public string Stage { get; set; }
+        public string TesterId { get; set; }
+        public string StepNo { get; set; }
+        public string StepName { get; set; }
+        public string SubSystemValue { get; set; } // 例如: "SYS1,SITE1" 或 "SYS1"
+    }
+
+    public class PrintSetupSubsystemResponse
+    {
+        public string PgName { get; set; }
+        public string PgId { get; set; }
+        public string PgMode { get; set; }
+        public string Temp { get; set; }
+        public string WsDeviceFile { get; set; }
+        public string AccType { get; set; }
+        public string SpecifyEq { get; set; }
+        public string SpecifyEqId { get; set; }
+        public string StopTicNo { get; set; }
+    }
+
+    // 用來承接三種資料表共同欄位的內部 Model
+    public class RecipeSpecData
+    {
+        public string PgName { get; set; }
+        public string PgId { get; set; }
+        public string PgMode { get; set; }
+        public string Temperature { get; set; }
+        public string WsDeviceFile { get; set; }
+        public string ProbeCardType { get; set; }
+        public string LoadboardType { get; set; }
+        public string ContactboardType { get; set; }
+        public string BurnInBoard { get; set; }
+        public string SpecifyEq { get; set; }
+        public string EqId { get; set; }
+        public string StopTicNo { get; set; }
+        
+        // 供 GetPGM 替換用的屬性
+        public string RefStepName01 { get; set; }
+        public string RefPgName01 { get; set; }
+        public string ReplacePgName01 { get; set; }
+        // ... (視需求擴充 02, 03)
+    }
 }
 
 using Dapper;
@@ -64,6 +110,9 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<IEnumerable<SelectItem>> GetFtRouteStepsAsync(string path);
         Task<string> GetEqType2Async(string eqId);
         Task<IEnumerable<string>> GetSubSystemsAsync(string sql, object param);
+        Task<RecipeSpecData> GetErunRecipeAsync(string erunTicNo, string stepNo, string eqType2, string subSystem);
+        Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string stepNo, string eqType2, string subSystem, string path, string maxSite);
+        Task<RecipeSpecData> GetProdStepEqSpecAsync(string prodGroup, string stepNo, string eqType2, string subSystem, string path, string maxSite);
     }
 
     public class PrintSetupFormRepository : IPrintSetupFormRepository
@@ -126,6 +175,49 @@ namespace MES.Net.Infrastructure.Repository.Print
         {
             return await _dbConnection.QueryAsync<string>(sql, param);
         }
+
+        public async Task<RecipeSpecData> GetErunRecipeAsync(string erunTicNo, string stepNo, string eqType2, string subSystem)
+        {
+            // 對應 VB 中對 TBL_ERUN_RECIPE 的查詢
+            string sql = @"
+                SELECT PGNAME, PGID, PGMODE, TEMPERATURE, PROBECARDTYPE, LOADBOARDTYPE, 
+                       CONTACTBOARDTYPE, WSDEVICEFILE
+                FROM TBL_ERUN_RECIPE
+                WHERE DOCNO = :DocNo AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 
+                  AND DELETEFLAG = 'N' " + (string.IsNullOrEmpty(subSystem) ? "AND SUBSYSTEM IS NULL" : "AND SUBSYSTEM = :SubSystem");
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { DocNo = erunTicNo, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem });
+        }
+
+        public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string stepNo, string eqType2, string subSystem, string path, string maxSite)
+        {
+            // 對應 VB 中對 TBL_LOT_STEP_EQ_SPEC 的查詢 (TECN)
+            string sql = @"
+                SELECT PGNAME, PGID, PGMODE, TEMPERATURE, PROBECARDTYPE, LOADBOARDTYPE, 
+                       CONTACTBOARDTYPE, WSDEVICEFILE, SPECIFYEQ, EQID, BURNINBOARD,
+                       REFSTEPNAME01, REFPGNAME01, REPLACEPGNAME01
+                FROM TBL_LOT_STEP_EQ_SPEC
+                WHERE TECNLOTID LIKE :TecnLotId AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 
+                  AND SUBSYSTEM = :SubSystem AND PATH = :Path AND NVL(MAXSITE, ' ') = NVL(:MaxSite, ' ')
+                  AND DELETEFLAG = 'N'";
+            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { TecnLotId = tecnLotId, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path, MaxSite = maxSite });
+        }
+
+        public async Task<RecipeSpecData> GetProdStepEqSpecAsync(string prodGroup, string stepNo, string eqType2, string subSystem, string path, string maxSite)
+        {
+            // 對應 VB 中對 TBL_PROD_STEP_EQ_SPEC 的查詢 (Normal)
+            string sql = @"
+                SELECT PG_NAME as PgName, PG_ID as PgId, PG_MODE as PgMode, TEMPERATURE, 
+                       PROBECARD_TYPE as ProbeCardType, LOADBOARD_TYPE as LoadboardType, 
+                       CONTACTBOARD_TYPE as ContactboardType, WS_DEVICE_FILE as WsDeviceFile, 
+                       SPECIFYEQ, EQID, STOPTICNO, BURN_IN_BOARD as BurnInBoard,
+                       REF_STEP_NAME_01 as RefStepName01, REF_PG_NAME_01 as RefPgName01, REPLACE_PG_NAME_01 as ReplacePgName01
+                FROM TBL_PROD_STEP_EQ_SPEC
+                WHERE PRODGROUP = :ProdGroup AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 
+                  AND SUBSYSTEM = :SubSystem AND PATH = :Path AND NVL(MAX_SITE, ' ') = NVL(:MaxSite, ' ')
+                  AND DOCSTATUS = 'Active'";
+            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { ProdGroup = prodGroup, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path, MaxSite = maxSite });
+        }
     }
 }
 
@@ -142,6 +234,7 @@ namespace MES.Net.Application.Services.Print
     public interface IPrintSetupFormService
     {
         Task<PrintSetupFormQueryResponse> QuerySetupFormDataAsync(string lotId);
+        Task<PrintSetupSubsystemResponse> ProcessSubsystemChangeAsync(PrintSetupSubsystemRequest request);
     }
 
     public class PrintSetupFormService : IPrintSetupFormService
@@ -278,6 +371,95 @@ namespace MES.Net.Application.Services.Print
             }
             return sql;
         }
+
+        public async Task<PrintSetupSubsystemResponse> ProcessSubsystemChangeAsync(PrintSetupSubsystemRequest request)
+        {
+            var response = new PrintSetupSubsystemResponse();
+
+            if (string.IsNullOrEmpty(request.SubSystemValue)) return response;
+
+            // 1. 解析 SubSystem 與 MaxSite
+            string subSystemType = request.SubSystemValue;
+            string maxSite = string.Empty;
+            if (request.SubSystemValue.Contains(","))
+            {
+                var parts = request.SubSystemValue.Split(',');
+                subSystemType = parts[0];
+                maxSite = parts[1];
+            }
+
+            // 2. 取得 Lot 資訊與基本屬性
+            var olot = WipServiceWrapper.Instance.LotById(request.LotId);
+            string ipn = olot.CustomAttributes(LotCustomAttributes.Ipn);
+            string prodGroup = olot.CustomAttributes(LotCustomAttributes.ProdGroup);
+            
+            var attr = await _repo.GetLotAttributeAsync(request.LotId);
+            string path = attr?.PATH ?? "";
+
+            string eqType2 = await _repo.GetEqType2Async(request.TesterId);
+
+            // 3. 取得 Lot Info
+            var lotInfo = await _repo.GetLotInfoAsync(request.LotId);
+            string erunTicNo = lotInfo?.ERUNTICNO ?? "";
+            string tecnLotId = lotInfo?.TECNLOTID ?? "";
+            string followProd = string.IsNullOrEmpty(erunTicNo) ? "" : await _repo.GetFollowProductAsync(request.LotId, erunTicNo, request.Stage);
+
+            RecipeSpecData specData = null;
+
+            // 4. 判斷情境並撈取對應的 Spec 資料
+            if (!string.IsNullOrEmpty(erunTicNo) && followProd == "N")
+            {
+                // 情境 1: Erun 重工且不 follow product
+                specData = await _repo.GetErunRecipeAsync(erunTicNo, request.StepNo, eqType2, subSystemType);
+            }
+            else if (!string.IsNullOrEmpty(tecnLotId)) // 或 bTECNLotSpec = True
+            {
+                // 情境 2: TECN Lot
+                specData = await _repo.GetLotStepEqSpecAsync(tecnLotId, request.StepNo, eqType2, subSystemType, path, maxSite);
+                
+                // 這裡會呼叫貴司既有的 GetPGM, GetFTAccByPgm 等共用函數，這裡以註解示意
+                // specData.PgName = CustomMesHelper.GetPGM(olot, specData.PgName, ...);
+            }
+            else
+            {
+                // 情境 3: 一般產品
+                specData = await _repo.GetProdStepEqSpecAsync(prodGroup, request.StepNo, eqType2, subSystemType, path, maxSite);
+                
+                // 這裡會呼叫貴司既有的 GetSwapPGName 等共用函數
+                // string swapPgName = CustomMesHelper.GetSwapPGName(request.LotId, prodGroup, ...);
+                // if (!string.IsNullOrEmpty(swapPgName) && swapPgName != "X") specData.PgName = swapPgName;
+            }
+
+            // 5. 將結果填入 Response
+            if (specData != null)
+            {
+                response.PgName = specData.PgName;
+                response.PgId = specData.PgId;
+                response.PgMode = specData.PgMode;
+                response.Temp = specData.Temperature;
+                response.WsDeviceFile = specData.WsDeviceFile;
+                response.SpecifyEq = specData.SpecifyEq;
+                response.SpecifyEqId = specData.EqId;
+                response.StopTicNo = specData.StopTicNo;
+
+                // 判斷配件 AccType (優先順序: ProbeCard -> LoadBoard -> ContactBoard)
+                if (!string.IsNullOrEmpty(specData.ProbeCardType))
+                    response.AccType = specData.ProbeCardType;
+                else if (!string.IsNullOrEmpty(specData.LoadboardType))
+                    response.AccType = specData.LoadboardType;
+                else if (!string.IsNullOrEmpty(specData.ContactboardType))
+                    response.AccType = specData.ContactboardType;
+                // 若都為空，VB中會去呼叫 GetFTAccByPgm 取得，可在此整合
+            }
+
+            // (可選) 呼叫 modTecn.GetTecnPgmRecipeAttr 進行最後 TECN 屬性的覆蓋
+            // CustomMesHelper.GetTecnPgmRecipeAttr(..., out getPgm, out getPgId, out getTemp);
+            // if (!string.IsNullOrEmpty(getPgm)) response.PgName = getPgm;
+            // ...
+
+            return response;
+        }
+    }
     }
 }
 
@@ -324,6 +506,28 @@ namespace MES.Net.Web.Controllers.Print
             catch (Exception ex)
             {
                 // 將 Exception Message (如：Lot不存在) 原封不動傳給前端 VMessageBox 顯示
+                return Ok(new { Success = false, Message = ex.Message });
+            }
+        }
+        /// <summary>
+        /// 處理 SubSystem 下拉選單變更，回傳配方明細資料
+        /// 對應 VB 端的 cboSubSystem_Click()
+        /// </summary>
+        [HttpPost, Route("subsystem-change"), AuthorizeToken]
+        public async Task<IHttpActionResult> SubsystemChange([FromBody] PrintSetupSubsystemRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.LotId))
+                {
+                    return Ok(new { Success = false, Message = "無效的請求參數!" });
+                }
+
+                var data = await _service.ProcessSubsystemChangeAsync(request);
+                return Ok(new { Success = true, Data = data });
+            }
+            catch (Exception ex)
+            {
                 return Ok(new { Success = false, Message = ex.Message });
             }
         }
