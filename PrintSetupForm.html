@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRINT SETUP FORM (E-Test)</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        .msc-panel, .mab-bar {
+            margin-bottom: 10px;
+        }
+        /* 讓表單內的唯讀文字框看起來像 Label，還原 VB 風格但更現代 */
+        .v-text-field.v-input--is-readonly .v-input__control {
+            background-color: #f5f5f5;
+        }
+        /* 區塊標題樣式 */
+        .section-title {
+            color: #1976d2; /* 對應 VB 畫面的藍色字體 Lot Criteria / PgID */
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="page-layout" data-app>
+        
+        <mes-toolbar title="Print Setup Form (E-Test)"></mes-toolbar>
+
+        <div class="page-body">
+
+            <!-- 1. 查詢條件區塊 (對應 VB 的 Lot Criteria) -->
+            <mes-search-criteria title="Lot Criteria"
+                                 :fields="criteriaFields"
+                                 :cols="4"
+                                 v-model="qry"
+                                 ref="criteria"
+                                 @enter="doQuery"></mes-search-criteria>
+
+            <!-- 動作按鈕區塊 -->
+            <mes-action-bar :buttons="actionButtons"
+                            :auto-add-close="true"
+                            @action="onAction"></mes-action-bar>
+
+            <!-- 2. 表單輸入區塊 (對應 VB 的 PgID 區塊) -->
+            <v-card outlined class="mt-2" v-show="formData.lotId">
+                <v-card-text>
+                    <div class="section-title">PgID (Lot Information)</div>
+                    
+                    <v-row dense>
+                        <!-- Row 1 -->
+                        <v-col cols="12" md="6">
+                            <v-text-field label="Stage" v-model="formData.stage" readonly dense outlined hide-details></v-text-field>
+                        </v-col>
+                        <v-col cols="12" md="6">
+                            <v-text-field label="LotStatus" v-model="formData.lotStatus" readonly dense outlined hide-details></v-text-field>
+                        </v-col>
+
+                        <!-- Row 2 -->
+                        <v-col cols="12" md="6">
+                            <v-select label="CurrentStep" :items="options.stepList" v-model="formData.stepNo" item-text="text" item-value="value" dense outlined hide-details></v-select>
+                        </v-col>
+                        <v-col cols="12" md="6">
+                            <v-select label="(主系統)TesterId" :items="options.testerIdList" v-model="formData.testerId" item-text="text" item-value="value" dense outlined hide-details></v-select>
+                        </v-col>
+
+                        <!-- Row 3 -->
+                        <v-col cols="12" md="6">
+                            <v-text-field label="IPN" v-model="formData.ipn" readonly dense outlined hide-details></v-text-field>
+                        </v-col>
+                        <v-col cols="12" md="6">
+                            <v-text-field label="LotOwner" v-model="formData.lotOwner" readonly dense outlined hide-details></v-text-field>
+                        </v-col>
+
+                        <!-- Row 4 -->
+                        <v-col cols="12">
+                            <v-select label="SubSystem, Site" :items="options.subSystemList" v-model="formData.subSystemValue" item-text="text" item-value="value" @change="doSubSystemChange" dense outlined hide-details></v-select>
+                        </v-col>
+
+                        <!-- Row 5 -->
+                        <v-col cols="12">
+                            <v-text-field label="Program Name" v-model="formData.pgName" dense outlined hide-details></v-text-field>
+                        </v-col>
+
+                        <!-- Row 6 -->
+                        <v-col cols="12">
+                            <v-text-field label="WaferID" v-model="formData.waferId" dense outlined hide-details></v-text-field>
+                        </v-col>
+                    </v-row>
+
+                    <!-- 架機片刻號區塊 (WS 站別時顯示) -->
+                    <div class="section-title mt-4" v-show="formData.stage === 'WS'">架機片刻號 Setup WaferID</div>
+                    <v-row dense v-show="formData.stage === 'WS'">
+                        <v-col cols="12" md="4">
+                            <v-text-field label="第一片" v-model="formData.setupWaferId1" readonly dense outlined hide-details></v-text-field>
+                        </v-col>
+                        <v-col cols="12" md="4">
+                            <v-text-field label="第二片" v-model="formData.setupWaferId2" readonly dense outlined hide-details></v-text-field>
+                        </v-col>
+                        <v-col cols="12" md="4">
+                            <v-text-field label="第三片" v-model="formData.setupWaferId3" readonly dense outlined hide-details></v-text-field>
+                        </v-col>
+
+                        <v-col cols="12">
+                            <v-select label="Setup Reason" :items="options.setupReasonList" v-model="formData.setupReason" item-text="text" item-value="value" dense outlined hide-details></v-select>
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+            </v-card>
+
+        </div>
+        <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-search-criteria.js"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+
+    <script>
+        Vue.use(VMessageBox);
+
+        var vapp = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    /* ── 查詢參數 ── */
+                    qry: {
+                        lotId: ''
+                    },
+                    criteriaFields: [
+                        { key: 'lotId', label: 'LotID:', type: 'input', placeholder: '請輸入 LotID' }
+                    ],
+
+                    /* ── 表單資料綁定 (對應 DTO) ── */
+                    formData: {
+                        lotId: '',
+                        stage: '',
+                        lotStatus: '',
+                        ipn: '',
+                        lotOwner: '',
+                        stepNo: '',
+                        testerId: '',
+                        subSystemValue: '',
+                        pgName: '',
+                        waferId: '',
+                        setupWaferId1: '',
+                        setupWaferId2: '',
+                        setupWaferId3: '',
+                        setupReason: '',
+                        inStepTime: '',
+                        // 隱藏欄位 (後端判斷停測等使用)
+                        accType: '',
+                        specifyEq: '',
+                        specifyEqId: '',
+                        stopTicNo: '',
+                        pgId: '',
+                        pgMode: '',
+                        temp: '',
+                        wsDeviceFile: ''
+                    },
+
+                    /* ── 下拉選單資料來源 ── */
+                    options: {
+                        stepList: [],
+                        testerIdList: [],
+                        subSystemList: [],
+                        setupReasonList: [] // 若有初始化 API，可於 mounted 呼叫取得
+                    },
+
+                    statusMsg: 'READY',
+                    statusMsgType: ''
+                };
+            },
+
+            mounted() {
+                // 若是由 PrintSetupFormMain 傳遞參數過來，自動帶入並查詢
+                const urlParams = new URLSearchParams(window.location.search);
+                const queryLotId = urlParams.get('lotId');
+                if (queryLotId) {
+                    this.qry.lotId = queryLotId;
+                    this.doQuery();
+                }
+            },
+
+            computed: {
+                /* ── 動態變更按鈕 ── */
+                actionButtons() {
+                    let btns = [
+                        { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
+                    ];
+
+                    // 有資料才顯示 OK 按鈕
+                    if (this.formData.lotId) {
+                        btns.push({ action: 'submit', label: 'OK (送出架機單)', icon: 'mdi-check-circle', color: 'success' });
+                    }
+
+                    btns.push({ action: 'clear', label: 'Cancel (清除)', icon: 'mdi-eraser' });
+                    return btns;
+                }
+            },
+
+            methods: {
+                /* ── 1. 執行查詢 (對應 ExecQuery) ── */
+                async doQuery() {
+                    if (!this.qry.lotId.trim()) {
+                        VMessageBox.alert('Pls input LotID !!');
+                        return;
+                    }
+
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('QUERYING...', 'info');
+
+                    try {
+                        // 呼叫我們先前寫好的第一支 API
+                        const response = await mesfetch("/api/print/print-setup-form/query", { LotId: this.qry.lotId });
+
+                        if (response.Success) {
+                            const data = response.Data;
+                            
+                            // 綁定基本資料
+                            this.formData.lotId = data.LotId;
+                            this.formData.stage = data.Stage;
+                            this.formData.lotStatus = data.LotStatus;
+                            this.formData.ipn = data.IPN;
+                            this.formData.lotOwner = data.LotOwner;
+
+                            // 綁定下拉選單選項
+                            this.options.stepList = data.StepList;
+                            this.options.testerIdList = data.TesterIdList;
+                            this.options.subSystemList = data.SubSystemList;
+
+                            // 綁定預設選取值
+                            this.formData.stepNo = data.SelectedStep;
+                            this.formData.testerId = data.SelectedTesterId;
+
+                            // 觸發 SubSystem 的預設事件 (若只有一筆)
+                            if (this.options.subSystemList.length === 1) {
+                                this.formData.subSystemValue = this.options.subSystemList[0].Value;
+                                await this.doSubSystemChange(); // 自動連動第二支 API
+                            } else {
+                                this.formData.subSystemValue = '';
+                            }
+
+                            this.setStatus('QUERY SUCCESS', 'success');
+                        } else {
+                            VMessageBox.alert(response.Message);
+                            this.doClear();
+                            this.setStatus('QUERY FAILED', 'error');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert('查詢發生預期外的錯誤', 'Error');
+                        this.doClear();
+                        this.setStatus('QUERY FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                /* ── 2. SubSystem 連動 (對應 cboSubSystem_Click) ── */
+                async doSubSystemChange() {
+                    if (!this.formData.subSystemValue) return;
+
+                    this.setStatus('UPDATING RECIPE...', 'info');
+
+                    try {
+                        const payload = {
+                            LotId: this.formData.lotId,
+                            Stage: this.formData.stage,
+                            TesterId: this.formData.testerId,
+                            StepNo: this.formData.stepNo,
+                            SubSystemValue: this.formData.subSystemValue
+                        };
+
+                        // 呼叫我們先前寫好的第二支連動 API
+                        const response = await mesfetch("/api/print/print-setup-form/subsystem-change", payload);
+
+                        if (response.Success && response.Data) {
+                            const spec = response.Data;
+                            
+                            // 更新畫面與隱藏欄位
+                            this.formData.pgName = spec.PgName || '';
+                            this.formData.pgId = spec.PgId || '';
+                            this.formData.pgMode = spec.PgMode || '';
+                            this.formData.temp = spec.Temp || '';
+                            this.formData.wsDeviceFile = spec.WsDeviceFile || '';
+                            this.formData.accType = spec.AccType || '';
+                            this.formData.specifyEq = spec.SpecifyEq || '';
+                            this.formData.specifyEqId = spec.SpecifyEqId || '';
+                            this.formData.stopTicNo = spec.StopTicNo || '';
+
+                            this.setStatus('UPDATE SUCCESS', 'success');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        this.setStatus('UPDATE FAILED', 'error');
+                    }
+                },
+
+                /* ── 3. 送出架機單 (對應 cmdOK_Click) ── */
+                async doSubmit() {
+                    // 防呆檢核
+                    if (this.formData.stage === 'WS') {
+                        if (!this.formData.waferId) {
+                            VMessageBox.alert("WaferID 不可為空白。(WaferID can't Empty.)");
+                            return;
+                        }
+                        if (!this.formData.pgName) {
+                            VMessageBox.alert("Program Name 不可為空白。(Program Name can't Empty.)");
+                            return;
+                        }
+                    } else if (this.formData.stage === 'FT') {
+                        if (!this.formData.testerId) {
+                            VMessageBox.alert("TesterId 不可沒選");
+                            return;
+                        }
+                    }
+
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('SUBMITTING...', 'info');
+
+                    try {
+                        // 加入登入者資訊 (若有統一控管也可由後端取得)
+                        this.formData.userId = sessionStorage.getItem('mes_loginId') || 'System';
+
+                        // 呼叫第三支 API
+                        const response = await mesfetch("/api/print/print-setup-form/submit", this.formData);
+
+                        if (response.Success) {
+                            const data = response.Data;
+                            
+                            // 若有停測訊息，跳出提示
+                            if (data.StopInfoMsg && data.StopInfoMsg !== "NA") {
+                                VMessageBox.alert("請確認停測資訊:\n" + data.StopInfoMsg, "停測提示");
+                            }
+
+                            if (this.formData.stage === 'WS') {
+                                VMessageBox.alert(`SETUP FORM 單號 [${data.FormNo}] 建立成功！`, "成功", { color: 'success' });
+                            } else {
+                                // FT 列印動作
+                                // 若需產生實體報表，可比照 PrintISG 在此呼叫 window.print()
+                            }
+                            
+                            this.doClear();
+                            this.setStatus('SUBMIT SUCCESS', 'success');
+                        } else {
+                            VMessageBox.alert(response.Message);
+                            this.setStatus('SUBMIT FAILED', 'error');
+                        }
+
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert('送出發生預期外的錯誤', 'Error');
+                        this.setStatus('SUBMIT FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                /* ── 清除資料 ── */
+                doClear() {
+                    this.formData = {
+                        lotId: '', stage: '', lotStatus: '', ipn: '', lotOwner: '', stepNo: '',
+                        testerId: '', subSystemValue: '', pgName: '', waferId: '',
+                        setupWaferId1: '', setupWaferId2: '', setupWaferId3: '', setupReason: '', inStepTime: '',
+                        accType: '', specifyEq: '', specifyEqId: '', stopTicNo: '', pgId: '', pgMode: '', temp: '', wsDeviceFile: ''
+                    };
+                    this.options = { stepList: [], testerIdList: [], subSystemList: [], setupReasonList: [] };
+                    this.qry.lotId = '';
+                    this.setStatus('CLEARED', '');
+                },
+
+                doClose() {
+                    window.location.href = '/Print/PrintSetupFormMain'; 
+                },
+
+                /* ── Action Bar 分派器 ── */
+                onAction(action) {
+                    const map = {
+                        query: this.doQuery,
+                        submit: this.doSubmit,
+                        clear: this.doClear,
+                        close: this.doClose
+                    };
+                    if (map[action]) map[action].call(this);
+                },
+
+                setStatus(msg, type) {
+                    this.statusMsg = msg;
+                    this.statusMsgType = type || '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
