@@ -382,6 +382,42 @@ namespace MES.Net.Infrastructure.Repository.Print
             
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId });
         }
+
+        public async Task<string> GetTecnControlActionAsync(string tecnNo, string lotId)
+        {
+            // 查詢 TBL_LOT_TECN_CONTROL_LIST 的 Action[cite: 4]
+            string sql = @"
+                SELECT ACTION FROM TBL_LOT_TECN_CONTROL_LIST
+                WHERE TECNNO = :TecnNo AND LOTID = :LotId AND DELETEFLAG = 'N'
+                ORDER BY CREATETIME DESC, ACTIONTIME DESC";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { TecnNo = tecnNo, LotId = lotId });
+        }
+
+        /* ---------------------------------------------------------
+           GetSwapPGName 相關 SQL
+        --------------------------------------------------------- */
+        public async Task<IEnumerable<string>> GetProdStepSpecStepsAsync(string prodGroup)
+        {
+            string sql = @"SELECT DISTINCT STEP_NAME FROM TBL_PROD_STEP_SPEC 
+                           WHERE PROD_GROUP = :ProdGroup AND DOC_STATUS = 'Active' AND STEP_NAME LIKE 'SORT%' 
+                           ORDER BY STEP_NO";
+            return await _dbConnection.QueryAsync<string>(sql, new { ProdGroup = prodGroup });
+        }
+
+        public async Task<IEnumerable<dynamic>> GetLotPgmRecSequenceAsync(string lotId)
+        {
+            string sql = @"SELECT PRODGROUP, STEP, PGM FROM VIEW_WS_LOT_PGM_REC_SEQUENCE WHERE CURLOTID = :LotId";
+            return await _dbConnection.QueryAsync(sql, new { LotId = lotId });
+        }
+
+        public async Task<IEnumerable<dynamic>> GetWsPgmReplaceAsync(string prodGroup)
+        {
+            string sql = @"SELECT STEP1, STEP2, STEP3, STEP4, STEP5, STEP6, STEP7, STEP8, STEP9, STEP10, STEP11, STEP12, STEP13, STEP14, STEP15,
+                                  PGM1, PGM2, PGM3, PGM4, PGM5, PGM6, PGM7, PGM8, PGM9, PGM10, PGM11, PGM12, PGM13, PGM14, PGM15,
+                                  SWAPFLAG1, SWAPFLAG2, SWAPFLAG3, SWAPFLAG4, SWAPFLAG5, SWAPFLAG6, SWAPFLAG7, SWAPFLAG8, SWAPFLAG9, SWAPFLAG10, SWAPFLAG11, SWAPFLAG12, SWAPFLAG13, SWAPFLAG14, SWAPFLAG15
+                           FROM TBL_WS_PGM_REPLACE WHERE PRODGROUP = :ProdGroup";
+            return await _dbConnection.QueryAsync(sql, new { ProdGroup = prodGroup });
+        }
     }
 }
 
