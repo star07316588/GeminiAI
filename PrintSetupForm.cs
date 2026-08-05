@@ -367,6 +367,21 @@ namespace MES.Net.Infrastructure.Repository.Print
                            FROM TBL_WS_PGM_REPLACE WHERE PRODGROUP = :ProdGroup";
             return await _dbConnection.QueryAsync(sql, new { ProdGroup = prodGroup });
         }
+
+        // Interface 宣告也要記得改
+        Task<dynamic> GetIpnMasterForTecnAsync(string lotId);
+
+        // Implementation 實作
+        public async Task<dynamic> GetIpnMasterForTecnAsync(string lotId)
+        {
+            string sql = @"
+                SELECT a.IPN, a.PRODGROUPKEY, a.MASK_OPTION, a.BE_OPTION 
+                FROM TBL_LOT_ATTRIBUTE tlatt
+                INNER JOIN TBL_IPN_MASTER a ON tlatt.IPN = a.IPN
+                WHERE tlatt.LOTID = :LotId";
+            
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId });
+        }
     }
 }
 
@@ -741,10 +756,12 @@ namespace MES.Net.Application.Services.Print
         {
             var result = new TecnPgmRecipeAttrDto();
 
-            // 若參數不足，補齊 IPN/ProdGroupKey/ProdCode[cite: 4]
+            // 若參數不足，透過 LotId 補齊 IPN/ProdGroupKey/ProdCode
             if (!string.IsNullOrEmpty(lotId) && (string.IsNullOrEmpty(ipn) || string.IsNullOrEmpty(prodGroupKey) || string.IsNullOrEmpty(prodCode)))
             {
-                var ipnData = await _repo.GetIpnMasterForTecnAsync(ipn);
+                // 🌟 這裡參數改傳 lotId
+                var ipnData = await _repo.GetIpnMasterForTecnAsync(lotId); 
+                
                 if (ipnData != null)
                 {
                     if (string.IsNullOrEmpty(ipn)) ipn = ipnData.IPN;
