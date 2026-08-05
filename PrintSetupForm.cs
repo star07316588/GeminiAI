@@ -304,32 +304,19 @@ namespace MES.Net.Infrastructure.Repository.Print
         /* ---------------------------------------------------------
            GetTecnPgmRecipeAttr 相關 SQL
         --------------------------------------------------------- */
-        public async Task<dynamic> GetIpnMasterForTecnAsync(string ipn)
-        {
-            string sql = @"SELECT IPN, PRODGROUPKEY, MASK_OPTION, BE_OPTION 
-                           FROM TBL_IPN_MASTER WHERE IPN = :Ipn";
-            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { Ipn = ipn });
-        }
+        // Interface 宣告也要記得改
+        Task<dynamic> GetIpnMasterForTecnAsync(string lotId);
 
-        public async Task<IEnumerable<dynamic>> GetTecnPgmRecordsAsync(string eqType2, string testMode, int level, string description, string pgName, string tecnNo)
+        // Implementation 實作
+        public async Task<dynamic> GetIpnMasterForTecnAsync(string lotId)
         {
-            // 對應 VB 中 sSQL_1 與 sSQL_2 的組裝[cite: 4]
             string sql = @"
-                SELECT TECNNO, TECNLEVEL, PGNAME, PGID, STATUS, SOURCE, TEMP_C as Temp, 
-                       (CASE WHEN TO_CHAR(SYSDATE, 'YYYYMMDD HH24MISS') || '000' BETWEEN STARTTIME AND ENDTIME THEN 'N' ELSE 'Y' END) as OverTime
-                FROM TBL_TECN_PGM
-                WHERE TESTERTYPE = :EqType2 
-                  AND TESTMODE = :TestMode 
-                  AND TECNLEVEL = :Level ";
-
-            if (!string.IsNullOrEmpty(pgName)) sql += " AND PGNAME = :PgName ";
+                SELECT a.IPN, a.PRODGROUPKEY, a.MASK_OPTION, a.BE_OPTION 
+                FROM TBL_LOT_ATTRIBUTE tlatt
+                INNER JOIN TBL_IPN_MASTER a ON tlatt.IPN = a.IPN
+                WHERE tlatt.LOTID = :LotId";
             
-            if (level < 4 && !string.IsNullOrEmpty(tecnNo))
-                sql += " AND TECNNO = :TecnNo ";
-            else
-                sql += " AND :Description LIKE DESCRIPTION "; // VB: '" & sDescription & "' like A.DESCRIPTION[cite: 4]
-
-            return await _dbConnection.QueryAsync(sql, new { EqType2 = eqType2, TestMode = testMode, Level = level, Description = description, PgName = pgName, TecnNo = tecnNo });
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId });
         }
 
         public async Task<string> GetTecnControlActionAsync(string tecnNo, string lotId)
