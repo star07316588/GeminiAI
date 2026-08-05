@@ -119,6 +119,44 @@ namespace MES.Net.Shared.DTOs.Print
         public string RefOverTime { get; set; }
         public string RefLevel { get; set; }
     }
+
+    public class PrintSetupFormSubmitRequest
+    {
+        public string LotId { get; set; }
+        public string Stage { get; set; }
+        public string TesterId { get; set; }
+        public string StepNo { get; set; }
+        public string SubSystemValue { get; set; }
+        public string WaferId { get; set; }
+        public string PgName { get; set; }
+        public string SetupReason { get; set; }
+        
+        // 畫面上的 Setup Wafer IDs
+        public string SetupWaferId1 { get; set; }
+        public string SetupWaferId2 { get; set; }
+        public string SetupWaferId3 { get; set; }
+
+        public string InStepTime { get; set; }
+        
+        // 從前端接回來的隱藏或顯示欄位 (對應 VB 的 txtTemp, txtWsDeviceFile 等)
+        public string AccType { get; set; }
+        public string SpecifyEq { get; set; }
+        public string SpecifyEqId { get; set; }
+        public string StopTicNo { get; set; }
+        public string PgId { get; set; }
+        public string PgMode { get; set; }
+        public string Temp { get; set; }
+        public string WsDeviceFile { get; set; }
+        
+        public string UserId { get; set; } // 目前操作的使用者
+    }
+
+    public class PrintSetupFormSubmitResponse
+    {
+        public string FormNo { get; set; }
+        public string StopInfoMsg { get; set; }
+        // 未來若需要回傳整包列印報表資料 (如 FT 的 Excel 資料)，可擴充於此
+    }
 }
 
 using Dapper;
@@ -405,6 +443,60 @@ namespace MES.Net.Infrastructure.Repository.Print
                            FROM TBL_WS_PGM_REPLACE WHERE PRODGROUP = :ProdGroup";
             return await _dbConnection.QueryAsync(sql, new { ProdGroup = prodGroup });
         }
+
+        /// <summary>
+        /// 取得下一個架機單號 (如: ST20260805001)
+        /// 翻譯自 InsNewForm 中產生 FormNo 的 SQL
+        /// </summary>
+        public async Task<string> GetNextSetupFormNoAsync()
+        {
+            string sql = @"
+                SELECT 'ST' || TO_CHAR(SYSDATE, 'YYYYMMDD') || 
+                       DECODE(LENGTH(MAX(SUBSTR(FORMNO, 11, 3)) + 1), 
+                              1, '00' || (MAX(SUBSTR(FORMNO, 11, 3)) + 1), 
+                              2, '0' || (MAX(SUBSTR(FORMNO, 11, 3)) + 1), 
+                              NULL, '001', 
+                              MAX(SUBSTR(FORMNO, 11, 3)) + 1)
+                FROM TBL_WS_EQFORM_BASIC
+                WHERE FORMTYPE = 'SETUP' 
+                  AND FORMNO LIKE 'ST' || TO_CHAR(SYSDATE, 'YYYYMMDD') || '%'";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql);
+        }
+
+        public async Task<int> InsertWsEqFormBasicAsync(object param)
+        {
+            // 對應 InsNewForm 的 Insert SQL
+            string sql = @"
+                INSERT INTO TBL_WS_EQFORM_BASIC (
+                    FORMNO, FORMTYPE, IPN, LOTID, LOTOWNER, ERUNTICNO, WAFERID, 
+                    TESTERID, PROBERID, TESTMODE, PGM, PGID, PGMMATCH, CODE, CHECKSUM, 
+                    SPEED, TEMPERATURE, DEVICEFILE, TECNNO, PROBECARD, EQCOMMENT, STEPCOMMENT, 
+                    CREATEUSERID, CREATETIME, SETUP_REASON, 
+                    SETUPWAFERID_1, SETUPWAFERID_2, SETUPWAFERID_3, STEPID, INSTEPTIME, STOPINFORMATION
+                ) VALUES (
+                    :FormNo, 'SETUP', :Ipn, :LotId, :LotOwner, :ErunTicNo, :WaferId,
+                    :TesterId, :ProberId, :TestMode, :PgName, :PgId, :PgmMatch, :Code, :CheckSum,
+                    :Speed, :Temp, :WsDeviceFile, :TecnNo, :ProbeCard, :EqComments, :StepComments,
+                    :CreateUserId, TO_CHAR(SYSDATE, 'YYYYMMDD HH24MISS')||'000', :SetupReason,
+                    :SetupWaferId1, :SetupWaferId2, :SetupWaferId3, :StepId, :InStepTime, :StopInfo
+                )";
+
+            return await _dbConnection.ExecuteAsync(sql, param);
+        }
+
+        public async Task<int> UpdateEqInfoFormNoAsync(string eqId, string formNo, string userId)
+        {
+            // 更新 TBL_EQ_INFO 的單號與時間
+            string sql = @"
+                UPDATE TBL_EQ_INFO 
+                SET FORM_NO = :FormNo, 
+                    UPDATE_USER_ID = :UserId, 
+                    UPDATE_TIME = TO_CHAR(SYSDATE, 'YYYYMMDD HH24MISS')||'000'
+                WHERE EQ_ID = :EqId";
+
+            return await _dbConnection.ExecuteAsync(sql, new { FormNo = formNo, UserId = userId, EqId = eqId });
+        }
     }
 }
 
@@ -422,6 +514,7 @@ namespace MES.Net.Application.Services.Print
     {
         Task<PrintSetupFormQueryResponse> QuerySetupFormDataAsync(string lotId);
         Task<PrintSetupSubsystemResponse> ProcessSubsystemChangeAsync(PrintSetupSubsystemRequest request);
+        Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupFormSubmitRequest request);
     }
 
     public class PrintSetupFormService : IPrintSetupFormService
@@ -943,6 +1036,123 @@ namespace MES.Net.Application.Services.Print
 
             return "";
         }
+        public partial class PrintSetupFormService : IPrintSetupFormService
+    {
+        public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupFormSubmitRequest request)
+        {
+            var response = new PrintSetupFormSubmitResponse();
+            bool isNewForm = request.Stage?.ToUpper() == "WS"; // 依據 CheckForm 邏輯，Stage=WS 為 mbNewForm = True[cite: 3]
+
+            // 1. 防呆驗證
+            if (isNewForm)
+            {
+                if (string.IsNullOrEmpty(request.WaferId)) throw new Exception("WaferID 不可為空白。(WaferID can't Empty.)");
+                if (string.IsNullOrEmpty(request.PgName)) throw new Exception("Program Name 不可為空白。(Program Name can't Empty.)");
+                if (request.Stage != "FT" && string.IsNullOrEmpty(request.SetupReason)) throw new Exception("Setup Reason 不可為空白。");
+            }
+            if (request.Stage == "FT" && string.IsNullOrEmpty(request.TesterId))
+            {
+                throw new Exception("TesterId 不可沒選");
+            }
+
+            // 取得核心 Lot 與 Eqp
+            var olot = WipServiceWrapper.Instance.LotById(request.LotId);
+            if (olot == null) throw new Exception("此Lot不存在 !!");
+
+            // 2. 停測檢核 (Stop Test Check)
+            // 這裡呼叫既有的 NotStopTest 與 GetStopInfoPByAcc / GetStopInfoNPByAcc 共用函數
+            string stopInfoMsg = string.Empty;
+            
+            // TODO: 掛載貴司底層的停測檢核 (此為示意)
+            // bool isPass = CustomMesHelper.NotStopTest(...); 
+            // if (!isPass) throw new Exception($"停測中，停測資訊:\n{...}");
+            
+            // 處理停測字串 (對應 VB 的 lblStopInfo.Caption 處理)
+            if (!string.IsNullOrEmpty(stopInfoMsg))
+            {
+                if (stopInfoMsg.StartsWith(",")) stopInfoMsg = stopInfoMsg.Substring(1);
+                response.StopInfoMsg = stopInfoMsg; // 傳給前端，讓前端 alert "請確認停測資訊:"
+            }
+            else
+            {
+                response.StopInfoMsg = "NA";
+            }
+
+            // 3. 寫入資料庫 (對應 InsNewForm)
+            if (isNewForm)
+            {
+                // 先撈取寫入所需的其他關聯資料 (如 ErunTicNo, IpnMaster 資訊等，這部分可重複利用先前寫好的 Repository 方法)
+                var lotInfo = await _repo.GetLotInfoAsync(request.LotId);
+                string erunTicNo = lotInfo?.ERUNTICNO ?? "";
+                
+                string formNo = "";
+                bool insertSuccess = false;
+
+                // Retry 邏輯: 最多 20 次 (對應 VB 的 For iIdx = 1 To 20[cite: 3])
+                for (int i = 0; i < 20; i++)
+                {
+                    formNo = await _repo.GetNextSetupFormNoAsync();
+                    if (string.IsNullOrEmpty(formNo)) formNo = $"ST{DateTime.Now:yyyyMMdd}001";
+
+                    try
+                    {
+                        var insertParam = new
+                        {
+                            FormNo = formNo,
+                            Ipn = olot.CustomAttributes(LotCustomAttributes.Ipn),
+                            LotId = request.LotId,
+                            LotOwner = olot.CustomAttributes(LotCustomAttributes.LotOwner),
+                            ErunTicNo = erunTicNo,
+                            WaferId = request.WaferId,
+                            TesterId = request.TesterId,
+                            ProberId = "", // 可依據 TesterId 查詢 EQ_INFO 帶入
+                            TestMode = olot.CurrentStep.Steps[0].Description,
+                            PgName = request.PgName,
+                            PgId = request.PgId,
+                            PgmMatch = "", // 對應 GetSwapPGName 結果
+                            Code = "", // 查詢 TBL_IPN_MASTER 帶入
+                            CheckSum = "",
+                            Speed = "",
+                            Temp = request.Temp,
+                            WsDeviceFile = request.WsDeviceFile,
+                            TecnNo = "", // 可透過 GetLotStepEqSpecAsync 取得
+                            ProbeCard = "",
+                            EqComments = "",
+                            StepComments = "",
+                            CreateUserId = request.UserId,
+                            SetupReason = request.SetupReason,
+                            SetupWaferId1 = request.SetupWaferId1,
+                            SetupWaferId2 = request.SetupWaferId2,
+                            SetupWaferId3 = request.SetupWaferId3,
+                            StepId = request.StepNo,
+                            InStepTime = request.InStepTime,
+                            StopInfo = response.StopInfoMsg
+                        };
+
+                        await _repo.InsertWsEqFormBasicAsync(insertParam);
+                        insertSuccess = true;
+                        break; // 寫入成功即跳出
+                    }
+                    catch (Exception)
+                    {
+                        // 若發生 Unique Constraint 衝突，等待 1 秒後重試 (對應 VB 的 Sleep(1000)[cite: 3])
+                        await Task.Delay(1000);
+                    }
+                }
+
+                if (!insertSuccess)
+                {
+                    throw new Exception($"SETUP FORM 單號寫入失敗,請洽IT人員協助.");
+                }
+
+                // 寫入成功後更新機台狀態
+                await _repo.UpdateEqInfoFormNoAsync(request.TesterId, formNo, request.UserId);
+                
+                response.FormNo = formNo;
+            }
+
+            return response;
+        }
     }
 }
 
@@ -1014,5 +1224,31 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = ex.Message });
             }
         }
+
+        public partial class PrintSetupFormController : ApiController
+    {
+        /// <summary>
+        /// 處理 Click OK 提交動作 (包含驗證、停測檢查與資料庫單號寫入)
+        /// </summary>
+        [HttpPost, Route("submit"), AuthorizeToken]
+        public async Task<IHttpActionResult> SubmitSetupForm([FromBody] PrintSetupFormSubmitRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.LotId))
+                {
+                    return Ok(new { Success = false, Message = "無效的請求參數!" });
+                }
+
+                var data = await _service.SubmitSetupFormAsync(request);
+                return Ok(new { Success = true, Data = data });
+            }
+            catch (Exception ex)
+            {
+                // 回傳錯誤訊息讓前端 VMessageBox 顯示
+                return Ok(new { Success = false, Message = ex.Message });
+            }
+        }
+    }
     }
 }
