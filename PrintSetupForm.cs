@@ -671,14 +671,27 @@ namespace MES.Net.Application.Services.Print
             {
                 if (level == 5) continue;[cite: 4]
 
-                string description = level switch
+                string description = "";
+                
+                switch (level)
                 {
-                    1 => lotId,
-                    2 or 3 => ipn,
-                    4 => prodGroupKey,
-                    6 => prodCode,
-                    _ => ""
-                };[cite: 4]
+                    case 1:
+                        description = lotId;[cite: 4]
+                        break;
+                    case 2:
+                    case 3:
+                        description = ipn;[cite: 4]
+                        break;
+                    case 4:
+                        description = prodGroupKey;[cite: 4]
+                        break;
+                    case 6:
+                        description = prodCode;[cite: 4]
+                        break;
+                    default:
+                        description = "";
+                        break;
+                }
 
                 // TODO: 呼叫 Repository 執行對 TBL_TECN_PGM 的查詢 (傳入 Level, EqType2, Description)
                 // var tecnRecord = await _repo.GetTecnPgmRecordAsync(level, description, testMode, ...);
