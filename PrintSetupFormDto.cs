@@ -23,6 +23,9 @@ namespace MES.Net.Shared.DTOs.Print
         public string SelectedTesterId { get; set; } // 預設選取的 TesterId
 
         public List<SelectItem> SubSystemList { get; set; } = new List<SelectItem>();
+
+        // 🌟 新增：存放 Setup Reason 的下拉選單資料
+        public List<SelectItem> SetupReasonList { get; set; } = new List<SelectItem>();
     }
 
     public class SelectItem
