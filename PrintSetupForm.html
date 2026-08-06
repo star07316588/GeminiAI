@@ -65,10 +65,10 @@
 
                         <!-- Row 2 -->
                         <v-col cols="12" md="6">
-                            <v-select label="CurrentStep" :items="options.stepList" v-model="formData.stepNo" item-text="Text" item-value="Value" dense outlined hide-details></v-select>
+                            <v-select label="CurrentStep" :items="options.stepList" v-model="formData.stepNo" dense outlined hide-details></v-select>
                         </v-col>
                         <v-col cols="12" md="6">
-                            <v-select label="(主系統)TesterId" :items="options.testerIdList" v-model="formData.testerId" item-text="Text" item-value="Value" dense outlined hide-details></v-select>
+                            <v-select label="(主系統)TesterId" :items="options.testerIdList" v-model="formData.testerId" dense outlined hide-details></v-select>
                         </v-col>
 
                         <!-- Row 3 -->
@@ -81,7 +81,7 @@
 
                         <!-- Row 4 -->
                         <v-col cols="12">
-                            <v-select label="SubSystem, Site" :items="options.subSystemList" v-model="formData.subSystemValue" item-text="Text" item-value="Value" @change="doSubSystemChange" dense outlined hide-details></v-select>
+                            <v-select label="SubSystem, Site" :items="options.subSystemList" v-model="formData.subSystemValue" @change="doSubSystemChange" dense outlined hide-details></v-select>
                         </v-col>
 
                         <!-- Row 5 -->
@@ -109,7 +109,7 @@
                         </v-col>
 
                         <v-col cols="12">
-                            <v-select label="Setup Reason" :items="options.setupReasonList" v-model="formData.setupReason" item-text="Text" item-value="Value" dense outlined hide-details></v-select>
+                            <v-select label="Setup Reason" :items="options.setupReasonList" v-model="formData.setupReason" dense outlined hide-details></v-select>
                         </v-col>
                     </v-row>
                 </v-card-text>
@@ -132,52 +132,21 @@
 
         var vapp = new Vue({
             el: '#app',
+            vuetify: new Vuetify(), // 🌟 這是解決 "reading 't'" 錯誤的關鍵！
             data() {
                 return {
                     /* ── 查詢參數 ── */
-                    qry: {
-                        lotId: ''
-                    },
-                    criteriaFields: [
-                        { key: 'lotId', label: 'LotID:', type: 'input', placeholder: '請輸入 LotID' }
-                    ],
-
-                    /* ── 表單資料綁定 (對應 DTO) ── */
+                    qry: { lotId: '' },
+                    criteriaFields: [ { key: 'lotId', label: 'LotID:', type: 'input', placeholder: '請輸入 LotID' } ],
                     formData: {
-                        lotId: '',
-                        stage: '',
-                        lotStatus: '',
-                        ipn: '',
-                        lotOwner: '',
-                        stepNo: '',
-                        testerId: '',
-                        subSystemValue: '',
-                        pgName: '',
-                        waferId: '',
-                        setupWaferId1: '',
-                        setupWaferId2: '',
-                        setupWaferId3: '',
-                        setupReason: '',
-                        inStepTime: '',
-                        // 隱藏欄位 (後端判斷停測等使用)
-                        accType: '',
-                        specifyEq: '',
-                        specifyEqId: '',
-                        stopTicNo: '',
-                        pgId: '',
-                        pgMode: '',
-                        temp: '',
-                        wsDeviceFile: ''
+                        lotId: '', stage: '', lotStatus: '', ipn: '', lotOwner: '', stepNo: '',
+                        testerId: '', subSystemValue: '', pgName: '', waferId: '',
+                        setupWaferId1: '', setupWaferId2: '', setupWaferId3: '', setupReason: '', inStepTime: '',
+                        accType: '', specifyEq: '', specifyEqId: '', stopTicNo: '', pgId: '', pgMode: '', temp: '', wsDeviceFile: ''
                     },
-
-                    /* ── 下拉選單資料來源 ── */
                     options: {
-                        stepList: [],
-                        testerIdList: [],
-                        subSystemList: [],
-                        setupReasonList: [] // 若有初始化 API，可於 mounted 呼叫取得
+                        stepList: [], testerIdList: [], subSystemList: [], setupReasonList: [] 
                     },
-
                     statusMsg: 'READY',
                     statusMsgType: ''
                 };
@@ -196,15 +165,10 @@
             computed: {
                 /* ── 動態變更按鈕 ── */
                 actionButtons() {
-                    let btns = [
-                        { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
-                    ];
-
-                    // 有資料才顯示 OK 按鈕
+                    let btns = [ { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' } ];
                     if (this.formData.lotId) {
                         btns.push({ action: 'submit', label: 'OK (送出架機單)', icon: 'mdi-check-circle', color: 'success' });
                     }
-
                     btns.push({ action: 'clear', label: 'Cancel (清除)', icon: 'mdi-eraser' });
                     return btns;
                 }
@@ -222,39 +186,43 @@
                     this.setStatus('QUERYING...', 'info');
 
                     try {
-                        // 呼叫我們先前寫好的第一支 API
                         const response = await mesfetch("/api/print/print-setup-form/query", { LotId: this.qry.lotId });
 
                         if (response.Success) {
                             const data = response.Data;
                             
-                            // 綁定基本資料
-                            this.formData.lotId = data.LotId;
-                            this.formData.stage = data.Stage;
-                            this.formData.lotStatus = data.LotStatus;
-                            this.formData.ipn = data.IPN;
-                            this.formData.lotOwner = data.LotOwner;
+                            this.formData.lotId = data.LotId || data.lotId;
+                            this.formData.stage = data.Stage || data.stage;
+                            this.formData.lotStatus = data.LotStatus || data.lotStatus;
+                            this.formData.ipn = data.IPN || data.ipn;
+                            this.formData.lotOwner = data.LotOwner || data.lotOwner;
 
-                            // 綁定下拉選單選項 (加入容錯大小寫與空陣列保護)
-                            this.options.stepList = data.StepList || data.stepList || [];
-                            this.options.testerIdList = data.TesterIdList || data.testerIdList || [];
-                            this.options.subSystemList = data.SubSystemList || data.subSystemList || [];
+                            // 🌟 強制轉換大小寫，確保 Vuetify 絕對能吃到 text 與 value
+                            const mapSelectItems = (list) => {
+                                if (!list || !Array.isArray(list)) return [];
+                                return list.map(item => ({
+                                    text: item.Text || item.text || '',
+                                    value: item.Value || item.value || ''
+                                }));
+                            };
 
-                            // 綁定預設選取值
+                            this.options.stepList = mapSelectItems(data.StepList || data.stepList);
+                            this.options.testerIdList = mapSelectItems(data.TesterIdList || data.testerIdList);
+                            this.options.subSystemList = mapSelectItems(data.SubSystemList || data.subSystemList);
+
                             this.formData.stepNo = data.SelectedStep || data.selectedStep || '';
                             this.formData.testerId = data.SelectedTesterId || data.selectedTesterId || '';
-                            
-                            // 觸發 SubSystem 的預設事件 (若只有一筆)
+
                             if (this.options.subSystemList.length === 1) {
-                                this.formData.subSystemValue = this.options.subSystemList[0].Value;
-                                await this.doSubSystemChange(); // 自動連動第二支 API
+                                this.formData.subSystemValue = this.options.subSystemList[0].value; // 注意這裡用小寫 value
+                                await this.doSubSystemChange();
                             } else {
                                 this.formData.subSystemValue = '';
                             }
 
                             this.setStatus('QUERY SUCCESS', 'success');
                         } else {
-                            VMessageBox.alert(response.Message);
+                            VMessageBox.alert(response.Message || response.message);
                             this.doClear();
                             this.setStatus('QUERY FAILED', 'error');
                         }
