@@ -610,45 +610,126 @@ namespace MES.Net.Application.Services.Print
 
             string bodySize = await _repo.GetIpnBodySizeAsync(response.IPN) ?? "";
 
-            // 7. 組合查詢 SubSystem 的 SQL
-            string subSystemSql = BuildSubSystemSql(response.Stage, erunTicNo, followProd, tecnLotId, path, assignProbeCard, assignLoadBoard);
+            // 1. 組裝 SQL (將 AssignLoadBoard 也傳入以利 SQL 判斷)
+            string subSystemSql = BuildSubSystemSql(response.Stage, erunTicNo, followProd, tecnLotId, assignLoadBoard);
             
-            var subSystems = await _repo.GetSubSystemsAsync(subSystemSql, new
+            // 2. 呼叫 Repository 執行查詢 (這裡注意要使用 dynamic 來接回傳的三個欄位)
+            var subSystemsResult = await _repo.GetSubSystemsDynamicAsync(subSystemSql, new
             {
                 ErunTicNo = erunTicNo,
                 StepNo = stepId,
                 EqType2 = eqType2,
                 Path = path,
                 TecnLotId = tecnLotId,
-                BodySize = bodySize
-                // ProdGroup 等參數視實際 SQL 組裝帶入
+                AssignProbeCard = assignProbeCard,
+                AssignLoadBoard = assignLoadBoard,
+                BodySize = bodySize,
+                ProdGroup = prodGroup
             });
-
-            // 整理 SubSystem 格式
-            foreach (var sys in subSystems)
+            
+            // 3. 整理並過濾 SubSystem 選單格式
+            foreach (var item in subSystemsResult)
             {
-                response.SubSystemList.Add(new SelectItem { Text = sys, Value = sys });
+                // 將 Dapper 回傳的 dynamic 轉為 Dictionary 方便以字串取 Key
+                var row = item as IDictionary<string, object>;
+                string sys = row["SUBSYSTEM"]?.ToString() ?? "";
+                string maxSite = row["MAXSITE"]?.ToString() ?? "";
+                string loadboard = row["LOADBOARD"]?.ToString() ?? "";
+                
+                // 組合出畫面上的選項 (例: SYS1, SITE1)
+                string displayText = string.IsNullOrEmpty(maxSite) ? sys : $"{sys},{maxSite}";
+            
+                // 對應 VB6 邏輯：FT 站且有 AssignLoadboard 時的二次過濾
+                if (response.Stage == "FT")
+                {
+                    if (!string.IsNullOrEmpty(assignLoadBoard))
+                    {
+                        if (assignLoadBoard == loadboard)
+                        {
+                            response.SubSystemList.Add(new SelectItem { Text = displayText, Value = displayText });
+                        }
+                    }
+                    else
+                    {
+                        response.SubSystemList.Add(new SelectItem { Text = displayText, Value = displayText });
+                    }
+                }
+                else
+                {
+                    response.SubSystemList.Add(new SelectItem { Text = displayText, Value = displayText });
+                }
             }
 
             return response;
         }
 
-        private string BuildSubSystemSql(string stage, string erunTicNo, string followProd, string tecnLotId, string path, string assignProbeCard, string assignLoadBoard)
+        private string BuildSubSystemSql(string stage, string erunTicNo, string followProd, string tecnLotId, string assignLoadBoard)
         {
-            // (維持前一版的 SQL 組裝邏輯)
             string sql = "";
-            if (!string.IsNullOrEmpty(erunTicNo) && followProd == "N")
+        
+            // 抽出共用的 Decode 語法 (對應舊 VB 邏輯)
+            string decodeSql = @"
+                decode(trim(LOADBOARDTYPE || CONTACTBOARDTYPE || BURNINBOARD), null, 
+                fun_get_ft_acc_bypgm(STEPNAME, :BodySize, PGID, PGNAME, 'loadboard'), LOADBOARDTYPE) as loadboard";
+        
+            if (stage != "FT")
             {
-                sql = "SELECT (SUBSYSTEM || ',' || '') FROM TBL_ERUN_RECIPE WHERE DOCNO = :ErunTicNo AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
+                if (!string.IsNullOrEmpty(erunTicNo) && followProd == "N")
+                {
+                    sql = @"SELECT SUBSYSTEM, '' as MAXSITE, LOADBOARDTYPE as loadboard 
+                            FROM TBL_ERUN_RECIPE 
+                            WHERE DOCNO = :ErunTicNo AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
+                    
+                    // WS 站別專屬的 ProbeCard 條件
+                    if (stage == "WS")
+                        sql += " AND NVL(PROBECARDTYPE, ' ') = NVL(:AssignProbeCard, ' ')";
+                }
+                else if (!string.IsNullOrEmpty(tecnLotId))
+                {
+                    sql = $@"SELECT SUBSYSTEM, MAXSITE, {decodeSql} 
+                             FROM TBL_LOT_STEP_EQ_SPEC 
+                             WHERE :TecnLotId LIKE TECNLOTID AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
+                    
+                    if (stage == "WS")
+                        sql += " AND NVL(PROBECARDTYPE, ' ') = NVL(:AssignProbeCard, ' ')";
+                }
+                else
+                {
+                    // 正規產品規格查詢
+                    sql = $@"SELECT SUBSYSTEM, MAXSITE, {decodeSql} 
+                             FROM TBL_PROD_STEP_EQ_SPEC 
+                             WHERE PRODGROUP = :ProdGroup AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DOCSTATUS = 'Active' AND PATH = :Path";
+                    
+                    if (stage == "WS")
+                        sql += " AND NVL(PROBECARDTYPE, ' ') = NVL(:AssignProbeCard, ' ')";
+                }
             }
-            else if (!string.IsNullOrEmpty(tecnLotId))
+            else // Stage == "FT"
             {
-                sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_LOT_STEP_EQ_SPEC WHERE :TecnLotId LIKE TECNLOTID AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
+                if (!string.IsNullOrEmpty(erunTicNo) && followProd == "N")
+                {
+                    sql = @"SELECT SUBSYSTEM, '' as MAXSITE, LOADBOARDTYPE as loadboard 
+                            FROM TBL_ERUN_RECIPE 
+                            WHERE DOCNO = :ErunTicNo AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
+                    
+                    // FT 站別且有 AssignLoadboard 的條件
+                    if (!string.IsNullOrEmpty(assignLoadBoard))
+                        sql += " AND NVL(LOADBOARDTYPE, ' ') = NVL(:AssignLoadBoard, ' ')";
+                }
+                else if (!string.IsNullOrEmpty(tecnLotId))
+                {
+                    sql = $@"SELECT SUBSYSTEM, MAXSITE, {decodeSql} 
+                             FROM TBL_LOT_STEP_EQ_SPEC 
+                             WHERE :TecnLotId LIKE TECNLOTID AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DELETEFLAG = 'N' AND PATH = :Path";
+                }
+                else
+                {
+                    sql = $@"SELECT SUBSYSTEM, MAXSITE, {decodeSql} 
+                             FROM TBL_PROD_STEP_EQ_SPEC 
+                             WHERE PRODGROUP = :ProdGroup AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DOCSTATUS = 'Active' AND PATH = :Path";
+                }
             }
-            else
-            {
-                sql = "SELECT (SUBSYSTEM || ',' || MAXSITE) FROM TBL_PROD_STEP_EQ_SPEC WHERE STEPNO = :StepNo AND EQTYPE2 = :EqType2 AND DOCSTATUS = 'Active' AND PATH = :Path";
-            }
+        
             return sql;
         }
 
