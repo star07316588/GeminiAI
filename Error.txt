@@ -1,25 +1,3 @@
-select Subsystem,
-       MAXSITE,
-       decode(trim(loadboardtype || contactboardtYPE || burninboard),
-              null,
-              fwadmin.fun_get_ft_acc_bypgm(stepname,
-                                           '',
-                                           pgid,
-                                           pgname,
-                                           'loadboard'),
-              loadboardtype) as loadboard
-  from tbl_prod_step_eq_spec
- where prodgroup = '6756VNFW233'
-   and stepno = '122B2'
-   and eqtype2 = 'NEXTEST_M1'
-   and docstatus = 'Active'
-   and nvl(probecardtype, ' ') = nvl('PN10376756XP2', ' ')
-   and path = 'PW-B1-B2-B3_BBB03'
+Call GetSetupWaferID(Me.txtLotId.Text)
 
-SELECT (SUBSYSTEM || ',' || MAXSITE)
-  FROM TBL_PROD_STEP_EQ_SPEC
- WHERE STEPNO = '122B2'
-   AND EQTYPE2 = 'NEXTEST_M1'
-   AND DOCSTATUS = 'Active'
-   and nvl(probecardtype, ' ') = nvl('PN10376756XP2', ' ')
-   AND PATH = 'PW-B1-B2-B3_BBB03'
+select Fun_GetAssignWaferID('" & sLotID & "') as GetAssignWaferID from dual
