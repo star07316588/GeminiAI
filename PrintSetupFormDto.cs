@@ -165,4 +165,11 @@ namespace MES.Net.Shared.DTOs.Print
         public string MaxSite { get; set; }
         public string LoadBoard { get; set; }
     }
+
+    // 🌟 新增：用來裝載查詢回來的架機片刻號
+        public string SetupWaferId1 { get; set; }
+        public string SetupWaferId2 { get; set; }
+        public string SetupWaferId3 { get; set; }
+
+        public List<SelectItem> StepList { get; set; } = new List<SelectItem>();
 }
