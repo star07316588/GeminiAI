@@ -1,3 +1,1 @@
-Call GetSetupWaferID(Me.txtLotId.Text)
-
-select Fun_GetAssignWaferID('" & sLotID & "') as GetAssignWaferID from dual
+select reasoncode  from Tbl_ReasonCode where  category = 'SetupFomReason'  and  deleteflag ='N' 
