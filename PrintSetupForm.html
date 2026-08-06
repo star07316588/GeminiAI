@@ -65,10 +65,10 @@
 
                         <!-- Row 2 -->
                         <v-col cols="12" md="6">
-                            <v-select label="CurrentStep" :items="options.stepList" v-model="formData.stepNo" item-text="text" item-value="value" dense outlined hide-details></v-select>
+                            <v-select label="CurrentStep" :items="options.stepList" v-model="formData.stepNo" item-text="Text" item-value="Value" dense outlined hide-details></v-select>
                         </v-col>
                         <v-col cols="12" md="6">
-                            <v-select label="(主系統)TesterId" :items="options.testerIdList" v-model="formData.testerId" item-text="text" item-value="value" dense outlined hide-details></v-select>
+                            <v-select label="(主系統)TesterId" :items="options.testerIdList" v-model="formData.testerId" item-text="Text" item-value="Value" dense outlined hide-details></v-select>
                         </v-col>
 
                         <!-- Row 3 -->
@@ -81,7 +81,7 @@
 
                         <!-- Row 4 -->
                         <v-col cols="12">
-                            <v-select label="SubSystem, Site" :items="options.subSystemList" v-model="formData.subSystemValue" item-text="text" item-value="value" @change="doSubSystemChange" dense outlined hide-details></v-select>
+                            <v-select label="SubSystem, Site" :items="options.subSystemList" v-model="formData.subSystemValue" item-text="Text" item-value="Value" @change="doSubSystemChange" dense outlined hide-details></v-select>
                         </v-col>
 
                         <!-- Row 5 -->
@@ -109,7 +109,7 @@
                         </v-col>
 
                         <v-col cols="12">
-                            <v-select label="Setup Reason" :items="options.setupReasonList" v-model="formData.setupReason" item-text="text" item-value="value" dense outlined hide-details></v-select>
+                            <v-select label="Setup Reason" :items="options.setupReasonList" v-model="formData.setupReason" item-text="Text" item-value="Value" dense outlined hide-details></v-select>
                         </v-col>
                     </v-row>
                 </v-card-text>
@@ -235,15 +235,15 @@
                             this.formData.ipn = data.IPN;
                             this.formData.lotOwner = data.LotOwner;
 
-                            // 綁定下拉選單選項
-                            this.options.stepList = data.StepList;
-                            this.options.testerIdList = data.TesterIdList;
-                            this.options.subSystemList = data.SubSystemList;
+                            // 綁定下拉選單選項 (加入容錯大小寫與空陣列保護)
+                            this.options.stepList = data.StepList || data.stepList || [];
+                            this.options.testerIdList = data.TesterIdList || data.testerIdList || [];
+                            this.options.subSystemList = data.SubSystemList || data.subSystemList || [];
 
                             // 綁定預設選取值
-                            this.formData.stepNo = data.SelectedStep;
-                            this.formData.testerId = data.SelectedTesterId;
-
+                            this.formData.stepNo = data.SelectedStep || data.selectedStep || '';
+                            this.formData.testerId = data.SelectedTesterId || data.selectedTesterId || '';
+                            
                             // 觸發 SubSystem 的預設事件 (若只有一筆)
                             if (this.options.subSystemList.length === 1) {
                                 this.formData.subSystemValue = this.options.subSystemList[0].Value;
