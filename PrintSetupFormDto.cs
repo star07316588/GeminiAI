@@ -157,4 +157,12 @@ namespace MES.Net.Shared.DTOs.Print
         public string StopInfoMsg { get; set; }
         // 未來若需要回傳整包列印報表資料 (如 FT 的 Excel 資料)，可擴充於此
     }
+
+    // 新增這個 DTO 來接 SubSystem 的查詢結果
+    public class SubSystemResultDto
+    {
+        public string SubSystem { get; set; }
+        public string MaxSite { get; set; }
+        public string LoadBoard { get; set; }
+    }
 }
