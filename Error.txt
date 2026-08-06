@@ -1,11 +1,25 @@
-vue.min.js:11 TypeError: Cannot read properties of undefined (reading 't')
-    at a.listData (vuetify.min.js:6:182874)
-    at t.get (vue.min.js:11:28262)
-    at t.evaluate (vue.min.js:11:29258)
-    at a.listData (vue.min.js:11:31451)
-    at a.staticList (vuetify.min.js:6:183202)
-    at t.get (vue.min.js:11:28262)
-    at t.evaluate (vue.min.js:11:29258)
-    at a.staticList (vue.min.js:11:31451)
-    at a.genList (vuetify.min.js:6:187779)
-    at a.genMenu (vuetify.min.js:6:188399)
+select Subsystem,
+       MAXSITE,
+       decode(trim(loadboardtype || contactboardtYPE || burninboard),
+              null,
+              fwadmin.fun_get_ft_acc_bypgm(stepname,
+                                           '',
+                                           pgid,
+                                           pgname,
+                                           'loadboard'),
+              loadboardtype) as loadboard
+  from tbl_prod_step_eq_spec
+ where prodgroup = '6756VNFW233'
+   and stepno = '122B2'
+   and eqtype2 = 'NEXTEST_M1'
+   and docstatus = 'Active'
+   and nvl(probecardtype, ' ') = nvl('PN10376756XP2', ' ')
+   and path = 'PW-B1-B2-B3_BBB03'
+
+SELECT (SUBSYSTEM || ',' || MAXSITE)
+  FROM TBL_PROD_STEP_EQ_SPEC
+ WHERE STEPNO = '122B2'
+   AND EQTYPE2 = 'NEXTEST_M1'
+   AND DOCSTATUS = 'Active'
+   and nvl(probecardtype, ' ') = nvl('PN10376756XP2', ' ')
+   AND PATH = 'PW-B1-B2-B3_BBB03'
