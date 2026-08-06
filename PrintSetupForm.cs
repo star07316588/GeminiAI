@@ -344,6 +344,19 @@ namespace MES.Net.Infrastructure.Repository.Print
             string sql = "SELECT Fun_GetAssignWaferID(:LotId) FROM DUAL";
             return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { LotId = lotId });
         }
+        
+        // 在 PrintSetupFormRepository 實作
+        public async Task<IEnumerable<string>> GetSetupReasonsAsync()
+        {
+            // 對應 VB6 查詢 Tbl_ReasonCode 的語法[cite: 3]
+            string sql = @"
+                SELECT REASONCODE 
+                FROM TBL_REASONCODE 
+                WHERE CATEGORY = 'SetupFomReason' 
+                  AND DELETEFLAG = 'N'";
+
+            return await _dbConnection.QueryAsync<string>(sql);
+        }
     }
 }
 
@@ -1094,6 +1107,20 @@ namespace MES.Net.Application.Services.Print
                 // ⚠️ TODO: 若不為 Y，VB6 原邏輯會呼叫 modQuery.getActProbingQtySQLString[cite: 3]
                 // 並找出 TestFlag <> "Y" 的 WaferID[cite: 3]
                 // 需在此處掛載對應的 C# 邏輯
+            }
+
+            // 9. 取得 Setup Reason 選單[cite: 3]
+            var reasons = await _repo.GetSetupReasonsAsync();
+            
+            // 仿照 VB6 邏輯，第一筆先塞入空字串 (Me.cboSetupReason.AddItem "")[cite: 3]
+            response.SetupReasonList.Add(new SelectItem { Text = "", Value = "" });
+            
+            foreach (var reason in reasons)
+            {
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    response.SetupReasonList.Add(new SelectItem { Text = reason, Value = reason });
+                }
             }
             
             return response;
