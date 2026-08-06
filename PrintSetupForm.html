@@ -213,6 +213,15 @@
                             this.formData.stepNo = data.SelectedStep || data.selectedStep || '';
                             this.formData.testerId = data.SelectedTesterId || data.selectedTesterId || '';
 
+                            // ... 綁定預設選取值下方 ...
+                            this.formData.stepNo = data.SelectedStep || data.selectedStep || '';
+                            this.formData.testerId = data.SelectedTesterId || data.selectedTesterId || '';
+                            
+                            // 🌟 將 API 回傳的 SetupWaferId 綁定到畫面
+                            this.formData.setupWaferId1 = data.SetupWaferId1 || data.setupWaferId1 || '';
+                            this.formData.setupWaferId2 = data.SetupWaferId2 || data.setupWaferId2 || '';
+                            this.formData.setupWaferId3 = data.SetupWaferId3 || data.setupWaferId3 || '';
+                            
                             if (this.options.subSystemList.length === 1) {
                                 this.formData.subSystemValue = this.options.subSystemList[0].value; // 注意這裡用小寫 value
                                 await this.doSubSystemChange();
