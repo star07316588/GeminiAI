@@ -248,9 +248,10 @@ namespace MES.Net.Infrastructure.Repository.Print
             return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { EqId = eqId });
         }
 
-        public async Task<IEnumerable<string>> GetSubSystemsAsync(string sql, object param)
+        public async Task<IEnumerable<SubSystemResultDto>> GetSubSystemsAsync(string sql, object param)
         {
-            return await _dbConnection.QueryAsync<string>(sql, param);
+            // 直接讓 Dapper 幫我們把欄位對應到 DTO 的屬性上
+            return await _dbConnection.QueryAsync<SubSystemResultDto>(sql, param);
         }
 
         public async Task<RecipeSpecData> GetErunRecipeAsync(string erunTicNo, string stepNo, string eqType2, string subSystem)
@@ -630,16 +631,13 @@ namespace MES.Net.Application.Services.Print
             // 3. 整理並過濾 SubSystem 選單格式
             foreach (var item in subSystemsResult)
             {
-                // 將 Dapper 回傳的 dynamic 轉為 Dictionary 方便以字串取 Key
-                var row = item as IDictionary<string, object>;
-                string sys = row["SUBSYSTEM"]?.ToString() ?? "";
-                string maxSite = row["MAXSITE"]?.ToString() ?? "";
-                string loadboard = row["LOADBOARD"]?.ToString() ?? "";
+                // 🌟 這裡直接取用 DTO 的屬性，超級乾淨！
+                string sys = item.SubSystem ?? "";
+                string maxSite = item.MaxSite ?? "";
+                string loadboard = item.LoadBoard ?? "";
                 
-                // 組合出畫面上的選項 (例: SYS1, SITE1)
                 string displayText = string.IsNullOrEmpty(maxSite) ? sys : $"{sys},{maxSite}";
-            
-                // 對應 VB6 邏輯：FT 站且有 AssignLoadboard 時的二次過濾
+        
                 if (response.Stage == "FT")
                 {
                     if (!string.IsNullOrEmpty(assignLoadBoard))
