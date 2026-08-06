@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace MES.Net.Shared.DTOs.Print
 {
     public class PrintSetupFormQueryRequest
