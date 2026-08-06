@@ -210,6 +210,9 @@
                             this.options.testerIdList = mapSelectItems(data.TesterIdList || data.testerIdList);
                             this.options.subSystemList = mapSelectItems(data.SubSystemList || data.subSystemList);
 
+                            // 🌟 綁定 Setup Reason 下拉選單資料
+                            this.options.setupReasonList = mapSelectItems(data.SetupReasonList || data.setupReasonList);
+                            
                             this.formData.stepNo = data.SelectedStep || data.selectedStep || '';
                             this.formData.testerId = data.SelectedTesterId || data.selectedTesterId || '';
 
