@@ -1081,10 +1081,10 @@ namespace MES.Net.Application.Services.Print
         }
         public partial class PrintSetupFormService : IPrintSetupFormService
     {
-        public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupFormSubmitRequest request)
+public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupFormSubmitRequest request)
         {
             var response = new PrintSetupFormSubmitResponse();
-            bool isNewForm = request.Stage?.ToUpper() == "WS"; // 依據 CheckForm 邏輯，Stage=WS 為 mbNewForm = True[cite: 3]
+            bool isNewForm = request.Stage?.ToUpper() == "WS"; // 依據 CheckForm 邏輯，Stage=WS 為 mbNewForm = True
 
             // 1. 防呆驗證
             if (isNewForm)
@@ -1098,40 +1098,80 @@ namespace MES.Net.Application.Services.Print
                 throw new Exception("TesterId 不可沒選");
             }
 
-            // 取得核心 Lot 與 Eqp
+            // 取得核心 Lot 物件
             var olot = WipServiceWrapper.Instance.LotById(request.LotId);
             if (olot == null) throw new Exception("此Lot不存在 !!");
 
+            string ipn = olot.CustomAttributes(LotCustomAttributes.Ipn) ?? "";
+            string prodGroup = olot.CustomAttributes(LotCustomAttributes.ProdGroup) ?? "";
+            string stepName = olot.CurrentStep.Steps[0].Description ?? "";
+
+            // 處理 SubSystem (若包含逗號，取前半部)
+            string subSystem = request.SubSystemValue ?? "";
+            if (subSystem.Contains(","))
+            {
+                subSystem = subSystem.Split(',')[0];[cite: 1]
+            }
+
+            // 取 EqType2 與 ErunTicNo[cite: 1]
+            string eqType2 = await _repo.GetEqType2Async(request.TesterId) ?? "";
+            var lotInfo = await _repo.GetLotInfoAsync(request.LotId);
+            string erunTicNo = lotInfo?.ERUNTICNO ?? "";
+
+            // ====================================================================
             // 2. 停測檢核 (Stop Test Check)
-            // 這裡呼叫既有的 NotStopTest 與 GetStopInfoPByAcc / GetStopInfoNPByAcc 共用函數
-            string stopInfoMsg = string.Empty;
-            
-            // TODO: 掛載貴司底層的停測檢核 (此為示意)
-            // bool isPass = CustomMesHelper.NotStopTest(...); 
-            // if (!isPass) throw new Exception($"停測中，停測資訊:\n{...}");
-            
-            // 處理停測字串 (對應 VB 的 lblStopInfo.Caption 處理)
+            // ====================================================================
+            // 呼叫剛剛寫好的 CheckNotStopTestAsync，bRunRule 帶入 false (同 VB6 邏輯)[cite: 1]
+            var stopTestResult = await CheckNotStopTestAsync(
+                lotId: request.LotId,
+                ipn: ipn,
+                prodGroup: prodGroup,
+                stopScope: "ALL", // VB 原始碼使用 gsCAT_STOP_TEST_ALL[cite: 1]
+                bRunRule: false,  // VB 原始碼傳入 False[cite: 1]
+                stepName: stepName,
+                curEqId: request.TesterId,
+                eqType2: eqType2,
+                curAccName: request.AccType,
+                stopTicNo: request.StopTicNo,
+                specSpecifyEq: request.SpecifyEq,
+                specEqId: request.SpecifyEqId,
+                erunTicNo: erunTicNo,
+                pgId: request.PgId,
+                pgName: request.PgName,
+                pgMode: request.PgMode,
+                temperature: request.Temp,
+                subSystem: subSystem,
+                checkWsDeviceFile: request.WsDeviceFile,
+                specifyAcc: "" 
+            );
+
+            // 若 IsPass 為 False，代表有阻擋型的停測，直接拋出例外中斷流程[cite: 1]
+            if (!stopTestResult.IsPass)
+            {
+                throw new Exception($"停測中，停測資訊:\n{stopTestResult.StopMessage}");
+            }
+
+            // 處理純提示型的停測字串 (對應 VB 的 lblStopInfo.Caption 處理)[cite: 1]
+            string stopInfoMsg = stopTestResult.StopMessage;
             if (!string.IsNullOrEmpty(stopInfoMsg))
             {
-                if (stopInfoMsg.StartsWith(",")) stopInfoMsg = stopInfoMsg.Substring(1);
-                response.StopInfoMsg = stopInfoMsg; // 傳給前端，讓前端 alert "請確認停測資訊:"
+                if (stopInfoMsg.StartsWith(",")) stopInfoMsg = stopInfoMsg.Substring(1);[cite: 1]
+                response.StopInfoMsg = stopInfoMsg; // 傳給前端，讓前端 alert "請確認停測資訊:"[cite: 1]
             }
             else
             {
-                response.StopInfoMsg = "NA";
+                response.StopInfoMsg = "NA";[cite: 1]
             }
 
-            // 3. 寫入資料庫 (對應 InsNewForm)
+            // ====================================================================
+            // 3. 寫入資料庫 (對應 InsNewForm)[cite: 1]
+            // ====================================================================
             if (isNewForm)
             {
-                // 先撈取寫入所需的其他關聯資料 (如 ErunTicNo, IpnMaster 資訊等，這部分可重複利用先前寫好的 Repository 方法)
-                var lotInfo = await _repo.GetLotInfoAsync(request.LotId);
-                string erunTicNo = lotInfo?.ERUNTICNO ?? "";
-                
                 string formNo = "";
                 bool insertSuccess = false;
 
-                // Retry 邏輯: 最多 20 次 (對應 VB 的 For iIdx = 1 To 20[cite: 3])
+                // Retry 邏輯: 最多 20 次[cite: 1]
                 for (int i = 0; i < 20; i++)
                 {
                     formNo = await _repo.GetNextSetupFormNoAsync();
@@ -1142,23 +1182,23 @@ namespace MES.Net.Application.Services.Print
                         var insertParam = new
                         {
                             FormNo = formNo,
-                            Ipn = olot.CustomAttributes(LotCustomAttributes.Ipn),
+                            Ipn = ipn,
                             LotId = request.LotId,
                             LotOwner = olot.CustomAttributes(LotCustomAttributes.LotOwner),
                             ErunTicNo = erunTicNo,
                             WaferId = request.WaferId,
                             TesterId = request.TesterId,
                             ProberId = "", // 可依據 TesterId 查詢 EQ_INFO 帶入
-                            TestMode = olot.CurrentStep.Steps[0].Description,
+                            TestMode = stepName,
                             PgName = request.PgName,
                             PgId = request.PgId,
-                            PgmMatch = "", // 對應 GetSwapPGName 結果
-                            Code = "", // 查詢 TBL_IPN_MASTER 帶入
+                            PgmMatch = "", 
+                            Code = "", // 可補上查 TBL_IPN_MASTER 的邏輯
                             CheckSum = "",
                             Speed = "",
                             Temp = request.Temp,
                             WsDeviceFile = request.WsDeviceFile,
-                            TecnNo = "", // 可透過 GetLotStepEqSpecAsync 取得
+                            TecnNo = "", // 若有取得 TECN NO 可寫入
                             ProbeCard = "",
                             EqComments = "",
                             StepComments = "",
@@ -1174,11 +1214,11 @@ namespace MES.Net.Application.Services.Print
 
                         await _repo.InsertWsEqFormBasicAsync(insertParam);
                         insertSuccess = true;
-                        break; // 寫入成功即跳出
+                        break; 
                     }
                     catch (Exception)
                     {
-                        // 若發生 Unique Constraint 衝突，等待 1 秒後重試 (對應 VB 的 Sleep(1000)[cite: 3])
+                        // 若發生 Unique Constraint 衝突，等待 1 秒後重試[cite: 1]
                         await Task.Delay(1000);
                     }
                 }
@@ -1188,46 +1228,12 @@ namespace MES.Net.Application.Services.Print
                     throw new Exception($"SETUP FORM 單號寫入失敗,請洽IT人員協助.");
                 }
 
-                // 寫入成功後更新機台狀態
+                // 寫入成功後更新機台狀態[cite: 1]
                 await _repo.UpdateEqInfoFormNoAsync(request.TesterId, formNo, request.UserId);
                 
                 response.FormNo = formNo;
             }
-            // 8. 取得 Setup Wafer ID[cite: 3]
-            string tmpAssignWaferId = await _repo.GetAssignWaferIdAsync(lotId);
-            
-            if (!string.IsNullOrEmpty(tmpAssignWaferId) && tmpAssignWaferId.StartsWith("Y"))
-            {
-                // VB 邏輯: Mid(sTmpAssignWaferID, 3) 並用逗號切割[cite: 3]
-                // 例如 "Y;Wafer1,Wafer2,Wafer3" 取出 "Wafer1,Wafer2,Wafer3"
-                string wafersPart = tmpAssignWaferId.Substring(2); 
-                string[] wafers = wafersPart.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 
-                if (wafers.Length > 0) response.SetupWaferId1 = wafers[0];
-                if (wafers.Length > 1) response.SetupWaferId2 = wafers[1];
-                if (wafers.Length > 2) response.SetupWaferId3 = wafers[2];
-            }
-            else
-            {
-                // ⚠️ TODO: 若不為 Y，VB6 原邏輯會呼叫 modQuery.getActProbingQtySQLString[cite: 3]
-                // 並找出 TestFlag <> "Y" 的 WaferID[cite: 3]
-                // 需在此處掛載對應的 C# 邏輯
-            }
-
-            // 9. 取得 Setup Reason 選單[cite: 3]
-            var reasons = await _repo.GetSetupReasonsAsync();
-            
-            // 仿照 VB6 邏輯，第一筆先塞入空字串 (Me.cboSetupReason.AddItem "")[cite: 3]
-            response.SetupReasonList.Add(new SelectItem { Text = "", Value = "" });
-            
-            foreach (var reason in reasons)
-            {
-                if (!string.IsNullOrEmpty(reason))
-                {
-                    response.SetupReasonList.Add(new SelectItem { Text = reason, Value = reason });
-                }
-            }
-            
             return response;
         }
         //------
