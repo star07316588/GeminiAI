@@ -531,7 +531,9 @@ namespace MES.Net.Infrastructure.Repository.Print
         {
             string sql = @"
                 SELECT PROBECARDTYPE as ProbeCardType, 
-                       STEPCOMMENT as StepComments 
+                       STEPCOMMENT as StepComments,
+                       DOC_TYPE as DocType,
+                       DOC_NO as DocNo
                 FROM TBL_PROD_STEP_EQ_SPEC 
                 WHERE PRODGROUP = :ProdGroup 
                   AND STEPNO = :StepNo 
@@ -1321,9 +1323,13 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                     if (prodSpec != null)
                     {
                         stepComments = prodSpec.StepComments;
-                        
-                        // ✅ 決定 ProbeCard
                         probeCard = string.IsNullOrEmpty(assignProbeCard) ? prodSpec.ProbeCardType : assignProbeCard; 
+                        
+                        // ✅ 新增：若 DocType 不為空，則將 TecnNo 賦值為 DocNo
+                        if (!string.IsNullOrEmpty(prodSpec.DocType))
+                        {
+                            tecnNo = prodSpec.DocNo;
+                        }
                     }
                 }
 
