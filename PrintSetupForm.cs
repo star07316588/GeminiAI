@@ -1230,6 +1230,222 @@ namespace MES.Net.Application.Services.Print
             
             return response;
         }
+        //------
+        
+        // ==============================================================================
+        // 翻譯自 NotStopTest
+        // ==============================================================================
+        public async Task<(bool IsPass, string StopMessage)> CheckNotStopTestAsync(
+            string lotId, string ipn, string prodGroup, string stopScope, bool bRunRule, 
+            string stepName, string curEqId, string eqType2, string curAccName, string stopTicNo, 
+            string specSpecifyEq, string specEqId, string erunTicNo, string pgId, string pgName, 
+            string pgMode, string temperature, string subSystem, string checkWsDeviceFile, string specifyAcc)
+        {
+            string sWsDeviceFile = checkWsDeviceFile;
+            string sCurAccNo = "";
+            string sLotContinueTest = "";
+            string sFollowProd = "";
+            string sContinueTest = "";
+
+            var olot = WipServiceWrapper.Instance.LotById(lotId);
+            string stepId = olot.CurrentStep.Steps[0].Id;
+            string stage = olot.CustomAttributes(LotCustomAttributes.Stage);
+            string path = olot.CustomAttributes(LotCustomAttributes.Route);
+
+            // 取 TECN LotInfo 與 ContinueTest[cite: 10]
+            var lotInfo = await _repo.GetLotInfoAsync(lotId);
+            string tecnLotId = lotInfo?.TECNLOTID ?? "";
+            
+            if (!string.IsNullOrEmpty(tecnLotId))
+            {
+                sLotContinueTest = await _repo.GetLotStepEqSpecContinueTestAsync(tecnLotId, stepId, path, eqType2, subSystem) ?? "";
+            }
+
+            // 處理 bRunRule 與機台配件[cite: 10]
+            if (bRunRule)
+            {
+                var eqAcc = await _repo.GetEqInfoAccessoriesAsync(curEqId);
+                if (eqAcc != null)
+                {
+                    sWsDeviceFile = eqAcc.WsDeviceFile?.Trim() ?? "";
+                    
+                    var accNos = new List<string>();
+                    if (!string.IsNullOrEmpty(eqAcc.ProbeCardId)) { curAccName = eqAcc.ProbeCardId.Split('-')[0]; accNos.Add(eqAcc.ProbeCardId); }
+                    if (!string.IsNullOrEmpty(eqAcc.LoadBoardId)) { curAccName = eqAcc.LoadBoardId.Split('-')[0]; accNos.Add(eqAcc.LoadBoardId); }
+                    if (!string.IsNullOrEmpty(eqAcc.ContactBoardId)) { curAccName = eqAcc.ContactBoardId.Split('-')[0]; accNos.Add(eqAcc.ContactBoardId); }
+                    sCurAccNo = string.Join(",", accNos);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(specifyAcc))
+            {
+                sCurAccNo = specifyAcc;
+                curAccName = specifyAcc.Contains("-") ? specifyAcc.Split('-')[0] : specifyAcc;
+            }
+
+            if (!string.IsNullOrEmpty(erunTicNo))
+            {
+                var erunData = await _repo.GetErunReqContinueTestAsync(lotId, erunTicNo, stage);
+                if (erunData != null)
+                {
+                    sFollowProd = erunData.FollowProd ?? "";
+                    sContinueTest = erunData.ContinueTest ?? "";
+                }
+            }
+
+            var stopTicNoList = new HashSet<string>();
+            if (!string.IsNullOrEmpty(stopTicNo)) stopTicNoList.Add(stopTicNo);
+
+            // 根據 StopScope 分流處理[cite: 10]
+            if (stopScope == "ALL" || stopScope == "P")
+            {
+                if (sLotContinueTest != "Y" && sContinueTest != "Y")
+                {
+                    if (sFollowProd != "N") 
+                    {
+                        // 檢查 ChkProdSpecEqID[cite: 10]
+                        if (!ChkProdSpecEqID(specSpecifyEq, specEqId, curEqId))
+                        {
+                            stopTicNoList.Add(stopTicNo);
+                        }
+
+                        // 呼叫 GetProductStopTestAsync[cite: 10]
+                        var prodStopResult = await GetProductStopTestAsync(prodGroup, eqType2, pgId, pgName, stepName, curAccName, lotId, sCurAccNo, sWsDeviceFile, curEqId, ipn);
+                        foreach (var tic in prodStopResult.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            stopTicNoList.Add(tic);
+                        }
+                    }
+                }
+            }
+
+            if (stopScope == "ALL" || stopScope == "NP")
+            {
+                var nonProdStopResult = await GetNonProdStopTestAsync(ipn, eqType2, curEqId, curAccName, sCurAccNo, temperature);
+                foreach (var tic in nonProdStopResult.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    stopTicNoList.Add(tic);
+                }
+            }
+
+            // 整理最終的停測字串[cite: 10]
+            string finalStopTicNos = string.Join(",", stopTicNoList.OrderBy(x => x));
+            return (finalStopTicNos == "", finalStopTicNos);
+        }
+
+        // ==============================================================================
+        // 翻譯自 ChkProdSpecEqID[cite: 10]
+        // ==============================================================================
+        private bool ChkProdSpecEqID(string specifyEq, string prodSpecEqId, string curEqId)
+        {
+            if (string.IsNullOrEmpty(specifyEq)) return true;
+
+            var eqArray = (prodSpecEqId ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            bool bExist = eqArray.Any(eq => eq.Trim() == curEqId);
+
+            if (specifyEq == "Y" && bExist) return true;
+            if (specifyEq == "N" && !bExist) return true;
+
+            return false;
+        }
+
+        // ==============================================================================
+        // 翻譯自 GetProductStopTest[cite: 10]
+        // 使用 LINQ Dictionary 取代複雜的陣列操作
+        // ==============================================================================
+        private async Task<string> GetProductStopTestAsync(
+            string prodGroup, string eqType2, string pgId, string pgName, string stepName, 
+            string concatAcc, string lotId, string curAccNo, string wsDeviceFile, string curEqId, string ipn)
+        {
+            // 處理 lotId 虛擬批號[cite: 10]
+            if (lotId.Contains(".")) lotId = lotId.Substring(0, lotId.IndexOf('.'));
+
+            var records = (await _repo.GetProductStopTestRecordsAsync(eqType2, prodGroup, ipn, pgId, pgName, stepName, concatAcc, lotId, curAccNo, wsDeviceFile)).ToList();
+            if (!records.Any()) return "";
+
+            var stopTicNos = new HashSet<string>();
+            var dicTicNoVsEQ = new Dictionary<string, HashSet<string>>();
+
+            // 建立 Dictionary 來記錄每個單號(區分 SpecifyEq) 下包含的機台清單[cite: 10]
+            if (!string.IsNullOrEmpty(curEqId))
+            {
+                foreach (var rec in records)
+                {
+                    string key = $"{rec.StopTicNo}/{rec.SpecifyEq}";
+                    if (!dicTicNoVsEQ.ContainsKey(key)) dicTicNoVsEQ[key] = new HashSet<string>();
+                    
+                    if (!string.IsNullOrEmpty(rec.EqId)) dicTicNoVsEQ[key].Add(rec.EqId);
+                }
+            }
+
+            foreach (var rec in records)
+            {
+                stopTicNos.Add(rec.StopTicNo);
+            }
+
+            // 同一停測單, SpecifyEq有Y也有N邏輯的移除判斷[cite: 10]
+            if (!string.IsNullOrEmpty(curEqId))
+            {
+                var ticsToRemove = new List<string>();
+                foreach (var ticNo in stopTicNos)
+                {
+                    bool bRemoveY = false;
+                    bool bRemoveN = false;
+
+                    string keyY = $"{ticNo}/Y";
+                    if (dicTicNoVsEQ.ContainsKey(keyY) && dicTicNoVsEQ[keyY].Any())
+                    {
+                        if (dicTicNoVsEQ[keyY].Contains(curEqId)) bRemoveY = true;
+                    }
+
+                    string keyN = $"{ticNo}/N";
+                    if (dicTicNoVsEQ.ContainsKey(keyN) && dicTicNoVsEQ[keyN].Any())
+                    {
+                        if (!dicTicNoVsEQ[keyN].Contains(curEqId)) bRemoveN = true;
+                    }
+
+                    if (dicTicNoVsEQ.ContainsKey(keyY) && dicTicNoVsEQ.ContainsKey(keyN))
+                    {
+                        if (bRemoveY && bRemoveN) ticsToRemove.Add(ticNo);
+                    }
+                    else
+                    {
+                        if (bRemoveY || bRemoveN) ticsToRemove.Add(ticNo);
+                    }
+                }
+
+                foreach (var tic in ticsToRemove)
+                {
+                    stopTicNos.Remove(tic);
+                }
+            }
+
+            return string.Join(",", stopTicNos.OrderBy(x => x)); // 對應 SortString[cite: 10]
+        }
+
+        // ==============================================================================
+        // 翻譯自 GetNonProdStopTest[cite: 10]
+        // ==============================================================================
+        private async Task<string> GetNonProdStopTestAsync(
+            string ipn, string eqType2, string curEqId, string curAccName, string curAccNo, string temperature)
+        {
+            int tempValue = int.TryParse(temperature, out int parsed) ? parsed : 25; // 假設常溫 25[cite: 10]
+
+            var ipnData = await _repo.GetIpnMasterForTecnAsync(ipn); // 重用 IpnMaster 查詢
+            string packageType = ipnData?.PACKAGE_CODE ?? "";
+            string bodySize = ipnData?.BODY_SIZE ?? "";
+            string pinCount = ipnData?.PIN_COUNT ?? "0";
+            string carrierType = ipnData?.CARRIER_TYPE ?? "";
+            string formFactorName = ipnData?.FORMFACTORNAME ?? "";
+            string moduleOption = ipnData?.MODULEOPTION ?? "";
+
+            var records = await _repo.GetNonProdStopTestRecordsAsync(
+                eqType2, curEqId, curAccName, packageType, pinCount, carrierType, bodySize, tempValue, curAccNo, formFactorName, moduleOption);
+
+            // HashSet 保證不重複並使用 OrderBy 排序[cite: 10]
+            var stopTicNos = new HashSet<string>(records);
+            return string.Join(",", stopTicNos.OrderBy(x => x));
+        }
     }
 }
 
