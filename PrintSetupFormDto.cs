@@ -169,10 +169,22 @@ namespace MES.Net.Shared.DTOs.Print
         public string LoadBoard { get; set; }
     }
 
-    // 🌟 新增：用來裝載查詢回來的架機片刻號
-        public string SetupWaferId1 { get; set; }
-        public string SetupWaferId2 { get; set; }
-        public string SetupWaferId3 { get; set; }
+    public class EqAccessoriesDto
+    {
+        public string ProbeCardId { get; set; }
+        public string LoadBoardId { get; set; }
+        public string ContactBoardId { get; set; }
+        public string WsDeviceFile { get; set; }
+    }
 
-        public List<SelectItem> StepList { get; set; } = new List<SelectItem>();
+    public class ProductStopTestRecordDto
+    {
+        public string StopTicNo { get; set; }
+        public string SpecifyEq { get; set; }
+        public string EqId { get; set; }
+        public string AccName { get; set; }
+        public string AccNo { get; set; }
+        public string DeviceFile { get; set; }
+        public string BePeSet { get; set; }
+    }
 }
