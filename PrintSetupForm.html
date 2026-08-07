@@ -27,6 +27,20 @@
             border-bottom: 1px solid #e0e0e0;
             padding-bottom: 5px;
         }
+        /* =========================================
+           修正 VMessageBox 彈出視窗按鈕隱形的問題
+           ========================================= */
+        .v-dialog .v-card__actions .v-btn {
+            background-color: #1976d2 !important; /* 設定為標準的藍色背景 (Vuetify Primary) */
+            color: #ffffff !important;            /* 設定文字為白色 */
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        
+        /* 若您希望滑鼠移過去時有變色效果 */
+        .v-dialog .v-card__actions .v-btn:hover {
+            background-color: #1565c0 !important;
+        }
     </style>
 </head>
 <body>
