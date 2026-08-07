@@ -461,7 +461,53 @@ namespace MES.Net.Infrastructure.Repository.Print
                 CurAccNo = curAccNo, FormFactorName = formFactorName, ModuleOption = moduleOption 
             });
         }
-        
+        // === 1. 取得機台的 SubSystem ===
+        public async Task<dynamic> GetEqpSubSysAsync(string eqId)
+        {
+            string sql = "SELECT SUBSYS1, SUBSYS2 FROM TBL_EQ_INFO WHERE EQ_ID = :EqId";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { EqId = eqId });
+        }
+
+        // === 2. 取得 IPN Master 的 Code, CheckSum, Speed ===
+        public async Task<dynamic> GetIpnMasterDetailsAsync(string ipn)
+        {
+            string sql = "SELECT SPEED, CODE, CHECKSUM FROM TBL_IPN_MASTER WHERE IPN = :Ipn";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { Ipn = ipn });
+        }
+
+        // === 3. 檢查是否為 MCD (多Code) 或 MCP (多晶片) ===
+        public async Task<bool> CheckIsMcdOrMcpAsync(string ipn)
+        {
+            // Check MCD
+            string mcdSql = "SELECT COUNT(*) FROM TBL_MULTICODE_IPN WHERE IPN = :Ipn AND DELETEFLAG = 'N'";
+            int mcdCount = await _dbConnection.QueryFirstOrDefaultAsync<int>(mcdSql, new { Ipn = ipn });
+            if (mcdCount > 0) return true;
+
+            // Check MCP
+            string mcpSql = @"
+                SELECT b.PACKAGECOMPONENT 
+                FROM TBL_IPN_BOM a
+                INNER JOIN TBL_PROD_BODY b ON b.PROD_BODY = SUBSTR(a.IPN, 1, 4) AND b.DELETE_FLAG = 'N'
+                WHERE a.PARENT = :Ipn AND a.BOM_LEVEL = 'FG' AND a.DELETE_FLAG = 'N'";
+            string component = await _dbConnection.QueryFirstOrDefaultAsync<string>(mcpSql, new { Ipn = ipn });
+            
+            if (!string.IsNullOrEmpty(component) && component.StartsWith("MCP")) return true;
+
+            return false;
+        }
+
+        // === 4. 取得工程品 (Erun) 的覆寫資料 ===
+        public async Task<dynamic> GetErunOverrideDataAsync(string lotId, string erunTicNo, string stage, string stepNo, string eqType2, string subSystem)
+        {
+            string sql = @"
+                SELECT a.SPEED, a.CODE, a.CHECKSUM, 
+                       b.PGNAME, b.TEMPERATURE, b.WSDEVICEFILE, b.PROBECARDTYPE, b.LOADBOARDTYPE, b.PGID 
+                FROM TBL_ERUN_REQ a
+                LEFT JOIN TBL_ERUN_RECIPE b ON b.DOCNO = a.TICKET_NO AND b.STEPNO = :StepNo AND b.EQTYPE2 = :EqType2 AND b.DELETEFLAG = 'N' 
+                     AND NVL(b.SUBSYSTEM, ' ') = NVL(:SubSystem, ' ')
+                WHERE a.LOT_ID = :LotId AND a.TICKET_NO = :TicNo AND a.STAGE = :Stage";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, TicNo = erunTicNo, Stage = stage, StepNo = stepNo, EqType2 = eqType2, SubSystem = string.IsNullOrEmpty(subSystem) ? " " : subSystem });
+        }
     }
 }
 
