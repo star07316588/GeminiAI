@@ -1276,35 +1276,61 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                     checkSum = "Check Code Server";
                 }
 
-                // 3. 取得備註與配方參數 (EqComments, StepComments, PgmMatch, TecnNo, ProbeCard)
+                // ==========================================
+                // 處理 INSTEPTIME (進站時間)
+                // ==========================================
+                string inStepTime = request.InStepTime;
+                if (string.IsNullOrEmpty(inStepTime))
+                {
+                    // 若前端沒傳，從 WipServiceWrapper 取得目前的進站時間，或者押上當下時間
+                    // 這裡先使用當下時間 (格式: YYYYMMDD HHMMSS)，您可依貴司底層設計調整
+                    inStepTime = DateTime.Now.ToString("yyyyMMdd HHmmss"); 
+                }
+
+                // ==========================================
+                // 取得 AssignProbeCard (判斷 ProbeCard 優先順序用)
+                // ==========================================
+                string assignProbeCard = lotInfo?.ASSIGNPROBECARD ?? "";
+
+                // ==========================================
+                // 3. 取得備註與配方參數 (TecnNo, ProbeCard, EqComments, StepComments)
+                // ==========================================
                 string eqComments = "", stepComments = "", pgmMatch = "", tecnNo = "", probeCard = "";
+
                 if (!string.IsNullOrEmpty(tecnLotId))
                 {
-                    var tecnSpec = await _repo.GetLotStepEqSpecAsync(tecnLotId, request.StepNo, eqType2, subSystem, path, "");
+                    var tecnSpec = await _repo.GetLotStepEqSpecAsync(tecnLotId, request.StepNo, eqType2, subSystem, path);
                     if (tecnSpec != null)
                     {
-                        eqComments = tecnSpec.Temperature; // 註: VB原始碼中 Comments 被放在不同欄位，請對應 DTO
-                        probeCard = tecnSpec.ProbeCardType;
-                        pgmMatch = tecnSpec.ReplacePgName01; // 對應 DTO 中的 PgMatch (視實際宣告)
-                        // TecnNo 在此處組裝
+                        eqComments = tecnSpec.Temperature; 
+                        pgmMatch = tecnSpec.ReplacePgName01; 
+                        
+                        // ✅ 正確賦值 TecnNo
+                        tecnNo = tecnSpec.TecnNo; 
+                        
+                        // ✅ 正確賦值 StepComments
+                        stepComments = tecnSpec.StepComments; 
+                        
+                        // ✅ 決定 ProbeCard：若 Lot 有強制指定 (AssignProbeCard)，則優先使用，否則使用 SPEC 設定
+                        probeCard = string.IsNullOrEmpty(assignProbeCard) ? tecnSpec.ProbeCardType : assignProbeCard; 
                     }
-                    // TODO: 查詢 TBL_LOT_STEP_SPEC 取得 StepComments
                 }
                 else
                 {
-                    var prodSpec = await _repo.GetProdStepEqSpecAsync(prodGroup, request.StepNo, eqType2, subSystem, path, "");
+                    var prodSpec = await _repo.GetProdStepEqSpecAsync(prodGroup, request.StepNo, eqType2, subSystem, path);
                     if (prodSpec != null)
                     {
-                        probeCard = prodSpec.ProbeCardType;
-                        // TODO: 查詢 TBL_PROD_STEP_SPEC 取得 StepComments
+                        stepComments = prodSpec.StepComments;
+                        
+                        // ✅ 決定 ProbeCard
+                        probeCard = string.IsNullOrEmpty(assignProbeCard) ? prodSpec.ProbeCardType : assignProbeCard; 
                     }
                 }
 
-                // 4. FollowProduct = 'N' 工程品強制覆寫邏輯
+                // 4. FollowProduct = 'N' 工程品強制覆寫邏輯 (維持原樣)
                 string followProdCheck = string.IsNullOrEmpty(erunTicNo) ? "" : await _repo.GetFollowProductAsync(request.LotId, erunTicNo, request.Stage);
                 if (!string.IsNullOrEmpty(erunTicNo) && followProdCheck == "N")
                 {
-                    // 清空既有屬性
                     pgmMatch = ""; tecnNo = ""; eqComments = ""; stepComments = ""; probeCard = "";
                     
                     var erunOverride = await _repo.GetErunOverrideDataAsync(request.LotId, erunTicNo, request.Stage, request.StepNo, eqType2, subSystem);
@@ -1313,6 +1339,7 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                         code = erunOverride.CODE?.ToString() ?? "";
                         checkSum = erunOverride.CHECKSUM?.ToString() ?? "";
                         speed = erunOverride.SPEED?.ToString() ?? "";
+                        // 工程品直接覆寫 ProbeCard
                         probeCard = erunOverride.PROBECARDTYPE?.ToString() ?? "";
                     }
                 }
