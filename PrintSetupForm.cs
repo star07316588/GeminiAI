@@ -508,6 +508,40 @@ namespace MES.Net.Infrastructure.Repository.Print
                 WHERE a.LOT_ID = :LotId AND a.TICKET_NO = :TicNo AND a.STAGE = :Stage";
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, TicNo = erunTicNo, Stage = stage, StepNo = stepNo, EqType2 = eqType2, SubSystem = string.IsNullOrEmpty(subSystem) ? " " : subSystem });
         }
+        
+        public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string stepNo, string eqType2, string subSystem, string path)
+        {
+            string sql = @"
+                SELECT TECNNO as TecnNo, 
+                       PROBECARDTYPE as ProbeCardType, 
+                       STEPCOMMENT as StepComments, 
+                       TEMPERATURE as Temperature
+                FROM TBL_LOT_STEP_EQ_SPEC 
+                WHERE :TecnLotId LIKE TECNLOTID 
+                  AND STEPNO = :StepNo 
+                  AND EQTYPE2 = :EqType2 
+                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') 
+                  AND PATH = :Path 
+                  AND DELETEFLAG = 'N'";
+                  
+            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { TecnLotId = tecnLotId, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path });
+        }
+
+        public async Task<RecipeSpecData> GetProdStepEqSpecAsync(string prodGroup, string stepNo, string eqType2, string subSystem, string path)
+        {
+            string sql = @"
+                SELECT PROBECARDTYPE as ProbeCardType, 
+                       STEPCOMMENT as StepComments 
+                FROM TBL_PROD_STEP_EQ_SPEC 
+                WHERE PRODGROUP = :ProdGroup 
+                  AND STEPNO = :StepNo 
+                  AND EQTYPE2 = :EqType2 
+                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') 
+                  AND PATH = :Path 
+                  AND DOCSTATUS = 'Active'";
+                  
+            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { ProdGroup = prodGroup, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path });
+        }
     }
 }
 
