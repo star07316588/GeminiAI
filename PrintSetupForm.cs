@@ -29,6 +29,12 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<IEnumerable<string>> GetProdStepSpecStepsAsync(string prodGroup);
         Task<IEnumerable<dynamic>> GetLotPgmRecSequenceAsync(string lotId);
         Task<IEnumerable<dynamic>> GetWsPgmReplaceAsync(string prodGroup);
+
+        Task<string> GetLotStepEqSpecContinueTestAsync(string tecnLotId, string stepNo, string path, string eqType2, string subSystem);
+        Task<EqAccessoriesDto> GetEqInfoAccessoriesAsync(string eqId);
+        Task<dynamic> GetErunReqContinueTestAsync(string lotId, string erunTicNo, string stage);
+        Task<IEnumerable<ProductStopTestRecordDto>> GetProductStopTestRecordsAsync(string eqType2, string prodGroup, string ipn, string pgId, string pgName, string stepName, string concatAcc, string lotId, string curAccNo, string wsDeviceFile);
+        Task<IEnumerable<string>> GetNonProdStopTestRecordsAsync(string eqType2, string curEqId, string curAccName, string packageType, string pinCount, string carrierType, string bodySize, int temperature, string curAccNo, string formFactorName, string moduleOption);
     }
 
     public class PrintSetupFormRepository : IPrintSetupFormRepository
@@ -357,6 +363,105 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return await _dbConnection.QueryAsync<string>(sql);
         }
+
+        //----
+
+        public async Task<string> GetLotStepEqSpecContinueTestAsync(string tecnLotId, string stepNo, string path, string eqType2, string subSystem)
+        {
+            string sql = @"SELECT CONTINUETEST FROM TBL_LOT_STEP_EQ_SPEC 
+                           WHERE :TecnLotId LIKE TECNLOTID AND STEPNO = :StepNo AND PATH = :Path AND EQTYPE2 = :EqType2 
+                             AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') AND DELETEFLAG = 'N'";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { TecnLotId = tecnLotId, StepNo = stepNo, Path = path, EqType2 = eqType2, SubSystem = subSystem });
+        }
+
+        public async Task<EqAccessoriesDto> GetEqInfoAccessoriesAsync(string eqId)
+        {
+            string sql = @"SELECT PROBECARD_ID as ProbeCardId, LOADBOARD_ID as LoadBoardId, CONTACTBOARD_ID as ContactBoardId, WSDEVICE_FILE as WsDeviceFile 
+                           FROM TBL_EQ_INFO WHERE EQ_ID = :EqId";
+            return await _dbConnection.QueryFirstOrDefaultAsync<EqAccessoriesDto>(sql, new { EqId = eqId });
+        }
+
+        public async Task<dynamic> GetErunReqContinueTestAsync(string lotId, string erunTicNo, string stage)
+        {
+            string sql = @"SELECT FOLLOW_PRODUCT as FollowProd, CONTINUETEST as ContinueTest 
+                           FROM TBL_ERUN_REQ WHERE LOT_ID = :LotId AND TICKET_NO = :TicNo AND STAGE = :Stage";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, TicNo = erunTicNo, Stage = stage });
+        }
+
+        public async Task<IEnumerable<ProductStopTestRecordDto>> GetProductStopTestRecordsAsync(
+            string eqType2, string prodGroup, string ipn, string pgId, string pgName, string stepName, string concatAcc, string lotId, string curAccNo, string wsDeviceFile)
+        {
+            // 翻譯自 GetProductStopTest 複雜的 JOIN SQL
+            string sql = @"
+                SELECT d.STOPTICNO as StopTicNo, d.SPECIFYEQ as SpecifyEq, d.EQID as EqId, d.ACCNAME as AccName, 
+                       d.ACCNO as AccNo, d.DEVICEFILE as DeviceFile, d.BEPE_SET as BePeSet
+                FROM (
+                    SELECT aa.productname as prodgroup, dd.IPN,
+                           SUBSTR(NVL(cc.PROD_GROUP_KEY, dd.PRODGROUPKEY), 1, 5) as prodcode,
+                           SUBSTR(NVL(cc.PROD_GROUP_KEY, dd.PRODGROUPKEY), 1, 4) as prodbody,
+                           NVL(cc.PROD_GROUP_KEY, dd.PRODGROUPKEY) as prodgroupkey
+                    FROM fwproductversion aa
+                    INNER JOIN fwproductversion_n2m bb ON bb.fromid = aa.sysid AND bb.linkname = 'attributes' AND bb.keydata = 'TdsProd'
+                    LEFT JOIN TBL_PROD_SPEC cc ON aa.productname = cc.prodgroup AND cc.DOC_STATUS = 'Active' AND cc.DELETE_FLAG = 'N'
+                    LEFT JOIN TBL_IPN_MASTER dd ON aa.productname = dd.PROD_GROUP
+                    WHERE aa.revstate = 'Active'
+                ) c
+                INNER JOIN TBL_STOP_TEST d ON c.prodgroup = :ProdGroup AND d.EQTYPE2 = :EqType2 AND d.DELETEFLAG = 'N' AND d.BEPE_SET = 'A'
+                WHERE NVL(c.IPN, ' ') LIKE NVL(REPLACE(REPLACE(d.IPN, '%', '_'), '*', '%'), NVL(c.IPN, ' '))
+                  AND NVL(:PgId, ' ') = NVL(d.PGID, NVL(:PgId, ' '))
+                  AND NVL(:PgName, ' ') = NVL(d.PGNAME, NVL(:PgName, ' '))
+                  AND NVL(c.prodcode, ' ') = NVL(d.PRODCODE, NVL(c.prodcode, ' '))
+                  AND :StepName = NVL(d.STEPNAME, :StepName)
+                  AND (NVL(:ConcatAcc, ' ') = NVL(d.ACCNAME, NVL(:ConcatAcc, ' ')) OR INSTR(d.ACCNAME, :ConcatAcc) > 0)
+                  AND NVL(:LotId, ' ') LIKE NVL(REPLACE(REPLACE(d.LOTID, '%', '_'), '*', '%'), NVL(:LotId, ' '))
+                  AND NVL(c.prodgroupkey, ' ') = NVL(d.PRODGROUPKEY, NVL(c.prodgroupkey, ' '))
+                  AND NVL(c.prodbody, ' ') = NVL(d.PRODBODY, NVL(c.prodbody, ' '))
+                  AND (NVL(:CurAccNo, ' ') = NVL(d.ACCNO, NVL(:CurAccNo, ' ')) OR INSTR(:CurAccNo || ',', d.ACCNO || ',') > 0)
+                  AND NVL(:WsDeviceFile, ' ') = NVL(d.DEVICEFILE, NVL(:WsDeviceFile, ' '))
+                  AND NVL(:Ipn, ' ') LIKE NVL(REPLACE(REPLACE(d.IPN, '%', '_'), '*', '%'), NVL(:Ipn, ' '))
+                ORDER BY d.SPECIFYEQ DESC, DECODE(d.EQID, NULL, 'A', 'B') || d.STOPTICNO, d.ACCNAME DESC";
+
+            return await _dbConnection.QueryAsync<ProductStopTestRecordDto>(sql, new 
+            { 
+                ProdGroup = prodGroup, EqType2 = eqType2, PgId = pgId, PgName = pgName, 
+                StepName = stepName, ConcatAcc = concatAcc, LotId = lotId, CurAccNo = curAccNo, 
+                WsDeviceFile = wsDeviceFile, Ipn = ipn 
+            });
+        }
+
+        public async Task<IEnumerable<string>> GetNonProdStopTestRecordsAsync(
+            string eqType2, string curEqId, string curAccName, string packageType, string pinCount, string carrierType, string bodySize, int temperature, string curAccNo, string formFactorName, string moduleOption)
+        {
+            // 翻譯自 GetNonProdStopTest
+            string sql = @"
+                SELECT DISTINCT a.STOPTICNO
+                FROM TBL_STOP_TEST_NP a
+                WHERE a.DELETEFLAG = 'N'
+                  AND NVL(:EqType2, ' ') = NVL(a.EQTYPE2, NVL(:EqType2, ' '))
+                  AND NVL(:CurEqId, ' ') = NVL(a.TESTERID, NVL(:CurEqId, ' '))
+                  AND NVL(:CurAccName, ' ') = NVL(a.ACCNAME, NVL(:CurAccName, ' '))
+                  AND NVL(:PackageType, ' ') = NVL(a.PACKAGETYPE, NVL(:PackageType, ' '))
+                  AND NVL(:PinCount, '0') = NVL(TO_CHAR(a.PINCOUNT), NVL(:PinCount, '0'))
+                  AND NVL(:CarrierType, ' ') = NVL(a.CARRIERTYPE, NVL(:CarrierType, ' '))
+                  AND NVL(:BodySize, ' ') = NVL(a.BODYSIZE, NVL(:BodySize, ' '))
+                  AND NVL(:Temp, 0) >= NVL(a.TEMP_MIN, NVL(:Temp, 0))
+                  AND NVL(:Temp, 0) <= NVL(a.TEMP_MAX, NVL(:Temp, 0))
+                  AND NVL(:FormFactorName, ' ') = NVL(a.FORM_FACTOR_NAME, NVL(:FormFactorName, ' '))
+                  AND NVL(:ModuleOption, ' ') = NVL(a.MODULE_OPTION, NVL(:ModuleOption, ' ')) ";
+
+            if (!string.IsNullOrEmpty(curAccNo))
+                sql += " AND (FUN_ARRAYPOS(:CurAccNo, a.ACCNO) > 0 OR a.ACCNO IS NULL) ";
+            else
+                sql += " AND a.ACCNO IS NULL ";
+
+            return await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                EqType2 = eqType2, CurEqId = curEqId, CurAccName = curAccName, PackageType = packageType, 
+                PinCount = pinCount, CarrierType = carrierType, BodySize = bodySize, Temp = temperature, 
+                CurAccNo = curAccNo, FormFactorName = formFactorName, ModuleOption = moduleOption 
+            });
+        }
+        
     }
 }
 
