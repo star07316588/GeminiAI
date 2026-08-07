@@ -1210,14 +1210,83 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             }
 
             // ====================================================================
-            // 3. 寫入資料庫 (對應 InsNewForm)[cite: 1]
+            // 3. 寫入資料庫 (對應 InsNewForm)
             // ====================================================================
             if (isNewForm)
             {
+                // 1. 取得機台 ProberID
+                var eqSys = await _repo.GetEqpSubSysAsync(request.TesterId);
+                string proberId = "";
+                if (eqSys != null)
+                {
+                    string sys1 = eqSys.SUBSYS1?.ToString() ?? "";
+                    string sys2 = eqSys.SUBSYS2?.ToString() ?? "";
+                    proberId = string.IsNullOrEmpty(sys2) ? sys1 : $"{sys1} {sys2}";
+                }
+
+                // 2. 取得預設的 Code, CheckSum, Speed
+                string code = "", checkSum = "", speed = "";
+                var ipnDetails = await _repo.GetIpnMasterDetailsAsync(ipn);
+                if (ipnDetails != null)
+                {
+                    string fullCode = ipnDetails.CODE?.ToString() ?? "";
+                    code = fullCode.Length > 2 ? fullCode.Substring(2, Math.Min(6, fullCode.Length - 2)) : fullCode; // VB: Mid(Code, 3, 6)
+                    checkSum = ipnDetails.CHECKSUM?.ToString() ?? "";
+                    speed = ipnDetails.SPEED?.ToString() ?? "";
+                }
+
+                // 檢查 MCD/MCP 覆寫
+                if (await _repo.CheckIsMcdOrMcpAsync(ipn))
+                {
+                    code = "Check Code Server";
+                    checkSum = "Check Code Server";
+                }
+
+                // 3. 取得備註與配方參數 (EqComments, StepComments, PgmMatch, TecnNo, ProbeCard)
+                string eqComments = "", stepComments = "", pgmMatch = "", tecnNo = "", probeCard = "";
+                if (!string.IsNullOrEmpty(tecnLotId))
+                {
+                    var tecnSpec = await _repo.GetLotStepEqSpecAsync(tecnLotId, request.StepNo, eqType2, subSystem, path, "");
+                    if (tecnSpec != null)
+                    {
+                        eqComments = tecnSpec.Temperature; // 註: VB原始碼中 Comments 被放在不同欄位，請對應 DTO
+                        probeCard = tecnSpec.ProbeCardType;
+                        pgmMatch = tecnSpec.ReplacePgName01; // 對應 DTO 中的 PgMatch (視實際宣告)
+                        // TecnNo 在此處組裝
+                    }
+                    // TODO: 查詢 TBL_LOT_STEP_SPEC 取得 StepComments
+                }
+                else
+                {
+                    var prodSpec = await _repo.GetProdStepEqSpecAsync(prodGroup, request.StepNo, eqType2, subSystem, path, "");
+                    if (prodSpec != null)
+                    {
+                        probeCard = prodSpec.ProbeCardType;
+                        // TODO: 查詢 TBL_PROD_STEP_SPEC 取得 StepComments
+                    }
+                }
+
+                // 4. FollowProduct = 'N' 工程品強制覆寫邏輯
+                string followProdCheck = string.IsNullOrEmpty(erunTicNo) ? "" : await _repo.GetFollowProductAsync(request.LotId, erunTicNo, request.Stage);
+                if (!string.IsNullOrEmpty(erunTicNo) && followProdCheck == "N")
+                {
+                    // 清空既有屬性
+                    pgmMatch = ""; tecnNo = ""; eqComments = ""; stepComments = ""; probeCard = "";
+                    
+                    var erunOverride = await _repo.GetErunOverrideDataAsync(request.LotId, erunTicNo, request.Stage, request.StepNo, eqType2, subSystem);
+                    if (erunOverride != null)
+                    {
+                        code = erunOverride.CODE?.ToString() ?? "";
+                        checkSum = erunOverride.CHECKSUM?.ToString() ?? "";
+                        speed = erunOverride.SPEED?.ToString() ?? "";
+                        probeCard = erunOverride.PROBECARDTYPE?.ToString() ?? "";
+                    }
+                }
+
+                // 5. 進行 Insert (包含 Retry 機制)
                 string formNo = "";
                 bool insertSuccess = false;
 
-                // Retry 邏輯: 最多 20 次[cite: 1]
                 for (int i = 0; i < 20; i++)
                 {
                     formNo = await _repo.GetNextSetupFormNoAsync();
@@ -1234,20 +1303,20 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                             ErunTicNo = erunTicNo,
                             WaferId = request.WaferId,
                             TesterId = request.TesterId,
-                            ProberId = "", // 可依據 TesterId 查詢 EQ_INFO 帶入
+                            ProberId = proberId,       // ✅ 已補齊
                             TestMode = stepName,
                             PgName = request.PgName,
                             PgId = request.PgId,
-                            PgmMatch = "", 
-                            Code = "", // 可補上查 TBL_IPN_MASTER 的邏輯
-                            CheckSum = "",
-                            Speed = "",
+                            PgmMatch = pgmMatch,       // ✅ 已補齊
+                            Code = code,               // ✅ 已補齊
+                            CheckSum = checkSum,       // ✅ 已補齊
+                            Speed = speed,             // ✅ 已補齊
                             Temp = request.Temp,
                             WsDeviceFile = request.WsDeviceFile,
-                            TecnNo = "", // 若有取得 TECN NO 可寫入
-                            ProbeCard = "",
-                            EqComments = "",
-                            StepComments = "",
+                            TecnNo = tecnNo,           // ✅ 已補齊
+                            ProbeCard = probeCard,     // ✅ 已補齊
+                            EqComments = eqComments,   // ✅ 已補齊
+                            StepComments = stepComments,// ✅ 已補齊
                             CreateUserId = request.UserId,
                             SetupReason = request.SetupReason,
                             SetupWaferId1 = request.SetupWaferId1,
@@ -1264,7 +1333,6 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                     }
                     catch (Exception)
                     {
-                        // 若發生 Unique Constraint 衝突，等待 1 秒後重試[cite: 1]
                         await Task.Delay(1000);
                     }
                 }
@@ -1274,9 +1342,7 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                     throw new Exception($"SETUP FORM 單號寫入失敗,請洽IT人員協助.");
                 }
 
-                // 寫入成功後更新機台狀態[cite: 1]
                 await _repo.UpdateEqInfoFormNoAsync(request.TesterId, formNo, request.UserId);
-                
                 response.FormNo = formNo;
             }
 
