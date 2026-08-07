@@ -90,7 +90,8 @@ namespace MES.Net.Shared.DTOs.Print
         public string RefStepName01 { get; set; }
         public string RefPgName01 { get; set; }
         public string ReplacePgName01 { get; set; }
-        // ... (視需求擴充 02, 03)
+        public string TecnNo { get; set; } // ✅ 新增
+        public string StepComments { get; set; } // ✅ 新增
     }
     // 對應 GetFTAccByPgm 的回傳值
     public class FtAccDto
