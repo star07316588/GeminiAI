@@ -1,0 +1,5 @@
+Hello, I am Lawrence Chiang, a Software Engineer with over five years of experience in the semiconductor and manufacturing factory, I focus on migrating legacy systems and modern programing system.
+My core technical expertise includes C#.NET, Java, and VB6, using CI/CD tools like as Jenkins and Git
+At Macronix, migrated legacy VB6 and Java code to C#.NET, which resolved browser compatibility issues for modern browser.
+At Innolux, I led an AGV project. By using real-time tracking map, I could carry material for vehicle-based logistics.
+I am major in Managerment Information, I guarantee that my experience will provide contribution with your teams.
