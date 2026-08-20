@@ -1537,20 +1537,17 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             }
             else if (request.Stage == "FT")
             {
-                // 1. 初始化 Excel DTO
-                var excelData = new FtSetupExcelDto();
+                // 1. 蒐集 Excel 所需的所有資料
+                var excelDto = await GatherFtSetupExcelDataAsync(request, response.StopInfoMsg, eqType2, erunTicNo, tecnLotId, prodGroup, path);
                 
-                // 2. 判斷要走哪一個 Sheet 模板
-                // VB6: 若 EqType2 = "AT3-300AL" 或 "FT-940"，走 AT3SetupForm；否則走 FtSetupForm
+                // 2. 判斷使用哪個 Sheet
                 if (eqType2 == "AT3-300AL" || eqType2 == "FT-940")
                 {
-                    excelData.SheetName = eqType2;
-                    // TODO: 實作 AT3 收集資料邏輯
+                    excelDto.SheetName = eqType2;
                 }
                 else
                 {
-                    excelData.SheetName = "FT";
-                    // TODO: 實作一般 FT 收集資料邏輯 (對應 Call FtSetupForm)
+                    excelDto.SheetName = "FT";
                 }
 
                 // 3. 取得模板實體路徑 (可依據貴司 Web API 設定調整路徑取得方式)
