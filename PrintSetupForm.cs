@@ -527,40 +527,42 @@ namespace MES.Net.Infrastructure.Repository.Print
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, TicNo = erunTicNo, Stage = stage, StepNo = stepNo, EqType2 = eqType2, SubSystem = string.IsNullOrEmpty(subSystem) ? " " : subSystem });
         }
         
-        public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string stepNo, string eqType2, string subSystem, string path)
+public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string stepNo, string eqType2, string subSystem, string path, string maxSite)
         {
+            // TBL_LOT_STEP_EQ_SPEC (TECN 完整版)
             string sql = @"
-                SELECT TECNNO as TecnNo, 
-                       PROBECARDTYPE as ProbeCardType, 
-                       STEPCOMMENT as StepComments, 
-                       TEMPERATURE as Temperature
-                FROM TBL_LOT_STEP_EQ_SPEC 
-                WHERE :TecnLotId LIKE TECNLOTID 
-                  AND STEPNO = :StepNo 
-                  AND EQTYPE2 = :EqType2 
-                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') 
-                  AND PATH = :Path 
+                SELECT PGNAME as PgName, PGID as PgId, PGMODE as PgMode, TEMPERATURE as Temperature, 
+                       PROBECARDTYPE as ProbeCardType, LOADBOARDTYPE as LoadboardType, 
+                       CONTACTBOARDTYPE as ContactboardType, WSDEVICEFILE as WsDeviceFile, 
+                       SPECIFYEQ as SpecifyEq, EQID as EqId, BURNINBOARD as BurnInBoard,
+                       REFSTEPNAME01 as RefStepName01, REFPGNAME01 as RefPgName01, REPLACEPGNAME01 as ReplacePgName01,
+                       TECNNO as TecnNo, STEPCOMMENT as StepComments,
+                       CABLETYPE as CableType, KITTYPE as KitType, NEEDJUMPER as NeedJumper, JUMPERPINNO as JumperPinNo
+                FROM TBL_LOT_STEP_EQ_SPEC
+                WHERE TECNLOTID LIKE :TecnLotId AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 
+                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') AND PATH = :Path AND NVL(MAXSITE, ' ') = NVL(:MaxSite, ' ')
                   AND DELETEFLAG = 'N'";
                   
-            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { TecnLotId = tecnLotId, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path });
+            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { TecnLotId = tecnLotId, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path, MaxSite = maxSite });
         }
 
-        public async Task<RecipeSpecData> GetProdStepEqSpecAsync(string prodGroup, string stepNo, string eqType2, string subSystem, string path)
+        public async Task<RecipeSpecData> GetProdStepEqSpecAsync(string prodGroup, string stepNo, string eqType2, string subSystem, string path, string maxSite)
         {
+            // TBL_PROD_STEP_EQ_SPEC (Normal 完整版)
             string sql = @"
-                SELECT PROBECARDTYPE as ProbeCardType, 
-                       STEPCOMMENT as StepComments,
-                       DOC_TYPE as DocType,
-                       DOC_NO as DocNo
-                FROM TBL_PROD_STEP_EQ_SPEC 
-                WHERE PRODGROUP = :ProdGroup 
-                  AND STEPNO = :StepNo 
-                  AND EQTYPE2 = :EqType2 
-                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') 
-                  AND PATH = :Path 
+                SELECT PG_NAME as PgName, PG_ID as PgId, PG_MODE as PgMode, TEMPERATURE as Temperature, 
+                       PROBECARD_TYPE as ProbeCardType, LOADBOARD_TYPE as LoadboardType, 
+                       CONTACTBOARD_TYPE as ContactboardType, WS_DEVICE_FILE as WsDeviceFile, 
+                       SPECIFYEQ as SpecifyEq, EQID as EqId, STOPTICNO as StopTicNo, BURN_IN_BOARD as BurnInBoard,
+                       REF_STEP_NAME_01 as RefStepName01, REF_PG_NAME_01 as RefPgName01, REPLACE_PG_NAME_01 as ReplacePgName01,
+                       STEPCOMMENT as StepComments, DOC_TYPE as DocType, DOC_NO as DocNo,
+                       CABLE_TYPE as CableType, KIT_TYPE as KitType, NEEDJUMPER as NeedJumper, JUMPERPINNO as JumperPinNo
+                FROM TBL_PROD_STEP_EQ_SPEC
+                WHERE PRODGROUP = :ProdGroup AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 
+                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') AND PATH = :Path AND NVL(MAX_SITE, ' ') = NVL(:MaxSite, ' ')
                   AND DOCSTATUS = 'Active'";
                   
-            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { ProdGroup = prodGroup, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path });
+            return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { ProdGroup = prodGroup, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path, MaxSite = maxSite });
         }
         public async Task<string> GetShiftCodeAsync(string empNo)
         {
