@@ -94,6 +94,11 @@ namespace MES.Net.Shared.DTOs.Print
         public string StepComments { get; set; } // ✅ 新增
         public string DocType { get; set; } // ✅ 新增：文件類別
         public string DocNo { get; set; }   // ✅ 新增：文件單號
+
+        public string CableType { get; set; }     // ✅ 擴充
+        public string KitType { get; set; }       // ✅ 擴充
+        public string NeedJumper { get; set; }    // ✅ 擴充
+        public string JumperPinNo { get; set; }   // ✅ 擴充
     }
     // 對應 GetFTAccByPgm 的回傳值
     public class FtAccDto
