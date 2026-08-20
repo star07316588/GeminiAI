@@ -1553,9 +1553,21 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                     // TODO: 實作一般 FT 收集資料邏輯 (對應 Call FtSetupForm)
                 }
 
-                // 3. 呼叫 ExcelHelper 產生檔案
-                // string fileDownloadPath = ExcelGenerator.GenerateSetupForm(excelData);
-                // response.FileDownloadUrl = fileDownloadPath;
+                // 3. 取得模板實體路徑 (可依據貴司 Web API 設定調整路徑取得方式)
+                string templatePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "SetupForm.xlsx");
+
+                // 4. 呼叫我們剛寫好的方法產出 byte[]
+                byte[] fileBytes = GenerateFtSetupExcelBytes(excelDto, templatePath);
+
+                // 5. (選項A) 存成實體檔案並回傳下載 URL
+                // string fileName = $"SetupForm_{request.LotId}_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+                // string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Downloads", fileName);
+                // File.WriteAllBytes(savePath, fileBytes);
+                // response.FileDownloadUrl = $"/Downloads/{fileName}";
+
+                // 5. (選項B) 直接將 Base64 字串塞入 Response，讓前端 Vue 解析下載 (推薦此做法，不佔 Server 空間)
+                // response.ExcelBase64 = Convert.ToBase64String(fileBytes);
+                // response.FileName = $"SetupForm_{request.LotId}.xlsx";
             }
 
             return response;
@@ -1940,6 +1952,126 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             dto.RecipeList = recipeSpecs.ToList();
 
             return dto;
+        }
+        // ==============================================================================
+        // 專責處理 FT 站架機單 Excel 匯出 (使用 ClosedXML)
+        // ==============================================================================
+        public byte[] GenerateFtSetupExcelBytes(FtSetupExcelDto dto, string templatePath)
+        {
+            if (!File.Exists(templatePath))
+            {
+                throw new FileNotFoundException($"找不到 Excel 模板檔案: {templatePath}");
+            }
+
+            using (var wb = new XLWorkbook(templatePath))
+            {
+                // 1. 刪除不需要的 Sheet，只保留目標 Sheet (例如 "FT" 或 "AT3-300AL")
+                foreach (var sheet in wb.Worksheets.ToList())
+                {
+                    if (sheet.Name != dto.SheetName)
+                    {
+                        sheet.Delete();
+                    }
+                }
+
+                // 2. 取得目標 Sheet
+                var ws = wb.Worksheet(dto.SheetName);
+
+                // ==========================================
+                // 3. 填寫基本標頭資訊 (依據我們先前盤點的 Cell 位置)
+                // ==========================================
+                ws.Cell("C3").Value = dto.OperatorId;
+                ws.Cell("H3").Value = dto.ShiftCode;
+                ws.Cell("R3").Value = dto.PrintDate;
+                
+                // 停測提示 (通常是合併儲存格，直接對左上角賦值即可)
+                ws.Cell("F5").Value = dto.StopInfo; 
+
+                // ==========================================
+                // 4. 填寫 Lot 與產品資訊
+                // ==========================================
+                ws.Cell("E6").Value = dto.LotId;
+                ws.Cell("R6").Value = dto.LotOwner;
+                ws.Cell("E7").Value = dto.Ipn;
+                ws.Cell("R7").Value = dto.ErunTicNo;
+                ws.Cell("E8").Value = dto.StepName;
+                ws.Cell("R8").Value = dto.TesterId;
+
+                ws.Cell("E9").Value = dto.PackageName;
+                ws.Cell("E10").Value = dto.Speed;
+                ws.Cell("R10").Value = dto.Code;
+                ws.Cell("E11").Value = dto.PgmName;
+                ws.Cell("R11").Value = dto.CheckSum;
+                ws.Cell("E12").Value = dto.WsDeviceFile;
+                ws.Cell("R12").Value = dto.Temperature;
+                ws.Cell("R13").Value = dto.SoakTime;
+
+                // ==========================================
+                // 5. 填寫 Jumper 與備註 (需依實際版面微調)
+                // ==========================================
+                ws.Cell("E16").Value = dto.NeedJumper;
+                ws.Cell("E17").Value = dto.JumperPinNo;
+                // 若 Comments 要放在旁邊，可指定例如 H16 或與 Jumper 共用
+                ws.Cell("R16").Value = dto.Comments; 
+
+                // ==========================================
+                // 6. 填寫機台配件 (Accessories)
+                // ==========================================
+                ws.Cell("E20").Value = dto.SubSystem1;
+                ws.Cell("R20").Value = dto.SubSystem2;
+
+                ws.Cell("E28").Value = dto.LoadBoard;
+                ws.Cell("R28").Value = dto.LoadBoard; // 依 VB 邏輯可能左右都有
+                ws.Cell("E29").Value = dto.Cable;
+                ws.Cell("R29").Value = dto.Cable;
+                ws.Cell("E30").Value = dto.ContactBoard;
+                ws.Cell("R30").Value = dto.ContactBoard;
+                ws.Cell("E31").Value = dto.KitType;
+                ws.Cell("R31").Value = dto.KitType;
+                ws.Cell("E33").Value = dto.MatchPlate;
+                ws.Cell("R33").Value = dto.MatchPlate;
+                
+                ws.Cell("E35").Value = dto.Pitch;
+                ws.Cell("E36").Value = dto.VacuumCup;
+
+                // PbFree 打勾邏輯 (假設 E36/G36 旁有對應的框)
+                if (dto.PbFree == "Y")
+                    ws.Cell("H36").Value = "V"; // 視模板勾選框位置調整
+                else if (dto.PbFree == "N")
+                    ws.Cell("J36").Value = "V";
+
+                // ==========================================
+                // 7. 填寫 Recipe Spec List (動態產生列)
+                // ==========================================
+                // 假設 Recipe 清單從第 49 列開始，分左右兩欄 (A/B 與 P/Q)
+                int startRow = 49;
+                for (int i = 0; i < dto.RecipeList.Count; i++)
+                {
+                    int currentRow = startRow + (i / 2); // 每兩筆換一列
+                    
+                    if (i % 2 == 0)
+                    {
+                        // 填在左半邊 (A, B)
+                        ws.Cell($"A{currentRow}").Value = dto.RecipeList[i].Id;
+                        ws.Cell($"B{currentRow}").Value = dto.RecipeList[i].SpecName;
+                    }
+                    else
+                    {
+                        // 填在右半邊 (P, Q)
+                        ws.Cell($"P{currentRow}").Value = dto.RecipeList[i].Id;
+                        ws.Cell($"Q{currentRow}").Value = dto.RecipeList[i].SpecName;
+                    }
+                }
+
+                // ==========================================
+                // 8. 儲存為 MemoryStream 並回傳 Byte Array
+                // ==========================================
+                using (var ms = new MemoryStream())
+                {
+                    wb.SaveAs(ms);
+                    return ms.ToArray();
+                }
+            }
         }
     }
 }
