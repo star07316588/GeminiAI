@@ -135,3 +135,109 @@ ErrorHandler:
         Call HandleError(False, typErrInfo, , moAppLog, True)
     End If
 End Function
+
+Public Function GetAccMatchPlate(ByVal moProRawSql As Object, ByVal moAppLog As Object, _
+                                 ByVal sIPN As String, ByVal sKit As String, ByVal sLoadBoard As String, _
+                                 ByVal sEqType2 As String) As String
+On Error GoTo ExitHandler:
+Dim sProcID As String
+Dim typErrInfo As tErrInfo
+
+Dim sSQL As String
+Dim colRS As Collection
+
+Dim sKitType As String
+Dim sLoadboadType As String
+
+Dim sAccsite As String
+Dim sPinCount As String
+Dim sPkgCode As String
+Dim sBodySize As String
+
+'----
+' Init
+'----
+    sProcID = "GetAccMatchPlate"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+            
+    If InStr(sKit, "-") > 0 Then
+        sKitType = Left(sKit, InStr(sKit, "-") - 1)
+    Else
+        sKitType = sKit
+    End If
+    If InStr(sLoadBoard, "-") > 0 Then
+        sLoadboadType = Left(sLoadBoard, InStr(sLoadBoard, "-") - 1)
+    Else
+        sLoadboadType = sLoadBoard
+    End If
+    
+    sSQL = "SELECT a." & gsCAT_TIM_PACKAGE_CODE & ",a." & gsCAT_TIM_PIN_COUNT & ",a." & gsCAT_TIM_BODY_SIZE & " " & _
+           " from " & gsCAT_TBL_IPN_MASTER & " a " & _
+           " where a." & gsCAT_TIM_IPN & " = '" & sIPN & "' "
+    Set colRS = moProRawSql.QueryDatabase(sSQL)
+    If colRS.Count > 0 Then
+        sPkgCode = colRS.Item(1).Item(gsCAT_TIM_PACKAGE_CODE)
+        sPinCount = colRS.Item(1).Item(gsCAT_TIM_PIN_COUNT)
+        sBodySize = colRS.Item(1).Item(gsCAT_TIM_BODY_SIZE)
+    End If
+    
+    sSQL = "select a." & gsCAT_TAB_ACCSITE & " from " & gsCAT_TBL_ACC_BASIC & " a " & _
+           " where a." & gsCAT_TAB_ACC_NAME & " = '" & sLoadboadType & "' " & _
+           " and a." & gsCAT_TAB_DELETE_FLAG & " = 'N' "
+    Set colRS = moProRawSql.QueryDatabase(sSQL)
+    If colRS.Count > 0 Then
+        sAccsite = colRS.Item(1).Item(gsCAT_TAB_ACCSITE)
+    End If
+    
+'----
+' Condition Checking
+'----
+    ' <Put your condition checking codes here>...
+
+'----
+' Action
+'----
+    'Modify by Sam on 20200424 for project FT配件資料標準化, ADD Loadboard,Eqtype2
+   sSQL = "select a." & gsCAT_TACM_MATCHPLATE & " from " & gsCAT_TBL_ACC_MATCHPLATE & " a " & _
+          " where a." & gsCAT_TACM_DELETEFLAG & " = 'N' " & _
+          " and a." & gsCAT_TACM_KIT & " = '" & sKitType & "' " & _
+          " and a." & gsCAT_TACM_ACCSITE & " = '" & sAccsite & "' " & _
+          " and a." & gsCAT_TACM_PINCOUNT & " = '" & sPinCount & "' " & _
+          " and a." & gsCAT_TACM_PACKAGECODE & " = '" & sPkgCode & "' " & _
+          " and a." & gsCAT_TACM_BODYSIZE & " = '" & sBodySize & "' " & _
+          " and a." & gsCAT_TACM_LOADBOARDTYPE & " = '" & sLoadboadType & "' " & _
+          " and a." & gsCAT_TACM_TESTERTYPE & " = '" & sEqType2 & "' "
+    Set colRS = moProRawSql.QueryDatabase(sSQL)
+    If colRS.Count > 0 Then
+        GetAccMatchPlate = colRS.Item(1).Item(gsCAT_TACM_MATCHPLATE)
+    End If
+    
+'----
+' Done
+'----
+
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Function
