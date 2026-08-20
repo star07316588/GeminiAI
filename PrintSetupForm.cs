@@ -1412,6 +1412,28 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                 await _repo.UpdateEqInfoFormNoAsync(request.TesterId, formNo, request.UserId);
                 response.FormNo = formNo;
             }
+            else if (request.Stage == "FT")
+            {
+                // 1. 初始化 Excel DTO
+                var excelData = new FtSetupExcelDto();
+                
+                // 2. 判斷要走哪一個 Sheet 模板
+                // VB6: 若 EqType2 = "AT3-300AL" 或 "FT-940"，走 AT3SetupForm；否則走 FtSetupForm
+                if (eqType2 == "AT3-300AL" || eqType2 == "FT-940")
+                {
+                    excelData.SheetName = eqType2;
+                    // TODO: 實作 AT3 收集資料邏輯
+                }
+                else
+                {
+                    excelData.SheetName = "FT";
+                    // TODO: 實作一般 FT 收集資料邏輯 (對應 Call FtSetupForm)
+                }
+
+                // 3. 呼叫 ExcelHelper 產生檔案
+                // string fileDownloadPath = ExcelGenerator.GenerateSetupForm(excelData);
+                // response.FileDownloadUrl = fileDownloadPath;
+            }
 
             return response;
         }
