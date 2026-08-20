@@ -35,6 +35,15 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<dynamic> GetErunReqContinueTestAsync(string lotId, string erunTicNo, string stage);
         Task<IEnumerable<ProductStopTestRecordDto>> GetProductStopTestRecordsAsync(string eqType2, string prodGroup, string ipn, string pgId, string pgName, string stepName, string concatAcc, string lotId, string curAccNo, string wsDeviceFile);
         Task<IEnumerable<string>> GetNonProdStopTestRecordsAsync(string eqType2, string curEqId, string curAccName, string packageType, string pinCount, string carrierType, string bodySize, int temperature, string curAccNo, string formFactorName, string moduleOption);
+
+        Task<string> GetShiftCodeAsync(string empNo);
+        Task<string> GetSoakTimeAsync(string eqType2, string pinCount, string packageCode);
+        Task<string> GetSthandFileAsync(string loadBoard);
+        Task<dynamic> GetEqInfoAccessoriesFullAsync(string eqId); 
+        Task<dynamic> GetTesterFviAccAsync(string pinCount, string pkgCode);
+        Task<string> GetSpecCommentsAsync(bool isTecn, string id, string stepNo, string path);
+        Task<string> GetAccMatchPlateAsync(string ipn, string kit, string loadBoard, string eqType2);
+        Task<IEnumerable<RecipeItemDto>> GetRecipeSpecNamesAsync(string eqId, string lotId, string ipn, string packageName, string pinCount, string bodySize);
     }
 
     public class PrintSetupFormRepository : IPrintSetupFormRepository
@@ -543,6 +552,55 @@ namespace MES.Net.Infrastructure.Repository.Print
                   AND DOCSTATUS = 'Active'";
                   
             return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { ProdGroup = prodGroup, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path });
+        }
+        public async Task<string> GetShiftCodeAsync(string empNo)
+        {
+            string sql = "SELECT SHIFTCODE FROM TBL_MXIC_EMP WHERE EMPNO = :EmpNo";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { EmpNo = empNo });
+        }
+
+        public async Task<string> GetSoakTimeAsync(string eqType2, string pinCount, string packageCode)
+        {
+            string sql = "SELECT SOAKTIME FROM TBL_SUBSYS_CONFI WHERE EQTYPE2 = :EqType2 AND PINCOUNT = :PinCount AND PACKAGECODE = :PkgCode";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { EqType2 = eqType2, PinCount = pinCount, PkgCode = packageCode });
+        }
+
+        public async Task<string> GetSthandFileAsync(string loadBoard)
+        {
+            string sql = "SELECT STHAND_FILE FROM TBL_ACC_GROUP WHERE LOADBOARD = :LoadBoard";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { LoadBoard = loadBoard });
+        }
+
+        public async Task<dynamic> GetEqInfoAccessoriesFullAsync(string eqId)
+        {
+            string sql = "SELECT LOADBOARDID, CABLEID, CONTACTBOARDID, KITID, MATCHPLATE, SUBSYS1, SUBSYS2 FROM TBL_EQ_INFO WHERE EQ_ID = :EqId";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { EqId = eqId });
+        }
+
+        public async Task<dynamic> GetTesterFviAccAsync(string pinCount, string pkgCode)
+        {
+            string sql = "SELECT PITCH, VACUUMCUP FROM TBL_TESTER_FVI_ACC WHERE PINCOUNT = :PinCount AND PKGCODE = :PkgCode AND DELETEFLAG = 'N'";
+            return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { PinCount = pinCount, PkgCode = pkgCode });
+        }
+
+        public async Task<string> GetSpecCommentsAsync(bool isTecn, string id, string stepNo, string path)
+        {
+            string sql = isTecn 
+                ? "SELECT COMMENTS FROM TBL_LOT_STEP_SPEC WHERE :Id LIKE TECNLOTID AND STEPNO = :StepNo AND DELETEFLAG = 'N' AND PATH = :Path"
+                : "SELECT COMMENTS FROM TBL_PROD_STEP_SPEC WHERE PRODGROUP = :Id AND STEPNO = :StepNo AND DOCSTATUS = 'Active' AND PATH = :Path";
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { Id = id, StepNo = stepNo, Path = path });
+        }
+
+        public async Task<string> GetAccMatchPlateAsync(string ipn, string kit, string loadBoard, string eqType2)
+        {
+            // TODO: 填入 modCustom.bas 裡面的 GetAccMatchPlate 實作 SQL
+            return await Task.FromResult(""); 
+        }
+
+        public async Task<IEnumerable<RecipeItemDto>> GetRecipeSpecNamesAsync(string eqId, string lotId, string ipn, string packageName, string pinCount, string bodySize)
+        {
+            // TODO: 填入 getRecipeSpecName 實作 SQL，需回傳 Col1 (ID) 與 SpecName
+            return await Task.FromResult(new List<RecipeItemDto>());
         }
     }
 }
@@ -1652,6 +1710,171 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             // HashSet 保證不重複並使用 OrderBy 排序[cite: 10]
             var stopTicNos = new HashSet<string>(records);
             return string.Join(",", stopTicNos.OrderBy(x => x));
+        }
+
+        private async Task<FtSetupExcelDto> GatherFtSetupExcelDataAsync(
+            PrintSetupFormSubmitRequest request, string stopInfoMsg, string eqType2, string erunTicNo, string tecnLotId, string prodGroup, string path)
+        {
+            var dto = new FtSetupExcelDto();
+            var olot = WipServiceWrapper.Instance.LotById(request.LotId);
+
+            // ==========================================
+            // 1. 基本資訊與標頭 (Header)
+            // ==========================================
+            dto.OperatorId = request.UserId;
+            dto.ShiftCode = await _repo.GetShiftCodeAsync(request.UserId) ?? "";
+            dto.PrintDate = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
+            dto.StopInfo = stopInfoMsg == "NA" ? "" : stopInfoMsg;
+            dto.LotId = request.LotId;
+            dto.Ipn = olot.CustomAttributes(LotCustomAttributes.Ipn) ?? "";
+            dto.LotOwner = olot.CustomAttributes(LotCustomAttributes.LotOwner) ?? "";
+            dto.StepName = olot.CurrentStep.Steps[0].Description ?? "";
+            dto.TesterId = request.TesterId;
+
+            // 處理 ErunTicNo 字串 (若 SapRwNo 存在要合併)
+            // 註: 此處使用您前面已經撈好的 erunTicNo，若需加上 SAP 單號，可在此擴充
+            dto.ErunTicNo = erunTicNo;
+
+            // ==========================================
+            // 2. 產品/封裝資訊 (IPN Master)
+            // ==========================================
+            var ipnDetails = await _repo.GetIpnMasterForTecnAsync(request.LotId); // 重用我們先前修復的含 Lot 關聯的查詢
+            if (ipnDetails != null)
+            {
+                dto.PackageName = ipnDetails.PACKAGENAME?.ToString() ?? "";
+                string fullCode = ipnDetails.CODE?.ToString() ?? "";
+                dto.Code = fullCode.Length > 2 ? fullCode.Substring(2) : fullCode;
+                dto.CheckSum = ipnDetails.CHECKSUM?.ToString() ?? "";
+                dto.Speed = ipnDetails.SPEED?.ToString() ?? "";
+                dto.PinCount = ipnDetails.PINCOUNT?.ToString() ?? "";
+                dto.PackageCode = ipnDetails.PACKAGECODE?.ToString() ?? "";
+                dto.PbFree = ipnDetails.GPTYPE?.ToString() == "XX" ? "N" : "Y";
+                
+                // 保留 BodySize 給後續查詢用
+                string bodySize = ipnDetails.BODYSIZE?.ToString() ?? "";
+            }
+
+            // ==========================================
+            // 3. 配方與機台設定 (Spec)
+            // ==========================================
+            string subSystemType = request.SubSystemValue?.Split(',')[0] ?? "";
+            string maxSite = request.SubSystemValue?.Contains(",") == true ? request.SubSystemValue.Split(',')[1] : "";
+
+            RecipeSpecData spec = null;
+            if (!string.IsNullOrEmpty(tecnLotId))
+            {
+                spec = await _repo.GetLotStepEqSpecAsync(tecnLotId, request.StepNo, eqType2, subSystemType, path, maxSite);
+            }
+            else
+            {
+                spec = await _repo.GetProdStepEqSpecAsync(prodGroup, request.StepNo, eqType2, subSystemType, path, maxSite);
+            }
+
+            if (spec != null)
+            {
+                dto.Temperature = !string.IsNullOrEmpty(request.Temp) ? request.Temp : spec.Temperature;
+                dto.LoadBoard = spec.LoadboardType;
+                dto.ContactBoard = spec.ContactboardType;
+                
+                // 若為空，呼叫 GetFTAccByPgmAsync 替補
+                if (string.IsNullOrEmpty(dto.LoadBoard) && string.IsNullOrEmpty(dto.ContactBoard))
+                {
+                    var ftAcc = await _repo.GetFTAccByPgmAsync(dto.StepName, ipnDetails?.BODYSIZE?.ToString() ?? "", spec.PgId, spec.PgName);
+                    if (ftAcc != null)
+                    {
+                        dto.LoadBoard = ftAcc.Loadboard;
+                        dto.ContactBoard = ftAcc.Contactboard;
+                    }
+                }
+
+                // 處理 TECN PGM NO 與 PGM 名稱轉換
+                if (!string.IsNullOrEmpty(spec.DocType))
+                {
+                    // 這裡可以套用 msPGMTECNNo + DocNo 的邏輯
+                    string msPGMTECNNo = ""; // 若前方有取得
+                    dto.ErunTicNo = string.IsNullOrEmpty(msPGMTECNNo) ? spec.DocNo : $"{msPGMTECNNo}+{spec.DocNo}";
+                }
+
+                // 呼叫 GetPGMAsync 取得最終 PgmName
+                dto.PgmName = await GetPGMAsync(request.LotId, request.StepNo, path, eqType2, subSystemType, spec.PgName, spec);
+                
+                // 其他配件
+                dto.Cable = spec.CableType;  // 需擴充 DTO/Repository
+                dto.KitType = spec.KitType;  // 需擴充 DTO/Repository
+                dto.NeedJumper = spec.NeedJumper; // 需擴充 DTO/Repository
+                dto.JumperPinNo = spec.JumperPinNo; // 需擴充 DTO/Repository
+                
+                // 呼叫 GetAccMatchPlate
+                dto.MatchPlate = await _repo.GetAccMatchPlateAsync(dto.Ipn, dto.KitType, dto.LoadBoard, eqType2);
+            }
+
+            // ==========================================
+            // 4. 機台 Subsystem & 額外設定
+            // ==========================================
+            var eqFullInfo = await _repo.GetEqInfoAccessoriesFullAsync(request.TesterId);
+            if (eqFullInfo != null)
+            {
+                dto.SubSystem1 = eqFullInfo.SUBSYS1?.ToString() ?? "";
+                dto.SubSystem2 = eqFullInfo.SUBSYS2?.ToString() ?? "";
+                
+                // SubSystem Accessory Data
+                // 若有逗號取前半段的邏輯
+                string ExtractFirst(string val) => val?.Contains(",") == true ? val.Split(',')[0] : val;
+                
+                // VB 中若上方 Spec 沒取到，會從 EqInfo 補齊，此處可依需求實作
+            }
+
+            // Soak Time
+            if (dto.Temperature == "25" || dto.Temperature == "30" || dto.Temperature.ToUpper().Contains("ROOM"))
+            {
+                dto.SoakTime = "0";
+            }
+            else
+            {
+                dto.SoakTime = await _repo.GetSoakTimeAsync(eqType2, dto.PinCount, dto.PackageCode);
+            }
+
+            // Sthand File
+            dto.WsDeviceFile = await _repo.GetSthandFileAsync(dto.LoadBoard);
+
+            // Comments
+            dto.Comments = await _repo.GetSpecCommentsAsync(!string.IsNullOrEmpty(tecnLotId), !string.IsNullOrEmpty(tecnLotId) ? tecnLotId : prodGroup, request.StepNo, path);
+
+            // Pitch & VacuumCup
+            var fviAcc = await _repo.GetTesterFviAccAsync(dto.PinCount, dto.PackageCode);
+            if (fviAcc != null)
+            {
+                dto.Pitch = fviAcc.PITCH?.ToString() ?? "";
+                dto.VacuumCup = fviAcc.VACUUMCUP?.ToString() ?? "";
+            }
+
+            // ==========================================
+            // 5. FollowProduct = 'N' 的工程品覆蓋邏輯
+            // ==========================================
+            string followProdCheck = string.IsNullOrEmpty(erunTicNo) ? "" : await _repo.GetFollowProductAsync(request.LotId, erunTicNo, request.Stage);
+            if (!string.IsNullOrEmpty(erunTicNo) && followProdCheck == "N")
+            {
+                var erunOverride = await _repo.GetErunOverrideDataAsync(request.LotId, erunTicNo, request.Stage, request.StepNo, eqType2, subSystemType);
+                if (erunOverride != null)
+                {
+                    dto.Speed = erunOverride.SPEED?.ToString() ?? dto.Speed;
+                    dto.Code = erunOverride.CODE?.ToString() ?? dto.Code;
+                    dto.CheckSum = erunOverride.CHECKSUM?.ToString() ?? dto.CheckSum;
+                    dto.PgmName = erunOverride.PGNAME?.ToString() ?? dto.PgmName;
+                    dto.Temperature = erunOverride.TEMPERATURE?.ToString() ?? dto.Temperature;
+                    dto.LoadBoard = erunOverride.LOADBOARDTYPE?.ToString() ?? dto.LoadBoard;
+                    dto.ContactBoard = erunOverride.CONTACTBOARDTYPE?.ToString() ?? dto.ContactBoard;
+                    dto.JumperPinNo = erunOverride.JUMPERPINNO?.ToString() ?? dto.JumperPinNo; // 需擴充 Repository
+                }
+            }
+
+            // ==========================================
+            // 6. Recipe Spec List (HW Setup Quality check)
+            // ==========================================
+            var recipeSpecs = await _repo.GetRecipeSpecNamesAsync(request.TesterId, request.LotId, dto.Ipn, dto.PackageName, dto.PinCount, ipnDetails?.BODYSIZE?.ToString() ?? "");
+            dto.RecipeList = recipeSpecs.ToList();
+
+            return dto;
         }
     }
 }
