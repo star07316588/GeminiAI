@@ -1189,3 +1189,189 @@ Public Function RemoveStrInArray(ByVal sArray As String, ByVal sStr As String, _
         
         
 End Function
+
+Public Sub getRecipeSpecName(ByVal sEqID As String, ByVal sLotID As String, ByVal sIPN As String, _
+                             ByVal sPackageName As String, ByVal sPinCount As String, ByVal sBodySize As String, _
+                             ByRef oRS1 As Collection, moProRawSql As Object, ByRef moAppLog As Object, _
+                             ByRef moCwMbx As Object)
+On Error GoTo ExitHandler:
+Dim sProcID     As String
+Dim typErrInfo  As tErrInfo
+Dim sSQL        As String
+Dim colRS       As Collection
+Dim colSQLResult    As Collection
+Dim bICOSFlag   As Boolean
+Dim aSpecialType()  As Variant
+Dim bFoundFlag As Boolean
+Dim sPGM    As String
+Dim iIdx        As Integer
+
+
+    '----
+    ' Init
+    '----
+    sProcID = "getRecipeSpecName"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+    bICOSFlag = False
+    bFoundFlag = False
+    
+    '----
+    ' Action
+    '----
+
+    'Check是否為ICOS機台
+    sSQL = "SELECT EQID FROM view_b2b_fweqarea WHERE eqtype='SCANNER' AND EQID='" & sEqID & "'"
+    
+    Set colRS = moProRawSql.QueryDatabase(sSQL)
+    If colRS.Count > 0 Then
+        bICOSFlag = True
+    End If
+    
+    
+    If bICOSFlag = False Then
+        
+        'KEY 為 EQID/PACKAGENAME/PINCOUNT/BODYSIZE
+        'Add Optional/PGM by Tony on 2014/09/01 for Req.JC201400285(這邊的PGM不會用到,為配合下方ICOS機台)
+        sSQL = "Select row_number() over(order by sequence) as col1 ," & _
+                gsCAT_TSRE_SPECNAME & "," & _
+                gsCAT_TSRE_SEQUENCE & "," & _
+                gsCAT_TSRE_SPECMIN & "," & _
+                gsCAT_TSRE_SPECMAX & "," & _
+                gsCAT_TSRE_OPTIONAL & "," & _
+                gsCAT_TSRE_PGM & _
+                " from " & gsCAT_TBL_SETUP_RECIPE & " a " & _
+                " where a." & gsCAT_TSRE_EQID & " = '" & sEqID & "'" & _
+                " and " & gsCAT_TSRE_PACKAGENAME & "='" & sPackageName & "'" & _
+                " and " & gsCAT_TSRE_PINCOUNT & "='" & sPinCount & "'" & _
+                " and " & gsCAT_TSRE_BODYSIZE & "='" & sBodySize & "'" & _
+                " order by sequence "
+        
+        Set oRS1 = moProRawSql.QueryDatabase(sSQL) '回傳oRS1
+                
+    Else
+    
+    sPGM = getRecipeSpecName1(sEqID, sLotID, sIPN, sPackageName, sPinCount, sBodySize, _
+                              oRS1, moProRawSql, moAppLog, moCwMbx)
+
+        
+        '取完PGM後,開始取RECIPE : KEY 為 EQID/PGM
+        'Add Optional/PGM by Tony on 2014/09/01 for Req.JC201400285
+        sSQL = "Select row_number() over(order by sequence) as col1 ," & _
+                gsCAT_TSRE_SPECNAME & "," & _
+                gsCAT_TSRE_SEQUENCE & "," & _
+                gsCAT_TSRE_SPECMIN & "," & _
+                gsCAT_TSRE_SPECMAX & "," & _
+                gsCAT_TSRE_OPTIONAL & "," & _
+                gsCAT_TSRE_PGM & _
+                " from " & gsCAT_TBL_SETUP_RECIPE & " a " & _
+                " where a." & gsCAT_TSRE_EQID & " = '" & sEqID & "'" & _
+                " and " & gsCAT_TSRE_PGM & "='" & sPGM & "'" & _
+                " order by sequence "
+                
+        Set oRS1 = moProRawSql.QueryDatabase(sSQL) '回傳oRS1
+    
+    End If
+
+    
+
+ 
+    '----
+    ' Done
+    '----
+    
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Sub
+
+Public Function getRecipeSpecName1(ByVal sEqID As String, ByVal sLotID As String, ByVal sIPN As String, _
+                             ByVal sPackageName As String, ByVal sPinCount As String, ByVal sBodySize As String, _
+                             ByRef oRS1 As Collection, moProRawSql As Object, ByRef moAppLog As Object, _
+                             ByRef moCwMbx As Object) As String
+On Error GoTo ExitHandler:
+Dim sProcID     As String
+Dim typErrInfo  As tErrInfo
+Dim sSQL        As String
+Dim colRS       As Collection
+Dim colSQLResult    As Collection
+Dim bICOSFlag   As Boolean
+Dim aSpecialType()  As Variant
+Dim bFoundFlag As Boolean
+Dim sPGM    As String
+Dim iIdx        As Integer
+
+
+    '----
+    ' Init
+    '----
+    sProcID = "getRecipeSpecName1"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+    
+    bFoundFlag = False
+    
+    '----
+    ' Action
+    '----
+
+        
+    'Added by Jack on 2016/02/02 for 2016 MES Phase-1 特殊客戶Scan需求攔截機制 專案 <Start>
+    '共用模組, 改用 FUN_GET_SCANPGM( ). sLotID & sEqID & InHouseFlag = 'Y'
+    sSQL = "select FUN_GET_SCANPGM('" & sLotID & "','Y','" & sEqID & "') from dual"
+    Set colRS = moProRawSql.QueryDatabase(sSQL)
+    If Not colRS Is Nothing And colRS.Count > 0 Then
+        sPGM = colRS.Item(1).Item(1)
+    End If
+    'Added by Jack on 2016/02/02 for 2016 MES Phase-1 特殊客戶Scan需求攔截機制 專案 <End>
+
+    getRecipeSpecName1 = sPGM
+ 
+    '----
+    ' Done
+    '----
+    
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Function
