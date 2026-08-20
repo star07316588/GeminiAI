@@ -121,33 +121,40 @@ namespace MES.Net.Infrastructure.Repository.Print
             return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { DocNo = erunTicNo, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem });
         }
 
-        public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string stepNo, string eqType2, string subSystem, string path, string maxSite)
-        {
-            // 對應 VB 中對 TBL_LOT_STEP_EQ_SPEC 的查詢 (TECN)
+{
+            // TBL_LOT_STEP_EQ_SPEC (TECN 完整版)
             string sql = @"
-                SELECT PGNAME, PGID, PGMODE, TEMPERATURE, PROBECARDTYPE, LOADBOARDTYPE, 
-                       CONTACTBOARDTYPE, WSDEVICEFILE, SPECIFYEQ, EQID, BURNINBOARD,
-                       REFSTEPNAME01, REFPGNAME01, REPLACEPGNAME01
+                SELECT PGNAME as PgName, PGID as PgId, PGMODE as PgMode, TEMPERATURE as Temperature, 
+                       PROBECARDTYPE as ProbeCardType, LOADBOARDTYPE as LoadboardType, 
+                       CONTACTBOARDTYPE as ContactboardType, WSDEVICEFILE as WsDeviceFile, 
+                       SPECIFYEQ as SpecifyEq, EQID as EqId, BURNINBOARD as BurnInBoard,
+                       REFSTEPNAME01 as RefStepName01, REFPGNAME01 as RefPgName01, REPLACEPGNAME01 as ReplacePgName01,
+                       TECNNO as TecnNo, STEPCOMMENT as StepComments,
+                       CABLETYPE as CableType, KITTYPE as KitType, NEEDJUMPER as NeedJumper, JUMPERPINNO as JumperPinNo
                 FROM TBL_LOT_STEP_EQ_SPEC
                 WHERE TECNLOTID LIKE :TecnLotId AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 
-                  AND SUBSYSTEM = :SubSystem AND PATH = :Path AND NVL(MAXSITE, ' ') = NVL(:MaxSite, ' ')
+                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') AND PATH = :Path AND NVL(MAXSITE, ' ') = NVL(:MaxSite, ' ')
                   AND DELETEFLAG = 'N'";
+                  
             return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { TecnLotId = tecnLotId, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path, MaxSite = maxSite });
         }
 
         public async Task<RecipeSpecData> GetProdStepEqSpecAsync(string prodGroup, string stepNo, string eqType2, string subSystem, string path, string maxSite)
         {
-            // 對應 VB 中對 TBL_PROD_STEP_EQ_SPEC 的查詢 (Normal)
+            // TBL_PROD_STEP_EQ_SPEC (Normal 完整版)
             string sql = @"
-                SELECT PG_NAME as PgName, PG_ID as PgId, PG_MODE as PgMode, TEMPERATURE, 
+                SELECT PG_NAME as PgName, PG_ID as PgId, PG_MODE as PgMode, TEMPERATURE as Temperature, 
                        PROBECARD_TYPE as ProbeCardType, LOADBOARD_TYPE as LoadboardType, 
                        CONTACTBOARD_TYPE as ContactboardType, WS_DEVICE_FILE as WsDeviceFile, 
-                       SPECIFYEQ, EQID, STOPTICNO, BURN_IN_BOARD as BurnInBoard,
-                       REF_STEP_NAME_01 as RefStepName01, REF_PG_NAME_01 as RefPgName01, REPLACE_PG_NAME_01 as ReplacePgName01
+                       SPECIFYEQ as SpecifyEq, EQID as EqId, STOPTICNO as StopTicNo, BURN_IN_BOARD as BurnInBoard,
+                       REF_STEP_NAME_01 as RefStepName01, REF_PG_NAME_01 as RefPgName01, REPLACE_PG_NAME_01 as ReplacePgName01,
+                       STEPCOMMENT as StepComments, DOC_TYPE as DocType, DOC_NO as DocNo,
+                       CABLE_TYPE as CableType, KIT_TYPE as KitType, NEEDJUMPER as NeedJumper, JUMPERPINNO as JumperPinNo
                 FROM TBL_PROD_STEP_EQ_SPEC
                 WHERE PRODGROUP = :ProdGroup AND STEPNO = :StepNo AND EQTYPE2 = :EqType2 
-                  AND SUBSYSTEM = :SubSystem AND PATH = :Path AND NVL(MAX_SITE, ' ') = NVL(:MaxSite, ' ')
+                  AND NVL(TRIM(SUBSYSTEM), ' ') = NVL(TRIM(:SubSystem), ' ') AND PATH = :Path AND NVL(MAX_SITE, ' ') = NVL(:MaxSite, ' ')
                   AND DOCSTATUS = 'Active'";
+                  
             return await _dbConnection.QueryFirstOrDefaultAsync<RecipeSpecData>(sql, new { ProdGroup = prodGroup, StepNo = stepNo, EqType2 = eqType2, SubSystem = subSystem, Path = path, MaxSite = maxSite });
         }
         /// <summary>
@@ -508,13 +515,15 @@ namespace MES.Net.Infrastructure.Repository.Print
         // === 4. 取得工程品 (Erun) 的覆寫資料 ===
         public async Task<dynamic> GetErunOverrideDataAsync(string lotId, string erunTicNo, string stage, string stepNo, string eqType2, string subSystem)
         {
+            // TBL_ERUN_REQ / TBL_ERUN_RECIPE (工程品 完整版)
             string sql = @"
                 SELECT a.SPEED, a.CODE, a.CHECKSUM, 
-                       b.PGNAME, b.TEMPERATURE, b.WSDEVICEFILE, b.PROBECARDTYPE, b.LOADBOARDTYPE, b.PGID 
+                       b.PGNAME, b.TEMPERATURE, b.WSDEVICEFILE, b.PROBECARDTYPE, b.LOADBOARDTYPE, b.PGID, b.JUMPERPINNO
                 FROM TBL_ERUN_REQ a
                 LEFT JOIN TBL_ERUN_RECIPE b ON b.DOCNO = a.TICKET_NO AND b.STEPNO = :StepNo AND b.EQTYPE2 = :EqType2 AND b.DELETEFLAG = 'N' 
                      AND NVL(b.SUBSYSTEM, ' ') = NVL(:SubSystem, ' ')
                 WHERE a.LOT_ID = :LotId AND a.TICKET_NO = :TicNo AND a.STAGE = :Stage";
+                
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId, TicNo = erunTicNo, Stage = stage, StepNo = stepNo, EqType2 = eqType2, SubSystem = string.IsNullOrEmpty(subSystem) ? " " : subSystem });
         }
         
@@ -591,16 +600,70 @@ namespace MES.Net.Infrastructure.Repository.Print
             return await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { Id = id, StepNo = stepNo, Path = path });
         }
 
+// ==========================================
+        // 2. 實作 GetAccMatchPlateAsync (翻譯自 GetAccMatchPlate)
+        // ==========================================
         public async Task<string> GetAccMatchPlateAsync(string ipn, string kit, string loadBoard, string eqType2)
         {
-            // TODO: 填入 modCustom.bas 裡面的 GetAccMatchPlate 實作 SQL
-            return await Task.FromResult(""); 
+            string kitType = !string.IsNullOrEmpty(kit) && kit.Contains("-") ? kit.Split('-')[0] : kit;
+            string loadBoardType = !string.IsNullOrEmpty(loadBoard) && loadBoard.Contains("-") ? loadBoard.Split('-')[0] : loadBoard;
+
+            // Step 1: 取得 IPN 基本資訊與 AccSite (將兩個查詢合併以增進效能)
+            string infoSql = @"
+                SELECT a.PACKAGE_CODE as PkgCode, a.PIN_COUNT as PinCount, a.BODY_SIZE as BodySize,
+                       (SELECT ACCSITE FROM TBL_ACC_BASIC WHERE ACC_NAME = :LoadBoardType AND DELETE_FLAG = 'N') as AccSite
+                FROM TBL_IPN_MASTER a WHERE a.IPN = :Ipn";
+            
+            var info = await _dbConnection.QueryFirstOrDefaultAsync(infoSql, new { LoadBoardType = loadBoardType, Ipn = ipn });
+            if (info == null) return "";
+
+            // Step 2: 取得 MatchPlate
+            string matchSql = @"
+                SELECT MATCHPLATE FROM TBL_ACC_MATCHPLATE 
+                WHERE DELETEFLAG = 'N' AND KIT = :KitType AND ACCSITE = :AccSite AND PINCOUNT = :PinCount 
+                  AND PACKAGECODE = :PkgCode AND BODYSIZE = :BodySize AND LOADBOARDTYPE = :LoadBoardType AND TESTERTYPE = :EqType2";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<string>(matchSql, new 
+            { 
+                KitType = kitType, AccSite = info.ACCSITE, PinCount = info.PINCOUNT, PkgCode = info.PKGCODE, 
+                BodySize = info.BODYSIZE, LoadBoardType = loadBoardType, EqType2 = eqType2 
+            }) ?? "";
         }
 
+        // ==========================================
+        // 3. 實作 GetRecipeSpecNamesAsync (翻譯自 getRecipeSpecName & getRecipeSpecName1)
+        // ==========================================
         public async Task<IEnumerable<RecipeItemDto>> GetRecipeSpecNamesAsync(string eqId, string lotId, string ipn, string packageName, string pinCount, string bodySize)
         {
-            // TODO: 填入 getRecipeSpecName 實作 SQL，需回傳 Col1 (ID) 與 SpecName
-            return await Task.FromResult(new List<RecipeItemDto>());
+            // Check 是否為 ICOS (SCANNER) 機台
+            string checkIcosSql = "SELECT COUNT(1) FROM view_b2b_fweqarea WHERE eqtype = 'SCANNER' AND EQID = :EqId";
+            int isIcos = await _dbConnection.QueryFirstOrDefaultAsync<int>(checkIcosSql, new { EqId = eqId });
+
+            string recipeSql = "";
+
+            if (isIcos > 0)
+            {
+                // SCANNER 邏輯：呼叫 getRecipeSpecName1 的 FUN_GET_SCANPGM
+                string scanPgmSql = "SELECT FUN_GET_SCANPGM(:LotId, 'Y', :EqId) FROM DUAL";
+                string pgm = await _dbConnection.QueryFirstOrDefaultAsync<string>(scanPgmSql, new { LotId = lotId, EqId = eqId });
+
+                recipeSql = @"
+                    SELECT ROW_NUMBER() OVER(ORDER BY SEQUENCE) as Id, SPECNAME as SpecName 
+                    FROM TBL_SETUP_RECIPE 
+                    WHERE EQID = :EqId AND PGM = :Pgm
+                    ORDER BY SEQUENCE";
+                return await _dbConnection.QueryAsync<RecipeItemDto>(recipeSql, new { EqId = eqId, Pgm = pgm });
+            }
+            else
+            {
+                // 一般機台邏輯
+                recipeSql = @"
+                    SELECT ROW_NUMBER() OVER(ORDER BY SEQUENCE) as Id, SPECNAME as SpecName 
+                    FROM TBL_SETUP_RECIPE 
+                    WHERE EQID = :EqId AND PACKAGENAME = :PackageName AND PINCOUNT = :PinCount AND BODYSIZE = :BodySize 
+                    ORDER BY SEQUENCE";
+                return await _dbConnection.QueryAsync<RecipeItemDto>(recipeSql, new { EqId = eqId, PackageName = packageName, PinCount = pinCount, BodySize = bodySize });
+            }
         }
     }
 }
