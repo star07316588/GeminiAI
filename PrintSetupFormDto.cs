@@ -190,4 +190,60 @@ namespace MES.Net.Shared.DTOs.Print
         public string DeviceFile { get; set; }
         public string BePeSet { get; set; }
     }
+    // 專門用來裝載要塞進 Excel 裡的資料
+    public class FtSetupExcelDto
+    {
+        public string SheetName { get; set; } // 要顯示的 Sheet: "FT" 或 "AT3-300AL" 或 "FT-940"
+
+        // === 基本標頭資訊 ===
+        public string OperatorId { get; set; }      // C3
+        public string ShiftCode { get; set; }       // H3
+        public string PrintDate { get; set; }       // R3
+        public string StopInfo { get; set; }        // F5
+        public string LotId { get; set; }           // E6
+        public string Ipn { get; set; }             // E7
+        public string LotOwner { get; set; }        // R6
+        public string StepName { get; set; }        // E8
+        public string TesterId { get; set; }        // R8
+        public string ErunTicNo { get; set; }       // R7
+        
+        // === 產品/封裝資訊 (IPN Master) ===
+        public string PackageName { get; set; }     // E9
+        public string Speed { get; set; }           // E10
+        public string Code { get; set; }            // R10
+        public string CheckSum { get; set; }        // R11
+        public string PinCount { get; set; }
+        public string PackageCode { get; set; }
+        public string PbFree { get; set; }          // 判斷 E36/G36 的打勾
+
+        // === 配方與機台設定 (Spec & EqInfo) ===
+        public string PgmName { get; set; }         // E11
+        public string Temperature { get; set; }     // R12
+        public string WsDeviceFile { get; set; }    // (Sthand File) E12
+        public string SubSystem1 { get; set; }      // E20
+        public string SubSystem2 { get; set; }      // R20
+        public string LoadBoard { get; set; }       // E28 / R28
+        public string Cable { get; set; }           // E29 / R29
+        public string ContactBoard { get; set; }    // E30 / R30
+        public string KitType { get; set; }         // E31 / R31
+        public string MatchPlate { get; set; }      // E33 / R33
+        
+        public string SoakTime { get; set; }        // R13
+        public string NeedJumper { get; set; }      // E16
+        public string JumperPinNo { get; set; }     // E17
+        public string Comments { get; set; }        // E16 / E17 (對應位置依下移量而定)
+        
+        public string Pitch { get; set; }           // E35
+        public string VacuumCup { get; set; }       // E36
+
+        // === 設備架機確認清單 (Recipe List) ===
+        // 裝載 1~40 筆的 Recipe Spec (對應 A49/B49 或 P49/Q49)
+        public List<RecipeItemDto> RecipeList { get; set; } = new List<RecipeItemDto>();
+    }
+
+    public class RecipeItemDto
+    {
+        public string Id { get; set; }
+        public string SpecName { get; set; }
+    }
 }
