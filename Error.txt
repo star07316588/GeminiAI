@@ -1,1 +1,1 @@
--skip:objectName=dirPath,absolutePath=".*\\Files\\PCDMS\\PcdUploadFile"
+**/Files/PCDMS/PcdUploadFile/**
