@@ -1,8 +1,1 @@
-using System;
-using System.IO;
-
-// 1. 取得 Windows 系統目錄 (通常是 C:\Windows)
-string windir = Environment.GetEnvironmentVariable("windir");
-
-// 2. 組合路徑 (Path.Combine 會自動處理中間的斜線，字串前方不需要加斜線)
-string filePath = Path.Combine(windir, @"SysWOW64\FwClient\Others\SetupForm.xlsx");
+D:\FABTMSWD1_WEB\MesAccMgm_New_Debug\Files\PCDMS\PcdUploadFile
