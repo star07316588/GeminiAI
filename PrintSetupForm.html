@@ -330,7 +330,7 @@
 
                         // 呼叫第三支 API
                         const response = await mesfetch("/api/print/print-setup-form/submit", this.formData);
-
+                        
                         if (response.Success) {
                             const data = response.Data;
                             
@@ -342,8 +342,13 @@
                             if (this.formData.stage === 'WS') {
                                 VMessageBox.alert(`SETUP FORM 單號 [${data.FormNo}] 建立成功！`, "成功", { color: 'success' });
                             } else {
-                                // FT 列印動作
-                                // 若需產生實體報表，可比照 PrintISG 在此呼叫 window.print()
+                                // 🌟 FT 列印動作：呼叫下載函數
+                                if (data.ExcelBase64 && data.FileName) {
+                                    this.downloadExcel(data.ExcelBase64, data.FileName);
+                                    VMessageBox.alert(`SETUP FORM 報表 [${data.FileName}] 產出成功並已開始下載！`, "成功", { color: 'success' });
+                                } else {
+                                    VMessageBox.alert("Excel 檔案產出失敗，無回傳資料。", "錯誤", { color: 'error' });
+                                }
                             }
                             
                             this.doClear();
@@ -393,6 +398,24 @@
                 setStatus(msg, type) {
                     this.statusMsg = msg;
                     this.statusMsgType = type || '';
+                },
+                // ==========================================
+                // 解析 Base64 並觸發瀏覽器下載
+                // ==========================================
+                downloadExcel(base64Data, fileName) {
+                    // Excel (.xlsx) 的標準 MIME type
+                    const mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                    const linkSource = `data:${mimeType};base64,${base64Data}`;
+                    
+                    // 動態建立一個 <a> 標籤來觸發下載
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = linkSource;
+                    downloadLink.download = fileName;
+                    
+                    // 模擬點擊並移除該元素
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
                 }
             }
         });
