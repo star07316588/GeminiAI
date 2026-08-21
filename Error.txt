@@ -1,1 +1,1 @@
-D:\FABTMSWD1_WEB\MesAccMgm_New_Debug\Files\PCDMS\PcdUploadFile
+-skip:objectName=dirPath,absolutePath=".*\\Files\\PCDMS\\PcdUploadFile"
