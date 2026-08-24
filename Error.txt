@@ -1,1 +1,1 @@
-**/Files/PCDMS/PcdUploadFile/**
+.\MesAccMgm\MesAccMgm.deploy.cmd /Y -skip:objectName=dirPath,absolutePath=".*\\Files\\PCDMS\\PcdUploadFile"
