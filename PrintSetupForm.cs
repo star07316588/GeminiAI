@@ -65,9 +65,14 @@ namespace MES.Net.Infrastructure.Repository.Print
         public async Task<dynamic> GetLotInfoAsync(string lotId)
         {
             string sql = @"
-                SELECT TECN_LOT_ID as TecnLotId, ERUNTICNO as ErunTicNo, 
-                       ASSIGNPROBECARD as AssignProbeCard, ASSIGNLOADBOARD as AssignLoadBoard
-                FROM TBL_LOT_INFO WHERE LOT_ID = :LotId";
+                SELECT TECN_LOT_ID as TecnLotId, 
+                       ERUNTICNO as ErunTicNo, 
+                       SAPRWNO as SapRwNo, 
+                       ASSIGNPROBECARD as AssignProbeCard, 
+                       ASSIGNLOADBOARD as AssignLoadBoard
+                FROM TBL_LOT_INFO 
+                WHERE LOT_ID = :LotId";
+            
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new { LotId = lotId });
         }
 
@@ -1321,7 +1326,10 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             // 取 EqType2 與 ErunTicNo[cite: 1]
             string eqType2 = await _repo.GetEqType2Async(request.TesterId) ?? "";
             var lotInfo = await _repo.GetLotInfoAsync(request.LotId);
-            string erunTicNo = lotInfo?.ERUNTICNO ?? "";
+            
+            // 🌟 這裡使用大寫或小寫取決於您的 Dapper 對應，建議用 coalesce 寫法防呆
+            string erunTicNo = lotInfo?.ERUNTICNO ?? lotInfo?.ErunTicNo ?? "";
+            string sapRwNo = lotInfo?.SAPRWNO ?? lotInfo?.SapRwNo ?? "";
 
             // ====================================================================
             // 2. 停測檢核 (Stop Test Check)
@@ -1538,7 +1546,7 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             else if (request.Stage == "FT")
             {
                 // 1. 蒐集 Excel 所需的所有資料
-                var excelDto = await GatherFtSetupExcelDataAsync(request, response.StopInfoMsg, eqType2, erunTicNo, tecnLotId, prodGroup, path);
+                var excelDto = await GatherFtSetupExcelDataAsync(request, response.StopInfoMsg, eqType2, erunTicNo, sapRwNo, tecnLotId, prodGroup, path);
                 
                 // 2. 判斷使用哪個 Sheet
                 if (eqType2 == "AT3-300AL" || eqType2 == "FT-940")
@@ -1787,7 +1795,8 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
         }
 
         private async Task<FtSetupExcelDto> GatherFtSetupExcelDataAsync(
-            PrintSetupFormSubmitRequest request, string stopInfoMsg, string eqType2, string erunTicNo, string tecnLotId, string prodGroup, string path)
+            PrintSetupFormSubmitRequest request, string stopInfoMsg, string eqType2, 
+            string erunTicNo, string sapRwNo, string tecnLotId, string prodGroup, string path)
         {
             var dto = new FtSetupExcelDto();
             var olot = WipServiceWrapper.Instance.LotById(request.LotId);
@@ -1805,9 +1814,21 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             dto.StepName = olot.CurrentStep.Steps[0].Description ?? "";
             dto.TesterId = request.TesterId;
 
-            // 處理 ErunTicNo 字串 (若 SapRwNo 存在要合併)
-            // 註: 此處使用您前面已經撈好的 erunTicNo，若需加上 SAP 單號，可在此擴充
-            dto.ErunTicNo = erunTicNo;
+            // ==========================================
+            // 🌟 完美還原 VB6 的 ERUNTICNO 與 SAPRWNO 拼接邏輯
+            // ==========================================
+            if (string.IsNullOrEmpty(erunTicNo))
+            {
+                dto.ErunTicNo = sapRwNo;
+            }
+            else if (string.IsNullOrEmpty(sapRwNo))
+            {
+                dto.ErunTicNo = erunTicNo;
+            }
+            else
+            {
+                dto.ErunTicNo = $"{erunTicNo}, {sapRwNo}";
+            }
 
             // ==========================================
             // 2. 產品/封裝資訊 (IPN Master)
