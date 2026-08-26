@@ -1,13 +1,16 @@
-.\MesAccMgm\MesAccMgm.deploy.cmd /Y -skip:objectName=dirPath,absolutePath=".*\\Files\\PCDMS\\PcdUploadFile"
-.\MesAccMgm\MesAccMgm.deploy.cmd /Y "-skip:objectName=dirPath,absolutePath=.*\\Files\\PCDMS\\PcdUploadFile"
-
-D:\FABTMSWD1_WEB\MesAccMgm_New_Debug\Areas\PCDMS\Scripts\MakeMgt\PcdProgress
-
-<!-- 加入這段來保護上傳資料夾不被 Web Deploy 刪除 -->
-  <ItemGroup>
-    <MsDeploySkipRules Include="SkipPcdUploadFile">
-      <SkipAction>Delete</SkipAction> 
-      <ObjectName>dirPath</ObjectName>
-      <AbsolutePath>.*\\Files\\PCDMS\\PcdUploadFile</AbsolutePath>
-    </MsDeploySkipRules>
-  </ItemGroup>
+        sSQL = "select eruNticno,saprwno from tbl_lot_info where lotid='" & oLot.Id & "'"
+        Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+        If oRS1.Count > 0 Then
+            .range("R" & CStr(iPosTitle + 6)).Select
+            sPureErunTicNo = oRS1.Item(1).Item("erunticno") 'added by Jack on 2014/01/13 for JC201400011.
+            If oRS1.Item(1).Item("erunticno") = "" Then
+                msErunTicNo = oRS1.Item(1).Item("saprwno")
+                .activeCell.FormulaR1C1 = msErunTicNo
+            ElseIf oRS1.Item(1).Item("saprwno") = "" Then
+                msErunTicNo = oRS1.Item(1).Item("erunticno")
+                .activeCell.FormulaR1C1 = msErunTicNo
+            Else
+                msErunTicNo = oRS1.Item(1).Item("erunticno") & ", " & oRS1.Item(1).Item("saprwno")
+                .activeCell.FormulaR1C1 = msErunTicNo
+            End If
+        End If
