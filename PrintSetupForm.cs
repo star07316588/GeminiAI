@@ -1012,13 +1012,45 @@ namespace MES.Net.Application.Services.Print
             }
 
             // ====================================================================
-            // 🌟 呼叫 TECN 屬性覆蓋邏輯 (對應 modTecn.GetTecnPgmRecipeAttr)
+            // 🌟 準備 TECN 規則引擎所需的參數
             // ====================================================================
-            var tecnAttr = await _repo.GetTecnPgmRecipeAttrAsync(
-                request.LotId, 
-                request.StepNo, 
-                eqType2, 
-                request.SubSystemValue
+            var olot = WipServiceWrapper.Instance.LotById(request.LotId);
+            string ipn = olot.CustomAttributes(LotCustomAttributes.Ipn) ?? "";
+            string path = olot.CustomAttributes(LotCustomAttributes.Route) ?? "";
+            string stepName = olot.CurrentStep.Steps[0].Description ?? "";
+            string grade = olot.CustomAttributes("Grade") ?? "C"; // 預設為 C，請依貴司實際擴充屬性調整
+
+            // 取得 IPN 相關的 ProdCode 與 ProdGroupKey
+            var ipnDetails = await _repo.GetIpnMasterForTecnAsync(ipn);
+            string prodGroupKey = ipnDetails?.PRODGROUPKEY?.ToString() ?? "";
+            string prodCode = ""; 
+            if (ipnDetails != null)
+            {
+                // 對應 VB6 中 WS/FT 組裝 ProdCode 的邏輯
+                string maskOption = ipnDetails.MASK_OPTION?.ToString() ?? "";
+                string beOption = ipnDetails.BE_OPTION?.ToString() ?? "";
+                prodCode = request.Stage == "WS" ? (ipn.Substring(0, 4) + maskOption) : (ipn.Substring(0, 4) + beOption);
+            }
+
+            // 取得 IpnTecnNo (通常由 TBL_LOT_INFO 取得)
+            var lotInfo = await _repo.GetLotInfoAsync(request.LotId);
+            string ipnTecnNo = lotInfo?.TECNLOTID?.ToString() ?? ""; 
+
+            // ====================================================================
+            // 🌟 呼叫 TECN 屬性覆蓋邏輯 (Service 層的規則引擎)
+            // ====================================================================
+            var tecnAttr = await GetTecnPgmRecipeAttrAsync(
+                ipnTecnNo: ipnTecnNo, 
+                lotId: request.LotId, 
+                ipn: ipn, 
+                path: path, 
+                stepId: request.StepNo, 
+                stepName: stepName, 
+                eqType2: eqType2, 
+                prodGroupKey: prodGroupKey, 
+                prodCode: prodCode, 
+                grade: grade, 
+                runRule: "N" // 預設傳 N，除非是由 RunRule 觸發
             );
 
             if (tecnAttr != null)
@@ -1041,6 +1073,7 @@ namespace MES.Net.Application.Services.Print
                     response.Temp = tecnAttr.RefTemp;
                 }
             }
+
             return response;
         }
 
