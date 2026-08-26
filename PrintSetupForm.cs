@@ -1011,10 +1011,38 @@ namespace MES.Net.Application.Services.Print
                 // 若都為空，VB中會去呼叫 GetFTAccByPgm 取得，可在此整合
             }
 
-            // (可選) 呼叫 modTecn.GetTecnPgmRecipeAttr 進行最後 TECN 屬性的覆蓋
-            // CustomMesHelper.GetTecnPgmRecipeAttr(..., out getPgm, out getPgId, out getTemp);
-            // if (!string.IsNullOrEmpty(getPgm)) response.PgName = getPgm;
-            // ...
+            // ====================================================================
+            // 🌟 呼叫 TECN 屬性覆蓋邏輯 (對應 modTecn.GetTecnPgmRecipeAttr)
+            // ====================================================================
+            var tecnAttr = await _repo.GetTecnPgmRecipeAttrAsync(
+                request.LotId, 
+                request.StepNo, 
+                eqType2, 
+                request.SubSystemValue
+            );
+
+            if (tecnAttr != null)
+            {
+                // 若 TECN 有指定 PGM，則覆蓋標準的 PgName
+                if (!string.IsNullOrEmpty(tecnAttr.RefPgm))
+                {
+                    response.PgName = tecnAttr.RefPgm;
+                }
+
+                // 若 TECN 有指定 PGID，則覆蓋標準的 PgId
+                if (!string.IsNullOrEmpty(tecnAttr.RefPgId))
+                {
+                    response.PgId = tecnAttr.RefPgId;
+                }
+
+                // 若 TECN 有指定溫度，則覆蓋標準的 Temp
+                if (!string.IsNullOrEmpty(tecnAttr.RefTemp))
+                {
+                    response.Temp = tecnAttr.RefTemp;
+                }
+            }
+
+            return response;
 
             return response;
         }
