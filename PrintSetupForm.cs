@@ -44,6 +44,8 @@ namespace MES.Net.Infrastructure.Repository.Print
         Task<string> GetSpecCommentsAsync(bool isTecn, string id, string stepNo, string path);
         Task<string> GetAccMatchPlateAsync(string ipn, string kit, string loadBoard, string eqType2);
         Task<IEnumerable<RecipeItemDto>> GetRecipeSpecNamesAsync(string eqId, string lotId, string ipn, string packageName, string pinCount, string bodySize);
+
+        Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(string lotId, string stepNo, string eqType2, string subSystem);
     }
 
     public class PrintSetupFormRepository : IPrintSetupFormRepository
@@ -671,6 +673,30 @@ public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string
                     ORDER BY SEQUENCE";
                 return await _dbConnection.QueryAsync<RecipeItemDto>(recipeSql, new { EqId = eqId, PackageName = packageName, PinCount = pinCount, BodySize = bodySize });
             }
+        }
+        public async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(string lotId, string stepNo, string eqType2, string subSystem)
+        {
+            // TODO: 請依據 VB6 modTecn.GetTecnPgmRecipeAttr 的實際 SQL 替換以下語法
+            // 概念：透過 LotId 取得 TECN_LOT_ID，再去查對應的 Recipe/Temp 覆蓋設定
+            string sql = @"
+                SELECT REF_PGM_TECN_NO as RefPgmTecnNo, 
+                       REF_PGM as RefPgm, 
+                       REF_PGID as RefPgId,
+                       REF_TEMP_TECN_NO as RefTempTecnNo, 
+                       REF_TEMP as RefTemp
+                FROM TBL_TECN_PGM_RECIPE  /* 這裡請替換為實際的 TECN 設定表 */
+                WHERE LOT_ID = :LotId 
+                  AND STEP_NO = :StepNo 
+                  AND EQ_TYPE = :EqType2 
+                  AND NVL(SUBSYSTEM, ' ') = NVL(:SubSystem, ' ')";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<TecnPgmRecipeAttrDto>(sql, new 
+            { 
+                LotId = lotId, 
+                StepNo = stepNo, 
+                EqType2 = eqType2,
+                SubSystem = string.IsNullOrEmpty(subSystem) ? " " : subSystem
+            });
         }
     }
 }
