@@ -1041,9 +1041,6 @@ namespace MES.Net.Application.Services.Print
                     response.Temp = tecnAttr.RefTemp;
                 }
             }
-
-            return response;
-
             return response;
         }
 
