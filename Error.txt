@@ -1,62 +1,32 @@
-應用程式中發生伺服器錯誤。
-無法載入檔案或組件 'MESTAManagementSystem' 或其相依性的其中之一。 試圖載入格式錯誤的程式。
-描述: 在執行目前 Web 要求的過程中發生未處理的例外狀況。請檢閱堆疊追蹤以取得錯誤的詳細資訊，以及在程式碼中產生的位置。
-
-例外狀況詳細資訊: System.BadImageFormatException: 無法載入檔案或組件 'MESTAManagementSystem' 或其相依性的其中之一。 試圖載入格式錯誤的程式。
-
-原始程式錯誤:
-
-在執行目前 Web 要求期間，產生未處理的例外狀況。如需有關例外狀況來源與位置的資訊，可以使用下列的例外狀況堆疊追蹤取得。
-
-組件載入追蹤: 下列資訊在確定為何無法載入組件 'MESTAManagementSystem' 時是有幫助的。
-
-
-=== 繫結前狀態資訊 ===
-記錄: DisplayName = MESTAManagementSystem
- (Partial)
-警告: 提供了組件的部分繫結資訊:
-警告: 組件名稱: MESTAManagementSystem | 網域 ID: 2
-警告: 如果只提供部分的組件顯示名稱，就會發生部分繫結。 
-警告: 這可能會使繫結器載入不正確的組件。
-警告: 建議為組件提供完全指定的文字識別，
-警告: 該識別是由簡單名稱、版本、文化特性和公開金鑰語彙基元組成。
-警告: 如需詳細資訊和這個問題的一般解決方法，請參閱白皮書 http://go.microsoft.com/fwlink/?LinkId=109270。
-記錄: Appbase = file:///D:/Project/MesTAManagementSystem_New/MesTAManagementSystem_New/
-記錄: 初始 PrivatePath = D:\Project\MesTAManagementSystem_New\MesTAManagementSystem_New\bin
-正在呼叫組件 : (Unknown)。
-===
-記錄: 此繫結在 default 載入內容中開始。
-記錄: 正在使用應用程式組態檔: D:\Project\MesTAManagementSystem_New\MesTAManagementSystem_New\web.config
-記錄: 使用主機組態檔: C:\Users\uhdadm\Documents\IISExpress\config\aspnet.config
-記錄: 從 C:\Windows\Microsoft.NET\Framework64\v4.0.30319\config\machine.config 使用電腦組態檔。
-記錄: 目前不會套用原則至參考 (私用、自訂、部分或以位置為主的組件繫結)。
-記錄: 正在嘗試從新的 URL file:///C:/Windows/Microsoft.NET/Framework64/v4.0.30319/Temporary ASP.NET Files/vs/98c58d6e/c415fe8/MESTAManagementSystem.DLL 下載。
-記錄: 正在嘗試從新的 URL file:///C:/Windows/Microsoft.NET/Framework64/v4.0.30319/Temporary ASP.NET Files/vs/98c58d6e/c415fe8/MESTAManagementSystem/MESTAManagementSystem.DLL 下載。
-記錄: 正在嘗試從新的 URL file:///D:/Project/MesTAManagementSystem_New/MesTAManagementSystem_New/bin/MESTAManagementSystem.DLL 下載。
-錯誤: 無法完成組件的安裝 (hr = 0x8007000b)。已終止探查。
-
-堆疊追蹤:
-
-
-[BadImageFormatException: 無法載入檔案或組件 'MESTAManagementSystem' 或其相依性的其中之一。 試圖載入格式錯誤的程式。]
-   System.Reflection.RuntimeAssembly._nLoad(AssemblyName fileName, String codeBase, Evidence assemblySecurity, RuntimeAssembly locationHint, StackCrawlMark& stackMark, IntPtr pPrivHostBinder, Boolean throwOnFileNotFound, Boolean forIntrospection, Boolean suppressSecurityChecks) +0
-   System.Reflection.RuntimeAssembly.InternalLoadAssemblyName(AssemblyName assemblyRef, Evidence assemblySecurity, RuntimeAssembly reqAssembly, StackCrawlMark& stackMark, IntPtr pPrivHostBinder, Boolean throwOnFileNotFound, Boolean forIntrospection, Boolean suppressSecurityChecks) +232
-   System.Reflection.RuntimeAssembly.InternalLoad(String assemblyString, Evidence assemblySecurity, StackCrawlMark& stackMark, IntPtr pPrivHostBinder, Boolean forIntrospection) +113
-   System.Reflection.RuntimeAssembly.InternalLoad(String assemblyString, Evidence assemblySecurity, StackCrawlMark& stackMark, Boolean forIntrospection) +23
-   System.Reflection.Assembly.Load(String assemblyString) +35
-   System.Web.Configuration.CompilationSection.LoadAssemblyHelper(String assemblyName, Boolean starDirective) +48
-
-[ConfigurationErrorsException: 無法載入檔案或組件 'MESTAManagementSystem' 或其相依性的其中之一。 試圖載入格式錯誤的程式。]
-   System.Web.Configuration.CompilationSection.LoadAssemblyHelper(String assemblyName, Boolean starDirective) +767
-   System.Web.Configuration.CompilationSection.LoadAllAssembliesFromAppDomainBinDirectory() +256
-   System.Web.Configuration.CompilationSection.LoadAssembly(AssemblyInfo ai) +58
-   System.Web.Compilation.BuildManager.GetReferencedAssemblies(CompilationSection compConfig) +287
-   System.Web.Compilation.BuildManager.GetPreStartInitMethodsFromReferencedAssemblies() +69
-   System.Web.Compilation.BuildManager.CallPreStartInitMethods(String preStartInitListPath, Boolean& isRefAssemblyLoaded) +137
-   System.Web.Compilation.BuildManager.ExecutePreAppStart() +172
-   System.Web.Hosting.HostingEnvironment.Initialize(ApplicationManager appManager, IApplicationHost appHost, IConfigMapPathFactory configMapPathFactory, HostingEnvironmentParameters hostingParameters, PolicyLevel policyLevel, Exception appDomainCreationException) +854
-
-[HttpException (0x80004005): 無法載入檔案或組件 'MESTAManagementSystem' 或其相依性的其中之一。 試圖載入格式錯誤的程式。]
-   System.Web.HttpRuntime.FirstRequestInit(HttpContext context) +532
-   System.Web.HttpRuntime.EnsureFirstRequestInit(HttpContext context) +111
-   System.Web.HttpRuntime.ProcessRequestNotificationPrivate(IIS7WorkerRequest wr, HttpContext context) +719
+            If msPbFree = "N" Then
+               msCleanDut = "N"
+            Else
+               If Len(msPbFree) <= 0 Then
+                  msCleanDut = "Current Lot or pre-Lot's PbFree is NULL!!"
+               Else
+                  msLastIPN = oEqp.CustomAttributes(gsEQP_CUSTOMATTR_LAST_IPN)
+                  sSQL = "select gptype from tbl_ipn_master where ipn='" & msLastIPN & "'"
+                  Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+                  If oRS1.Count > 0 Then
+                     If oRS1.Item(1).Item("gptype") = "XX" Then
+                        msLastPbFree = "N"
+                     Else
+                        If Len(Trim(oRS1.Item(1).Item("gptype"))) > 0 Then
+                           msLastPbFree = "Y"
+                        Else
+                           msLastPbFree = ""
+                        End If
+                     End If
+                  End If
+                  Set oRS1 = Nothing
+                  If msLastPbFree = "N" Then
+                     msCleanDut = "Y"
+                  ElseIf msLastPbFree = "Y" And InStr(msLoadBoardId, msLoadBoardType) = 0 Then
+                     msCleanDut = "Y"
+                  ElseIf msLastPbFree = "Y" And InStr(msLoadBoardId, msLoadBoardType) > 0 Then
+                     msCleanDut = "N"
+                  Else
+                     msCleanDut = "Current Lot or pre-Lot's PbFree is NULL!!"
+                  End If
+               End If
+            End If
