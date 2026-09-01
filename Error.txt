@@ -1,32 +1,703 @@
-            If msPbFree = "N" Then
-               msCleanDut = "N"
+Private Sub AT3SetupForm(ByVal sEqType2 As String, ByRef appXL As Object, ByRef oLot As FwLot, _
+                      ByRef iPosTitle As Integer)
+On Error GoTo ExitHandler:
+Dim sProcID As String
+Dim typErrInfo As tErrInfo
+Dim sEqID   As String 'Add by Tony on 2014/03/05 for HW SETUP RECIPE COMPARE project.
+
+'----
+' Init
+'----
+    sProcID = "AT3SetupForm"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+
+'----
+' Condition Checking
+'----
+    ' <Put your condition checking codes here>...
+
+'----
+' Action
+'----
+    ' <Put your Action codes here>...
+
+    Dim sSQL As String, oRS1 As Collection, oRs2 As Collection, oRs3 As Collection
+    Dim iPosProcess As Integer, iPosComment As Integer, iPosNext As Integer
+    Dim msOprId As String, oOpr As FwUser
+    Dim msProdgroup As String
+    Dim oEqp    As FwEquipment
+    Dim msSubsystem1 As String, oSubsystem1   As FwEquipment
+    Dim msSubsystem2 As String, oSubsystem2 As FwEquipment
+    Dim msPGNAME             As String
+    Dim msSubsystemType2     As String
+    Dim iStartNum            As Integer
+    Dim iEndNum              As Integer
+    Dim msTemperature        As String
+    Dim msPinCount           As String
+    Dim msPackageCode        As String
+    Dim msLoadBoardId        As String
+    Dim msErunTicNo          As String
+    Dim sPgName              As String
+    Dim msREF_STEP_NAME_01   As String
+    Dim msREF_PG_NAME_01     As String
+    Dim msREPLACE_PG_NAME_01 As String
+    Dim msREF_STEP_NAME_02   As String
+    Dim msREF_PG_NAME_02     As String
+    Dim msREPLACE_PG_NAME_02 As String
+    Dim msREF_STEP_NAME_03   As String
+    Dim msREF_PG_NAME_03     As String
+    Dim msREPLACE_PG_NAME_03 As String
+    Dim msPbFree             As String
+    Dim msLoadBoardType      As String
+    Dim msSubsystemType      As String
+    Dim msMaxSite            As String
+    Dim iIndex               As Integer
+    Dim iIdx                 As Integer
+    Dim sPath                As String
+    Dim sMpType              As String
+    Dim sLoadBoardId         As String
+    Dim iPosDown            As Integer
+            
+    Dim bTECNLotSpec          As Boolean
+    Dim sTECNLotID            As String
+    
+    'added by Jack on 2014/01/13 for JC201400011. <Start>
+    Dim sPureErunTicNo        As String
+    Dim sFollowProd           As String
+    'added by Jack on 2014/01/13 for JC201400011. <End>
+    
+    'add by Ernest on 2016/04/27 for ReqNo:JC201500378-------start
+    Dim sProdgroup  As String
+    Dim vStepName As Variant
+    Dim sStepName As String
+    Dim sStepNo  As String
+    Dim oRS As Collection
+    Dim sErunTicNO As String
+    'add by Ernest on 2016/04/27 for ReqNo:JC201500378--------end
+    
+    'Add by Sam start on 20200428 for Project FT配件資料標準化
+    Dim sLoadBoard As String
+    Dim sContactBoard As String
+    Dim sBurnInBoard As String
+    Dim colAcc As Collection
+    'Add by Sam END on 20200428 for Project FT配件資料標準化
+    
+    msDocNo = ""
+    iPosProcess = iPosTitle + 9
+    iPosComment = iPosTitle + 20
+    
+    iPosDown = 2
+    
+    msSubsystemType = ""
+    msMaxSite = ""
+    If InStr(cboSubSystem.Text, ",") > 0 Then
+       msSubsystemType = Left(cboSubSystem.Text, InStr(cboSubSystem.Text, ",") - 1)
+       msMaxSite = Mid$(cboSubSystem.Text, InStr(cboSubSystem.Text, ",") + 1, Len(cboSubSystem.Text) - InStr(cboSubSystem.Text, ","))
+    Else
+       msSubsystemType = cboSubSystem.Text
+    End If
+    
+    With appXL
+        
+        .Sheets(sEqType2).Select
+        .Cells.Select
+        .selection.NumberFormatLocal = "@"
+        .selection.Copy
+        .Sheets(1).Select
+        .ActiveSheet.Paste
+        .Application.CutCopyMode = False
+                    
+        Set oOpr = moFwOPR.ActiveUser
+        msOprId = oOpr.UserName
+        .range("C" & CStr(iPosTitle + 2)).Select
+        .selection.horizontalalignment = -4131
+        .activeCell.FormulaR1C1 = msOprId
+        
+        sSQL = "select shiftcode from tbl_mxic_emp where empno='" & msOprId & "'"
+        Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+        If oRS1.Count > 0 Then
+            .range("H" & CStr(iPosTitle + 2)).Select
+            .selection.horizontalalignment = -4131
+            .activeCell.FormulaR1C1 = oRS1.Item(1).Item(1)
+        End If
+        Set oRS1 = Nothing
+        
+        .range("R" & CStr(iPosTitle + 2)).Select
+        .selection.horizontalalignment = -4131
+        .activeCell.FormulaR1C1 = Format(Now, "YYYY/MM/DD HH:MM:SS")
+        .range("T" & CStr(iPosTitle)).Select
+        .activeCell.FormulaR1C1 = "SETUP FORM"
+        
+        'Add by Sam start on 20170317 for Project 停復測自動化,增加停測資訊
+        .range("G" & CStr(iPosTitle + 4)).Select
+        .activeCell.FormulaR1C1 = lblStopInfo.Caption
+        'Add by Sam End on 20170317 for Project 停復測自動化
+        
+        .range("E" & CStr(iPosTitle + 6)).Select
+        .activeCell.FormulaR1C1 = oLot.CustomAttributes(gsLOT_CUSTOMATTR_IPN)
+        .range("E" & CStr(iPosTitle + 5)).Select
+        .activeCell.FormulaR1C1 = oLot.Id
+        .range("R" & CStr(iPosTitle + 5)).Select
+        .activeCell.FormulaR1C1 = oLot.CustomAttributes(gsLOT_CUSTOMATTR_LOT_OWNER)
+        .range("E" & CStr(iPosTitle + 7)).Select
+        'modify by Ernest on 2016/04/27 for ReqNo:JC201500378------start
+        '.activeCell.FormulaR1C1 = oLot.CustomAttributes(gsLOT_CUSTOMATTR_STEPNAME)
+        vStepName = Split(Me.cboStep.Text, " ")
+        sStepName = Trim(vStepName(1))
+        sStepNo = Trim(vStepName(0))
+        .activeCell.FormulaR1C1 = sStepName
+        'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------end
+        .range("R" & CStr(iPosTitle + 7)).Select
+        'modify by Ernest on 2016/04/27 for ReqNo:JC201500378------start
+        'If oLot.CustomAttributes(gsLOT_CUSTOMATTR_CUR_EQP_ID) <> "" Then
+        '    .activeCell.FormulaR1C1 = oLot.CustomAttributes(gsLOT_CUSTOMATTR_CUR_EQP_ID)
+        '    ' Get TesterId Object
+        '    Set oEqp = FwuRetrieveEqp(moFwMDL, oLot.CustomAttributes(gsLOT_CUSTOMATTR_CUR_EQP_ID), moAppLog)
+        'Else
+        '    .activeCell.FormulaR1C1 = oLot.CustomAttributes(gsLOT_CUSTOMATTR_SPLITASSIGNEQID)
+        '    Set oEqp = FwuRetrieveEqp(moFwMDL, oLot.CustomAttributes(gsLOT_CUSTOMATTR_SPLITASSIGNEQID), moAppLog)
+        'End If
+        .activeCell.FormulaR1C1 = Me.cboTesterId.Text
+        Set oEqp = FwuRetrieveEqp(moFwMDL, Me.cboTesterId.Text, moAppLog)
+        'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------end
+        sSQL = "select eruNticno,saprwno from tbl_lot_info where lotid='" & oLot.Id & "'"
+        Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+        If oRS1.Count > 0 Then
+            .range("R" & CStr(iPosTitle + 6)).Select
+            sPureErunTicNo = oRS1.Item(1).Item("erunticno") 'added by Jack on 2014/01/13 for JC201400011.
+            If oRS1.Item(1).Item("erunticno") = "" Then
+                msErunTicNo = oRS1.Item(1).Item("saprwno")
+                .activeCell.FormulaR1C1 = msErunTicNo
+            ElseIf oRS1.Item(1).Item("saprwno") = "" Then
+                msErunTicNo = oRS1.Item(1).Item("erunticno")
+                .activeCell.FormulaR1C1 = msErunTicNo
             Else
-               If Len(msPbFree) <= 0 Then
-                  msCleanDut = "Current Lot or pre-Lot's PbFree is NULL!!"
-               Else
-                  msLastIPN = oEqp.CustomAttributes(gsEQP_CUSTOMATTR_LAST_IPN)
-                  sSQL = "select gptype from tbl_ipn_master where ipn='" & msLastIPN & "'"
-                  Set oRS1 = moProRawSql.QueryDatabase(sSQL)
-                  If oRS1.Count > 0 Then
-                     If oRS1.Item(1).Item("gptype") = "XX" Then
-                        msLastPbFree = "N"
-                     Else
-                        If Len(Trim(oRS1.Item(1).Item("gptype"))) > 0 Then
-                           msLastPbFree = "Y"
-                        Else
-                           msLastPbFree = ""
-                        End If
-                     End If
-                  End If
-                  Set oRS1 = Nothing
-                  If msLastPbFree = "N" Then
-                     msCleanDut = "Y"
-                  ElseIf msLastPbFree = "Y" And InStr(msLoadBoardId, msLoadBoardType) = 0 Then
-                     msCleanDut = "Y"
-                  ElseIf msLastPbFree = "Y" And InStr(msLoadBoardId, msLoadBoardType) > 0 Then
-                     msCleanDut = "N"
-                  Else
-                     msCleanDut = "Current Lot or pre-Lot's PbFree is NULL!!"
-                  End If
-               End If
+                msErunTicNo = oRS1.Item(1).Item("erunticno") & ", " & oRS1.Item(1).Item("saprwno")
+                .activeCell.FormulaR1C1 = msErunTicNo
             End If
+        End If
+        Set oRS1 = Nothing
+                              
+        'Add BodySize by Tony Start on 2014/03/10 for HW SETUP RECIPE COMPARE project.
+        sSQL = "select speed,code,checksum,prodgroup,packagename,pincount,packagecode,gptype,bodysize from tbl_ipn_master where ipn='" & oLot.CustomAttributes(gsLOT_CUSTOMATTR_IPN) & "'"
+        
+        Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+        If oRS1.Count > 0 Then
+        
+            'Add by Tony Start on 2014/03/10 for HW SETUP RECIPE COMPARE project.
+            '(先存放值,以便後續使用)
+            msPackageName = oRS1.Item(1).Item("packagename")
+            msPinCount = oRS1.Item(1).Item("pincount")
+            msBodySize = oRS1.Item(1).Item("bodysize")
+            'Add by Tony Start on 2014/03/10 for HW SETUP RECIPE COMPARE project.
+            
+            .range("E" & CStr(iPosTitle + 8)).Select
+            .activeCell.FormulaR1C1 = oRS1.Item(1).Item("packagename")
+                       
+            .range("R" & CStr(iPosTitle + 9)).Select
+            .activeCell.FormulaR1C1 = Mid(oRS1.Item(1).Item("Code"), 3, 6)
+            .range("R" & CStr(iPosTitle + 10)).Select
+            .activeCell.FormulaR1C1 = oRS1.Item(1).Item("checksum")
+           
+            msProdgroup = oRS1.Item(1).Item("prodgroup")
+            msPinCount = oRS1.Item(1).Item("PinCount")
+            msPackageCode = oRS1.Item(1).Item("PackageCode")
+            
+        End If
+        Set oRS1 = Nothing
+        'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+        'sSQL = "SELECT PATH FROM TBL_ROUTE_STEP_LIST WHERE ROUTEID='" & oLot.PlanId & "' AND FWSTEPSEQ='" & oLot.CurrentStep.Steps.Item(1).Handle & "'"
+        'Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+        'If oRS1.Count > 0 Then
+        '    sPath = oRS1.Item(1).Item("PATH")
+        'End If
+        'Set oRS1 = Nothing
+        
+        sSQL = " SELECT A." & gsCAT_TLI_TECN_LOT_ID & ", " & _
+             gsCAT_TLI_ERUNTICNO & " " & _
+           " FROM " & gsCAT_TBL_LOT_INFO & " A " & _
+           " WHERE A." & gsCAT_TLI_LOT_ID & " ='" & txtLotId.Text & "' "
+        Set oRS = moProRawSql.QueryDatabase(sSQL)
+        If oRS.Count > 0 Then
+            sTECNLotID = oRS.Item(1).Item(1)
+            sErunTicNO = oRS.Item(1).Item(2)
+        End If
+        If Trim(sErunTicNO) <> "" Then
+            sSQL = "SELECT " & gsCAT_TER_FOLLOW_PRODUCT & _
+                      " from " & gsCAT_TBL_ERUN_REQ & _
+                      " where " & gsCAT_TER_LOT_ID & " ='" & txtLotId.Text & "'" & _
+                      " and " & gsCAT_TER_TICKET_NO & "='" & sErunTicNO & "' " & _
+                      " and " & gsCAT_TER_STAGE & "='FT'"
+            Set oRS = moProRawSql.QueryDatabase(sSQL)
+            If oRS.Count > 0 Then
+                sFollowProd = oRS.Item(1).Item(1)
+            End If
+        End If
+        sSQL = "select i." & gsCAT_TIM_PROD_GROUP & " from " & gsCAT_TBL_IPN_MASTER & _
+               " i,tbl_lot_attribute a where i." & gsCAT_TIM_IPN & " = a.ipn and a.lotid='" & Me.txtLotId.Text & "'"
+        Set oRS = moProRawSql.QueryDatabase(sSQL)
+        If oRS.Count > 0 Then
+            sProdgroup = oRS.Item(1).Item("Prodgroup")
+        End If
+        sPath = GetPath(Me.txtLotId.Text, moProRawSql, moAppLog)
+        sSQL = "select distinct b.eqtype2 from view_b2b_fweqarea b where eqid='" & Me.cboTesterId.Text & "'"
+        Set oRS = moProRawSql.QueryDatabase(sSQL)
+        If oRS.Count > 0 Then
+            sEqType2 = oRS.Item(1).Item("eqtype2")
+        End If
+        'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------end
+        If Not oEqp Is Nothing Then
+            'Get HandlerId Object
+'            If oEqp.CustomAttributes(gsEQP_CUSTOMATTR_SUBSYS2) = "" Then
+'                '.activecell.formulaR1C1 = oEqp.CustomAttributes(gsEQP_CUSTOMATTR_SUBSYS1)
+'                msSubsystem1 = oEqp.CustomAttributes(gsEQP_CUSTOMATTR_SUBSYS1)
+'                Set oSubsystem1 = FwuRetrieveEqp(moFwMDL, msSubsystem1, moAppLog)
+'            Else
+'                msSubsystem1 = oEqp.CustomAttributes(gsEQP_CUSTOMATTR_SUBSYS1)
+'                msSubsystem2 = oEqp.CustomAttributes(gsEQP_CUSTOMATTR_SUBSYS2)
+'                Set oSubsystem1 = FwuRetrieveEqp(moFwMDL, msSubsystem1, moAppLog)
+'                Set oSubsystem2 = FwuRetrieveEqp(moFwMDL, msSubsystem2, moAppLog)
+'
+'            End If
+
+            bTECNLotSpec = CheckTECNLotInfo(moAppLog, moFwWIP, moFwWF, moCwMbx, oLot.Id)
+            If bTECNLotSpec = True Then
+                   sSQL = " SELECT A." & gsCAT_TLI_TECN_LOT_ID & " " & _
+                          " FROM " & gsCAT_TBL_LOT_INFO & " A " & _
+                          " WHERE A." & gsCAT_TLI_LOT_ID & " ='" & oLot.Id & "' "
+                
+                    Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+                    If oRS1.Count > 0 Then
+                      sTECNLotID = oRS1.Item(1).Item(1)
+                    End If
+                    'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+                    'sSQL = "select Temperature, Comments,loadboardtype," & _
+                    '        "CONTACTBOARDTYPE,KITTYPE," & _
+                    '        "cabletype,pgname,Subsystem,eqtype2,'TECN' AS doctype,docno," & _
+                    '        "pgid,pgname,refpgname01,refpgname02,refpgname03,refstepname01," & _
+                    '        "refstepname02,refstepname03,replacepgname01,replacepgname02," & _
+                    '        "replacepgname03,NEEDJUMPER,JUMPERPINNO " & _
+                    '        "from tbl_lot_step_eq_spec where " & _
+                    '        " '" & sTECNLotID & "' like tecnlotid and  " & _
+                    '        "stepno='" & oLot.CurrentStep.Steps.Item(1).Id & "' and " & _
+                    '        "eqtype2='" & oEqp.CustomAttributes(gsEQP_CUSTOMATTR_EQ_TYPE2) & "'  "
+                    '        'and " & _
+                    '        '"subsystem ='" & msSubsystemType & "' and " & _
+                    '        '" deleteflag ='N' and nvl(maxsite,' ') = nvl('" & msMaxSite & "',' ')"
+                    sSQL = "select Temperature, Comments,loadboardtype," & _
+                            "CONTACTBOARDTYPE,KITTYPE," & _
+                            "cabletype,pgname,Subsystem,eqtype2,'TECN' AS doctype,docno," & _
+                            "pgid,pgname,refpgname01,refpgname02,refpgname03,refstepname01," & _
+                            "refstepname02,refstepname03,replacepgname01,replacepgname02," & _
+                            "replacepgname03,NEEDJUMPER,JUMPERPINNO,burninboard " & _
+                            "from tbl_lot_step_eq_spec where " & _
+                            " '" & sTECNLotID & "' like tecnlotid and  " & _
+                            "stepno='" & sStepNo & "' and " & _
+                            "eqtype2='" & sEqType2 & "'  "
+
+                    'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+
+            Else
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+                'sSQL = "select Temperature, Comments,loadboardtype," & _
+                '        "CONTACTBOARDTYPE,KITTYPE," & _
+                '        "cabletype,pgname,Subsystem,eqtype2,doctype,docno," & _
+                '        "pgid,pgname,refpgname01,refpgname02,refpgname03,refstepname01," & _
+                '        "refstepname02,refstepname03,replacepgname01,replacepgname02," & _
+                '        "replacepgname03,NEEDJUMPER,JUMPERPINNO " & _
+                '        "from tbl_prod_step_eq_spec where " & _
+                '        "prodgroup='" & msProdGroup & "' and " & _
+                '        "stepno='" & oLot.CurrentStep.Steps.Item(1).Id & "' and " & _
+                '        "eqtype2='" & oEqp.CustomAttributes(gsEQP_CUSTOMATTR_EQ_TYPE2) & "' and " & _
+                '        "docstatus ='Active'" & "  and path='" & sPath & "' "
+                '        'and subsystem ='" & msSubsystemType & "' and " & _
+                '        '"maxsite = '" & msMaxSite & "'"
+                sSQL = "select Temperature, Comments,loadboardtype," & _
+                        "CONTACTBOARDTYPE,KITTYPE," & _
+                        "cabletype,pgname,Subsystem,eqtype2,doctype,docno," & _
+                        "pgid,pgname,refpgname01,refpgname02,refpgname03,refstepname01," & _
+                        "refstepname02,refstepname03,replacepgname01,replacepgname02," & _
+                        "replacepgname03,NEEDJUMPER,JUMPERPINNO,burninboard " & _
+                        "from tbl_prod_step_eq_spec where " & _
+                        "prodgroup='" & msProdgroup & "' and " & _
+                        "stepno='" & sStepNo & "' and " & _
+                        "eqtype2='" & sEqType2 & "' and " & _
+                        "docstatus ='Active'" & "  and path='" & sPath & "' "
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+            End If
+            
+            Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+            If oRS1.Count > 0 Then
+                .range("R" & CStr(iPosTitle + 8)).Select
+                '.activeCell.FormulaR1C1 = oRS1.Item(1).Item("Temperature")'Marked by Jack on 2018/02/01 for Project TECN 自動化,改成使用與停復測相同的來源.
+                msTemperature = oRS1.Item(1).Item("Temperature")
+                'Added by Jack on 2018/02/01 for Project TECN 自動化,改成使用與停復測相同的來源 <Start>
+                If Trim(txtTemp.Text) <> "" Then
+                    msTemperature = txtTemp.Text
+                End If
+                .activeCell.FormulaR1C1 = msTemperature
+                'Added by Jack on 2018/02/01 for Project TECN 自動化,改成使用與停復測相同的來源 <End>
+                
+                .range("E" & CStr(iPosTitle + 13 + iPosDown)).Select
+                .activeCell.FormulaR1C1 = oRS1.Item(1).Item("Comments")
+                
+                msSubsystemType2 = oRS1.Item(1).Item("Subsystem")
+                
+                msLoadBoardId = oRS1.Item(1).Item("Loadboardtype")
+                
+                'Add by Sam start on 20200428 for Project FT配件資料標準化
+                sLoadBoard = oRS1.Item(1).Item("Loadboardtype")
+                sContactBoard = oRS1.Item(1).Item("CONTACTBOARDTYPE")
+                sBurnInBoard = oRS1.Item(1).Item("burninboard")
+                If Trim(sLoadBoard) = "" And Trim(sContactBoard) = "" And Trim(sBurnInBoard) = "" Then
+                    Set colAcc = GetFTAccByPgm(moProRawSql, moAppLog, sStepName, msBodySize, oRS1.Item(1).Item("pgid"), oRS1.Item(1).Item("pgname"))
+                    If colAcc.Count > 0 Then
+                        sLoadBoard = colAcc.Item("loadboard")
+                        sContactBoard = colAcc.Item("contactboard")
+                        sBurnInBoard = colAcc.Item("burninboard")
+                    End If
+                End If
+                'Add by Sam End on 20200428 for Project FT配件資料標準化
+                
+                'TECN NO
+                'Modified by Jack on 2018/02/02 for Project TECN 自動化 <Start>.
+                '改為DocType不為空值, 若 TECNNO有值, 要加到 DocNO前頭.
+                'If Trim(oRS1.Item(1).Item("doctype")) = "TECN" Then
+                If Trim(oRS1.Item(1).Item("doctype")) <> "" Then
+                'Modified by Jack on 2018/02/02 for Project TECN 自動化 <End>.
+                   .range("E" & CStr(iPosTitle + 12)).Select
+                   '.activeCell.FormulaR1C1 = oRS1.Item(1).Item("docno") 'Maked by Jack on 2018/02/02 for Project TECN 自動化.
+                   'Modidied by Jack on 2018/02/02 for Project TECN 自動化 <Start>.
+                   If msPGMTECNNo <> "" Then
+                        .activeCell.FormulaR1C1 = msPGMTECNNo & "+" & oRS1.Item(1).Item("docno")
+                   Else
+                        .activeCell.FormulaR1C1 = oRS1.Item(1).Item("docno")
+                   End If
+                   'Added by Jack on 2018/02/02 for Project TECN 自動化 <End>.
+                End If
+                'PGM
+                sPgName = oRS1.Item(1).Item("PGNAME")
+                msREF_STEP_NAME_01 = oRS1.Item(1).Item("refstepname01")
+                msREF_PG_NAME_01 = oRS1.Item(1).Item("refpgname01")
+                msREPLACE_PG_NAME_01 = oRS1.Item(1).Item("replacepgname01")
+                msREF_STEP_NAME_02 = oRS1.Item(1).Item("refstepname02")
+                msREF_PG_NAME_02 = oRS1.Item(1).Item("refpgname02")
+                msREPLACE_PG_NAME_02 = oRS1.Item(1).Item("replacepgname02")
+                msREF_STEP_NAME_03 = oRS1.Item(1).Item("refstepname03")
+                msREF_PG_NAME_03 = oRS1.Item(1).Item("refpgname03")
+                msREPLACE_PG_NAME_03 = oRS1.Item(1).Item("replacepgname03")
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+                'msPGNAME = GetPGM(oLot, sPgName, msREF_STEP_NAME_01, msREF_PG_NAME_01, msREPLACE_PG_NAME_01, _
+                '           msREF_STEP_NAME_02, msREF_PG_NAME_02, msREPLACE_PG_NAME_02, _
+                '           msREF_STEP_NAME_03, msREF_PG_NAME_03, msREPLACE_PG_NAME_03, _
+                '           oEqp.CustomAttributes(gsEQP_CUSTOMATTR_EQ_TYPE2), msSubsystemType)
+                msPGNAME = GetPGM(oLot, sPgName, msREF_STEP_NAME_01, msREF_PG_NAME_01, msREPLACE_PG_NAME_01, _
+                           msREF_STEP_NAME_02, msREF_PG_NAME_02, msREPLACE_PG_NAME_02, _
+                           msREF_STEP_NAME_03, msREF_PG_NAME_03, msREPLACE_PG_NAME_03, _
+                           sEqType2, msSubsystemType)
+
+                'Added by Jack on 2018/02/01 for Project TECN 自動化,改成使用與停復測相同的來源 <Start>
+                If Trim(txtPGName.Text) <> "" Then
+                    msPGNAME = txtPGName.Text
+                End If
+                'Added by Jack on 2018/02/01 for Project TECN 自動化,改成使用與停復測相同的來源 <End>
+
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378----------end
+                .range("E" & CStr(iPosTitle + 9)).Select
+                .activeCell.FormulaR1C1 = msPGNAME
+                
+                 '架機完成配件紀錄                                          '
+                .range("E" & CStr(iPosTitle + 25 + iPosDown)).Select
+                'Modify by Sam on 20200428 for Project FT配件資料標準化
+                '.activeCell.FormulaR1C1 = oRS1.Item(1).Item("CONTACTBOARDTYPE")
+                .activeCell.FormulaR1C1 = sContactBoard
+                 
+            End If
+            
+            sSQL = "select " & gsCAT_TTFA_PITCH & "," & gsCAT_TTFA_VACUUMCUP & " from " & gsCAT_TBL_TESTER_FVI_ACC & _
+                        " where " & gsCAT_TTFA_PINCOUNT & "='" & msPinCount & "' " & _
+                        " and " & gsCAT_TTFA_PKGCODE & "='" & msPackageCode & "' " & _
+                        " and " & gsCAT_TTFA_DELETEFLAG & "='N' "
+                        
+            Set oRs2 = moProRawSql.QueryDatabase(sSQL)
+            If oRs2.Count > 0 Then
+               .range("E" & CStr(iPosTitle + 26 + iPosDown)).Select
+               .activeCell.FormulaR1C1 = oRs2.Item(1).Item(gsCAT_TTFA_VACUUMCUP)
+            End If
+            
+            Set oRS1 = Nothing
+      
+            'Subsystem1,Subsystem2 Accessory Data
+            sSQL = "select loadboardid, cableid, contactboardid, kitid,vacuumcupz1 from tbl_eq_info where eqid='" & oEqp.Id & "'"
+            Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+            If oRS1.Count > 0 Then
+                'Subsystem1 Accessory Data
+                .range("E" & CStr(iPosTitle + 18 + iPosDown)).Select
+                If InStr(oRS1.Item(1).Item("contactboardid"), ",") > 0 Then
+                    .activeCell.FormulaR1C1 = Left(oRS1.Item(1).Item("contactboardid"), InStr(oRS1.Item(1).Item("contactboardid"), ",") - 1)
+                Else
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("contactboardid")
+                End If
+                .range("E" & CStr(iPosTitle + 19 + iPosDown)).Select
+                If InStr(oRS1.Item(1).Item("vacuumcupz1"), ",") > 0 Then
+                    .activeCell.FormulaR1C1 = Left(oRS1.Item(1).Item("vacuumcupz1"), InStr(oRS1.Item(1).Item("vacuumcupz1"), ",") - 1)
+                Else
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("vacuumcupz1")
+                End If
+                
+            End If
+            Set oRS1 = Nothing
+            
+            'Step comments, good bin, dgrade bin
+            Dim msGood As String
+            Dim msDgrade As String
+            Dim msBin As String
+            Dim msPath As String
+
+            msGood = ""
+            msDgrade = ""
+            
+            sSQL = "select route " & _
+                   " from fwadmin.tbl_lot_attribute where lotid='" & txtLotId.Text & "'"
+            Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+            If oRS1.Count > 0 Then
+               msPath = oRS1.Item(1).Item("route")
+            End If
+            Set oRS1 = Nothing
+
+            bTECNLotSpec = CheckTECNLotInfo(moAppLog, moFwWIP, moFwWF, moCwMbx, oLot.Id)
+            If bTECNLotSpec = True Then
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+                'sSQL = "select Comments,'TECN' AS  doctype,docno ,bin1,bin2,bin3,bin4,bin5,bin6,bin7,bin8 " & _
+                '       "from tbl_Lot_step_spec where " & _
+                '       " '" & sTECNLotID & "' like tecnlotid and  " & _
+                '       " stepno='" & oLot.CurrentStep.Steps.Item(1).Id & "' and " & _
+                '       " deleteflag='N' and path = '" & msPath & "'"
+                sSQL = "select Comments,'TECN' AS  doctype,docno ,bin1,bin2,bin3,bin4,bin5,bin6,bin7,bin8 " & _
+                       "from tbl_Lot_step_spec where " & _
+                       " '" & sTECNLotID & "' like tecnlotid and  " & _
+                       " stepno='" & sStepNo & "' and " & _
+                       " deleteflag='N' and path = '" & msPath & "'"
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378----------end
+            Else
+
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378--------start
+                'sSQL = "select Comments,doctype,docno,bin1,bin2,bin3,bin4,bin5,bin6,bin7,bin8 " & _
+                '       "from tbl_prod_step_spec where " & _
+                '       "prodgroup='" & msProdGroup & "' and " & _
+                '       "stepno='" & oLot.CurrentStep.Steps.Item(1).Id & "' and " & _
+                '       "docstatus ='Active' and path = '" & msPath & "'"
+                sSQL = "select Comments,doctype,docno,bin1,bin2,bin3,bin4,bin5,bin6,bin7,bin8 " & _
+                       "from tbl_prod_step_spec where " & _
+                       "prodgroup='" & sProdgroup & "' and " & _
+                       "stepno='" & sStepNo & "' and " & _
+                       "docstatus ='Active' and path = '" & msPath & "'"
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378----------end
+            End If
+            Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+            
+            If oRS1.Count > 0 Then
+               .range("E" & CStr(iPosTitle + 14 + iPosDown)).Select
+                .activeCell.FormulaR1C1 = oRS1.Item(1).Item("Comments")
+               'Mark by Sam start on 20160608 for Project FT DGRADE,取消BIN1~BIN8
+'               For iIndex = 1 To 8
+'                 msBin = "BIN" + CStr(iIndex)
+'                 If oRS1.Item(1).Item(msBin) = "Good" Then
+'                    If msGood = "" Then
+'                       msGood = CStr(iIndex)
+'                    Else
+'                       msGood = msGood + "," + CStr(iIndex)
+'                    End If
+'                 End If
+'                 If oRS1.Item(1).Item(msBin) = "Dgrade" Then
+'                    If msDgrade = "" Then
+'                       msDgrade = CStr(iIndex)
+'                    Else
+'                       msDgrade = msDgrade + "," + CStr(iIndex)
+'                    End If
+'                 End If
+'               Next
+'               .range("R" & CStr(iPosTitle + 11)).Select
+'                .activeCell.FormulaR1C1 = msGood
+'               .range("R" & CStr(iPosTitle + 12)).Select
+'                .activeCell.FormulaR1C1 = msDgrade
+               'Mark by Sam END on 20160608 for Project FT DGRADE
+            End If
+            Set oRS1 = Nothing
+        End If
+        
+        'added by Jack on 2014/01/13 for JC201400011. <Start>
+        If Len(sPureErunTicNo) <> 0 Then
+            sSQL = "SELECT " & gsCAT_TER_FOLLOW_PRODUCT & _
+                      " from " & gsCAT_TBL_ERUN_REQ & _
+                      " where " & gsCAT_TER_LOT_ID & " ='" & oLot.Id & "'" & _
+                      " and " & gsCAT_TER_TICKET_NO & "='" & sPureErunTicNo & "' " & _
+                      " and " & gsCAT_TER_STAGE & "='" & lblStage.Caption & "' " & _
+                      " and " & gsCAT_TER_DELETE_FLAG & "='N' "
+            Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+            If oRS1.Count > 0 Then
+                sFollowProd = oRS1.Item(1).Item(1)
+            End If
+            
+            
+            If Trim(sPureErunTicNo) <> "" And Trim(sFollowProd) = "N" Then
+                '<1> replace speed/code/checksum.
+                sSQL = "SELECT " & gsCAT_TER_SPEED & "," & _
+                                   gsCAT_TER_CHECKSUM & "," & _
+                                   gsCAT_TER_CODE & " " & _
+                          " from " & gsCAT_TBL_ERUN_REQ & _
+                          " where " & gsCAT_TER_LOT_ID & " ='" & oLot.Id & "'" & _
+                          " and " & gsCAT_TER_TICKET_NO & "='" & sPureErunTicNo & "' " & _
+                          " and " & gsCAT_TER_STAGE & "='" & lblStage.Caption & "' " & _
+                          " and " & gsCAT_TER_DELETE_FLAG & "='N' "
+                Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+                If oRS1.Count > 0 Then
+                    'PROGRAMMER : AT3-300AL / FT-940 no speed.
+                    
+                    .range("R" & CStr(iPosTitle + 9)).Select 'Code
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("code")
+                
+                    .range("R" & CStr(iPosTitle + 10)).Select 'checksum
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("checksum")
+                End If
+                
+                '<2> replace pgname/goodbin/jumperpinno/subsystem/temperature/loadboardtype/contactboardtype
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378-------start
+                'sSQL = "select " & gsCAT_TERE_PGNAME & ", " & _
+                '                   gsCAT_TERE_GOODBIN & ", " & _
+                '                   gsCAT_TERE_JUMPERPINNO & ", " & _
+                '                   gsCAT_TERE_TEMPERATURE & ", " & _
+                '                   gsCAT_TERE_LOADBOARDTYPE & ", " & _
+                '                   gsCAT_TERE_SUBSYSTEM & ", " & _
+                '                   gsCAT_TERE_CONTACTBOARDTYPE & " " & _
+                '         "from " & gsCAT_TBL_ERUN_RECIPE & " a " & _
+                '        "where a." & gsCAT_TERE_DOCNO & " = '" & sPureErunTicNo & "' " & _
+                '          "and a." & gsCAT_TERE_STEPNO & " = '" & oLot.CurrentStep.Steps.Item(1).Id & "' " & _
+                '          "and a." & gsCAT_TERE_EQTYPE2 & " = '" & oEqp.CustomAttributes(gsEQP_CUSTOMATTR_EQ_TYPE2) & "' "
+                sSQL = "select " & gsCAT_TERE_PGNAME & ", " & _
+                                   gsCAT_TERE_GOODBIN & ", " & _
+                                   gsCAT_TERE_JUMPERPINNO & ", " & _
+                                   gsCAT_TERE_TEMPERATURE & ", " & _
+                                   gsCAT_TERE_LOADBOARDTYPE & ", " & _
+                                   gsCAT_TERE_SUBSYSTEM & ", " & _
+                                   gsCAT_TERE_CONTACTBOARDTYPE & " " & _
+                         "from " & gsCAT_TBL_ERUN_RECIPE & " a " & _
+                        "where a." & gsCAT_TERE_DOCNO & " = '" & sPureErunTicNo & "' " & _
+                          "and a." & gsCAT_TERE_STEPNO & " = '" & sStepNo & "' " & _
+                          "and a." & gsCAT_TERE_EQTYPE2 & " = '" & sEqType2 & "' "
+
+                'modify by Ernest on 2016/04/27 for ReqNo:JC201500378----------end
+                sSQL = sSQL & " and a.deleteflag = 'N' "
+                          
+                Set oRS1 = moProRawSql.QueryDatabase(sSQL)
+                If oRS1.Count > 0 Then
+                    .range("E" & CStr(iPosTitle + 9)).Select 'Program Name:
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("pgname")
+                    
+                    .range("R" & CStr(iPosTitle + 11)).Select 'GoodBin
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("goodbin")
+                    
+                    'PROGRAMMER : AT3-300AL / FT-940 no jumperpinno.
+                    'PROGRAMMER : AT3-300AL / FT-940 no subsystem.
+                    
+                    .range("R" & CStr(iPosTitle + 8)).Select 'Temperature
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("temperature")
+                    
+                    'PROGRAMMER : AT3-300AL / FT-940 no loadboardtype.
+                    
+                    .range("E" & CStr(iPosTitle + 25 + iPosDown)).Select 'CONTACTBOARDTYPE
+                    .activeCell.FormulaR1C1 = oRS1.Item(1).Item("contactboardtype")
+                End If
+            End If
+        End If
+        'added by Jack on 2014/01/13 for JC201400011. <End>
+        
+        'Add by Tony Start on 2014/02/25 for HW SETUP RECIPE COMPARE project
+        '(二)設備架機確認(HW Setup Quality check)內容
+        'Modify in 2016/04/27 for ReqNO:JC201500378----start
+        'sEqID = lblTesterId.Caption
+        sEqID = Me.cboTesterId.Text
+        'Modify in 2016/04/27 for ReqNO:JC201500378----start
+        Call getRecipeSpecName(sEqID, oLot.Id, oLot.CustomAttributes(gsLOT_CUSTOMATTR_IPN), _
+                             msPackageName, msPinCount, msBodySize, _
+                             oRS1, moProRawSql, moAppLog, _
+                              moCwMbx)
+        
+        If Not oRS1 Is Nothing And oRS1.Count > 0 Then
+            For iIdx = 1 To oRS1.Count
+                If iIdx <= miAT3_RECIPE_ROW Then
+                    .range("A" & CStr(iPosTitle + 37 + iIdx)).Select 'ID
+                    .activeCell.FormulaR1C1 = oRS1.Item(iIdx).Item("col1")
+                    
+                    .range("B" & CStr(iPosTitle + 37 + iIdx)).Select 'Specname
+                    .activeCell.FormulaR1C1 = oRS1.Item(iIdx).Item("specname")
+                Else
+                    If iIdx <= miAT3_RECIPE_MAX_ROW Then
+                        .range("P" & CStr(iPosTitle + 37 + iIdx - miAT3_RECIPE_ROW)).Select 'ID
+                        .activeCell.FormulaR1C1 = oRS1.Item(iIdx).Item("col1")
+                        
+                        .range("Q" & CStr(iPosTitle + 37 + iIdx - miAT3_RECIPE_ROW)).Select 'Specname
+                        .activeCell.FormulaR1C1 = oRS1.Item(iIdx).Item("specname")
+                    End If
+                End If
+                
+            Next
+        Else
+            UtShowMsgBox "尚未維護，請確認架機需求或請維護相關資訊。請洽設備工程師。" & vbCrLf & "No data maintenance, make sure the equipment frame machine or maintain information. Please call HW to check."
+        End If
+        'Add by Tony End on 2014/02/25 for HW SETUP RECIPE COMPARE project
+        
+        ' if msErunTicNo is not Enpity表重工品,則
+        '設為空值 : ProgramName, DocumentNo, Temperature, Special Comment, Speed, Code, CheckSum
+        'user直接查詢委測/重工單, 避免混淆
+'Marked by Jack on 2014/01/13 for JC201400011 <Start>
+'Chihhao要求不清空以下欄位內容.
+'        If Len(msErunTicNo) <> 0 Then
+'            .range("E" & CStr(iPosTitle + 9)).Select  'Program Name:
+'            .activeCell.FormulaR1C1 = ""
+'            .range("E" & CStr(iPosTitle + 12)).Select  'TECN NO
+'            .activeCell.FormulaR1C1 = ""
+'            .range("R" & CStr(iPosTitle + 8)).Select  'Temperature
+'            .activeCell.FormulaR1C1 = ""
+'            .range("E" & CStr(iPosTitle + 15)).Select  'EqComment
+'            .activeCell.FormulaR1C1 = ""
+'            .range("R" & CStr(iPosTitle + 9)).Select   'code
+'            .activeCell.FormulaR1C1 = ""
+'            .range("R" & CStr(iPosTitle + 10)).Select  'checksum
+'            .activeCell.FormulaR1C1 = ""
+'        End If
+'Marked by Jack on 2014/01/13 for JC201400011 <End>
+
+    End With
+
+'----
+' Done
+'----
+
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+    Set oLot = Nothing
+    
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Sub
