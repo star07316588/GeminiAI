@@ -1,246 +1,62 @@
-GetTecnPgmRecipe的邏輯好像有短少，可以幫我補齊嗎
-//已經翻寫的C#程式
-
-public async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(
-                    string ipnTecnNo, string lotId, string ipn, string path, string stepId, string stepName,
-                    string eqType2, string prodGroupKey, string prodCode, string grade, string runRule)
-        {
-            var result = new TecnPgmRecipeAttrDto { RefOverTime = "N" };
-
-            // ==========================================
-            // [缺失補齊 1] 判斷 Stage (By Sam 20180417)
-            // ==========================================
-            string stage = string.Compare(stepId, "42810") < 0 ? "WS" : "FT";
-
-            // ==========================================
-            // [缺失補齊 2] By Lot TECN 修正 (By Weilun 20180601)
-            // 若傳入的參數有缺，則主動向資料庫撈取補齊
-            // ==========================================
-            if (!string.IsNullOrEmpty(lotId) && (string.IsNullOrEmpty(ipn) || string.IsNullOrEmpty(prodGroupKey) || string.IsNullOrEmpty(prodCode)))
-            {
-                // 注意：您需要在 Repository 實作 GetLotAttributeAndIpnMasterAsync
-                var lotAttr = await _tecnRepo.GetLotAttributeAndIpnMasterAsync(lotId);
-                if (lotAttr != null)
-                {
-                    if (string.IsNullOrEmpty(ipn)) ipn = lotAttr.IPN?.ToString();
-                    if (string.IsNullOrEmpty(prodGroupKey)) prodGroupKey = lotAttr.PRODGROUPKEY?.ToString();
-                    
-                    if (string.IsNullOrEmpty(prodCode) && !string.IsNullOrEmpty(ipn) && ipn.Length >= 4)
-                    {
-                        prodCode = stage == "WS" 
-                            ? (ipn.Substring(0, 4) + lotAttr.MASK_OPTION?.ToString()) 
-                            : (ipn.Substring(0, 4) + lotAttr.BE_OPTION?.ToString());
-                    }
-                }
-            }
-
-            // 1. 決定溫度欄位 (Grade 轉換)
-            string tempColumn = "TEMP_" + (string.IsNullOrEmpty(grade) ? "C" : grade.ToUpper());
-
-            // 2. 決定 TestMode 與 TQAE 旗標
-            string testMode = stepName;
-            bool isTqae = stepName.StartsWith("TQAE");
-            bool bAdvanGroup = false;
-
-            if (stepName.StartsWith("SORT"))
-            {
-                testMode = "S" + stepName.Substring(4);
-            }
-            else if (isTqae)
-            {
-                // [缺失補齊 3] 呼叫 TQAE Mapping
-                // 注意：您需要在 Repository 實作 GetTqaeMappingAsync
-                var tqaeMapping = await _tecnRepo.GetTqaeMappingAsync(stepId, stepName, eqType2, prodCode);
-                if (tqaeMapping != null)
-                {
-                    testMode = tqaeMapping.QCTestMode ?? stepName;
-                    bAdvanGroup = tqaeMapping.IsAdvanGroup;
-                }
-            }
-
-            // ==========================================
-            // PASS 1: 尋找 PGM (配方)
-            // ==========================================
-            for (int iLevel = 1; iLevel <= 6; iLevel++)
-            {
-                if (iLevel == 5) continue;
-
-                string description = GetDescriptionForLevel(iLevel, lotId, ipn, prodGroupKey, prodCode);
-                dynamic record = null;
-
-                // [缺失補齊 4] TQAE 必須先加上 path 與 stepId 搜尋
-                if (isTqae)
-                {
-                    // 第一次嘗試：用 stepName + path + stepId
-                    record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, stepName, iLevel, description, ipnTecnNo, null, path, stepId);
-                    
-                    if (record == null)
-                    {
-                        // 第二次嘗試：若找不到，改用 testMode (不含 path, stepId)
-                        record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, null, null, null);
-                    }
-                }
-                else
-                {
-                    // 非 TQAE：直接用 testMode (不含 path, stepId)
-                    record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, null, null, null);
-                }
-
-                if (record != null)
-                {
-                    // TODO: 若需要，可在此處實作 ComparePgmAttr 的驗證邏輯
-
-                    string tecnNo = record.TECNNO?.ToString();
-
-                    // Lot 階被標記 Delete 的攔截
-                    if (iLevel == 1 && await _tecnRepo.IsLotTecnDeletedAsync(tecnNo, lotId))
-                    {
-                        continue;
-                    }
-
-                    result.RefPgmTecnNo = tecnNo;
-                    result.RefPgId = record.PGID?.ToString();
-                    result.RefPgmSource = record.SOURCE?.ToString();
-                    result.RefLevel = record.TECNLEVEL?.ToString();
-
-                    string rawPgmName = record.PGNAME?.ToString() ?? "";
-
-                    // TQAE AdvanGroup 字串置換邏輯
-                    if (isTqae && bAdvanGroup)
-                    {
-                        if (rawPgmName.StartsWith("TF")) result.RefPgm = "TQ" + rawPgmName.Substring(2);
-                        else if (rawPgmName.StartsWith("F")) result.RefPgm = "Q" + rawPgmName.Substring(1);
-                        else result.RefPgm = rawPgmName;
-                    }
-                    else
-                    {
-                        result.RefPgm = rawPgmName;
-                    }
-
-                    // 記錄溫度 (如果有)
-                    string tempValue = record.TEMP?.ToString();
-                    if (!string.IsNullOrEmpty(tempValue))
-                    {
-                        result.RefTemp = tempValue;
-                        result.RefTempTecnNo = tecnNo;
-                        result.RefTempSource = record.SOURCE?.ToString();
-                    }
-
-                    string overTime = record.OVERTIME?.ToString();
-                    if (result.RefOverTime != "Y") result.RefOverTime = overTime;
-
-                    break; // 找到 PGM 就可以跳出 PASS 1 迴圈
-                }
-            }
-
-            // ==========================================
-            // PASS 2: 若 PGM 找到但沒包溫度，單獨尋找 TEMP
-            // ==========================================
-            if (!string.IsNullOrEmpty(result.RefPgm) && string.IsNullOrEmpty(result.RefTemp))
-            {
-                for (int iLevel = 1; iLevel <= 6; iLevel++)
-                {
-                    if (iLevel == 5) continue;
-
-                    string description = GetDescriptionForLevel(iLevel, lotId, ipn, prodGroupKey, prodCode);
-                    dynamic record = null;
-
-                    // 一樣套用 TQAE 的 path/stepId 邏輯
-                    if (isTqae)
-                    {
-                        record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, stepName, iLevel, description, ipnTecnNo, result.RefPgm, path, stepId);
-                        if (record == null)
-                        {
-                            record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, result.RefPgm, null, null);
-                        }
-                    }
-                    else
-                    {
-                        record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, result.RefPgm, null, null);
-                    }
-
-                    if (record != null)
-                    {
-                        result.RefTemp = record.TEMP?.ToString();
-                        result.RefTempTecnNo = record.TECNNO?.ToString();
-                        result.RefTempSource = record.SOURCE?.ToString();
-
-                        if (result.RefOverTime != "Y") result.RefOverTime = record.OVERTIME?.ToString();
-                        if (string.IsNullOrEmpty(result.RefLevel)) result.RefLevel = record.TECNLEVEL?.ToString();
-
-                        break;
-                    }
-                }
-            }
-
-            return result;
-        }
-
-
-'以下為原始VB程式
-
-Public Function GetTecnPgmRecipeAttr(ByVal moAppLog As Object, ByVal moProRawSql As Object, _
-                                     ByVal sIpnTecnNo As String, ByVal sLotID As String, ByVal sIPN As String, _
-                                     ByVal sPath As String, ByVal sStepID As String, ByVal sStepName As String, _
-                                     ByVal sEqType2 As String, ByVal sProdGroupKey As String, ByVal sProdCode As String, _
-                                     ByVal sGrade As String, ByVal sRunRule As String, ByVal sPgId As String, ByVal sPgName As String, _
-                                     ByRef sRefPgmTecnNo As String, ByRef sRefPgm As String, ByRef sRefPgID As String, ByRef sRefPgmSource As String, _
-                                     ByRef sRefTempTecno As String, ByRef sRefTemp As String, ByRef sRefTempSource As String, ByRef sRefOverTime As String, _
-                                     ByRef sRefLevel As String) As String
+Public Function ComparePgmAttr(ByVal moAppLog As Object, ByVal moProRawSql As Object, _
+                         ByVal sStage As String, ByVal sTestMode As String, ByVal sTesterType As String, _
+                         ByVal sPgID1 As String, ByVal sPgm1 As String, _
+                         ByVal sPgID2 As String, ByVal sPgm2 As String) As String
+                         
     On Error GoTo ExitHandler:
     Dim sProcID As String
     Dim typErrInfo As tErrInfo
+    Dim sSQL As String, colRS As Collection
+        
+    Dim sProdCode1 As String
+    Dim sPkgcode1 As String
+    Dim sPcdType1 As String
+    Dim sPincount1 As String
+    Dim sMaxsite1 As String
+    Dim sWireVersion1 As String
+    Dim sPgMode1      As String 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
     
-    Dim iLevel As Integer
-    
-    Dim lIdx As Long, lIdx2 As Long
-    Dim sTestMode As String
-    Dim sPGM As String
-    
-    Dim sTempColumn As String
-    Dim sSQL_1 As String
-    Dim sSQL_2 As String
-    Dim colRS As Collection
-    Dim sSQL As String 'Add by Weilun on 20180601 for By Lot TECN修正
-    
-    Dim sDescription As String
-    'Added by Jack on 2018/01/03 for Project TECN 自動化 <Start>
-    Dim sTesterGroup     As String
-    Dim bAdvanGroup      As Boolean
-    Dim sQCTestMode      As String
-    Dim sSQL_Lot         As String
-    Dim colRS_Lot        As Collection
-    Dim sAction          As Variant
-    'Added by Jack on 2018/01/03 for Project TECN 自動化 <End>
-    
-'Add by Sam Start on 20180417  for Project TECN 自動化,加傳比對用原PGID,PGNAME
-    Dim lIndex As Long
-    Dim sStage As String
-'Add by Sam End on 20180417  for Project TECN 自動化,加傳比對用原PGID,PGNAME
-    
-    
+    Dim sProdCode2 As String
+    Dim sPkgcode2 As String
+    Dim sPcdType2 As String
+    Dim sPincount2 As String
+    Dim sMaxsite2 As String
+    Dim sWireVersion2 As String
+    Dim sPgMode2      As String 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
+        
+Dim sFormFactor1 As String 'Add by Sam on 20241224 for  #199154
+Dim sModuleOption1 As String 'Add by Sam on 20241224 for  #199154
+Dim sFormFactor2 As String 'Add by Sam on 20241224 for  #199154
+Dim sModuleOption2 As String 'Add by Sam on 20241224 for  #199154
+        
     '----
     ' Init
     '----
-    sProcID = "GetTecnPgmRecipeAttr"
+    sProcID = "ComparePgmAttr"
     Call LogProcIn(msMODULE_ID, sProcID, moAppLog) '"Entering Function...", moAppLog, glLOG_PROC, msMODULE_ID, sProcID)
+    ComparePgmAttr = ""
     
-    GetTecnPgmRecipeAttr = ""
-         
-    sRefPgmTecnNo = ""
-    sRefPgm = ""
-    sRefPgID = ""
-    sRefPgmSource = ""
-    sRefTempTecno = ""
-    sRefTemp = ""
-    sRefTempSource = ""
-    sRefOverTime = ""
-    sRefLevel = ""
-    bAdvanGroup = False 'Added by Jack on 2018/01/03 for Project TECN 自動化
-    If (moProRawSql Is Nothing) Then
+    If moProRawSql Is Nothing Then
         GoTo ExitHandler
     End If
+    If sTestMode Like "SORT*" Then
+        sTestMode = Replace(sTestMode, "SORT", "S")
+    End If
     
+    If sTestMode Like "TQAE*" Then
+        sTestMode = Replace(sTestMode, "TQAE", "FT") 'Added by Jack on 2018/02/02 for TECN 自動化.
+        'TQAE* 要轉回 FT*, 否則串不到 程式1 & 程式2, 相關 Key值比對, 空值 vs. 空值 會視為 by pass.
+        If sPgm1 Like "TQ*" Then
+            sPgm1 = "TF" & Mid(sPgm1, 3, Len(sPgm1) - 2)
+        ElseIf sPgm1 Like "Q*" Then
+            sPgm1 = "F" & Mid(sPgm1, 2, Len(sPgm1) - 1)
+        End If
+        If sPgm2 Like "TQ*" Then
+            sPgm2 = "TF" & Mid(sPgm2, 3, Len(sPgm2) - 2)
+        ElseIf sPgm2 Like "Q*" Then
+            sPgm2 = "F" & Mid(sPgm2, 2, Len(sPgm2) - 1)
+        End If
+    End If
     '----
     ' Condition Checking
     '----
@@ -250,406 +66,164 @@ Public Function GetTecnPgmRecipeAttr(ByVal moAppLog As Object, ByVal moProRawSql
     ' Action
     '----
     ' <Put your Action codes here>...
-    
-    'Add by Sam Start on 20180417  for Project TECN 自動化,加傳比對用原PGID,PGNAME
-    If sStepID < "42810" Then
-        sStage = "WS"
-    Else
-        sStage = "FT"
-    End If
-    'Add by Sam END on 20180417  for Project TECN 自動化,加傳比對用原PGID,PGNAME
-    
-    'Add by Weilun on 20180601 for By Lot TECN修正 <start>
-    If sLotID <> "" And _
-       (sIPN = "" Or _
-        sProdGroupKey = "" Or _
-        sProdCode = "") Then
-
-        sSQL = "select a." & gsCAT_TIM_IPN & ", " & _
-                     " a." & gsCAT_TIM_PRODGROUPKEY & ", " & _
-                     " a." & gsCAT_TIM_MASK_OPTION & ", " & _
-                     " a." & gsCAT_TIM_BE_OPTION & " " & _
-                " from " & gsCAT_TBL_LOT_ATTRIBUTE & " tlatt, " & _
-                           gsCAT_TBL_IPN_MASTER & " a " & _
-              " where tlatt." & gsCAT_TLATT_IPN & " = a." & gsCAT_TIM_IPN & " " & _
-                " and tlatt." & gsCAT_TLATT_LOTID & " = '" & sLotID & "' "
+        'gsCAT_TTDP_PGMODE Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
+        'Modify by Sam on 20241224 for  #199154,Add  formfactor,moduleoption
+        sSQL = "select a." & gsCAT_TTDP_TDSPROD & ",a." & gsCAT_TTDP_PKGCODE & ",a." & gsCAT_TTDP_PCDTYPE & "  " & _
+               " ,a." & gsCAT_TTDP_PINCOUNT & ",a." & gsCAT_TTDP_MAXSITE & ",a." & gsCAT_TTDP_WIRE_VERSION & "  " & _
+               " ,a." & gsCAT_TTDP_PGMODE & "  " & _
+               " ,a." & gsCAT_TTDP_FORMFACTORNAME & ",a." & gsCAT_TTDP_MODULEOPTION & " " & _
+              " from " & gsCAT_TBL_TDS_PGM & " a " & _
+               " where a." & gsCAT_TTDP_PGID & " = '" & sPgID1 & "' " & _
+               " and a." & gsCAT_TTDP_PGNAME & " = '" & sPgm1 & "' " & _
+               " and a." & gsCAT_TTDP_TDSTESTERTYPE & " = '" & sTesterType & "' " & _
+               " and a." & gsCAT_TTDP_TESTMODE & " = '" & sTestMode & "' "
         Set colRS = moProRawSql.QueryDatabase(sSQL)
         If colRS.Count > 0 Then
-            '傳入的為空值再補
-            If sIPN = "" Then
-                sIPN = colRS.Item(1).Item(gsCAT_TIM_IPN)
-            End If
-
-            If sProdGroupKey = "" Then
-                sProdGroupKey = colRS.Item(1).Item(gsCAT_TIM_PRODGROUPKEY)
-            End If
-
-            If sProdCode = "" Then
-                If sStage = "WS" Then
-                    sProdCode = Left(sIPN, 4) & colRS.Item(1).Item(gsCAT_TIM_MASK_OPTION)
-                ElseIf sStage = "FT" Then
-                    sProdCode = Left(sIPN, 4) & colRS.Item(1).Item(gsCAT_TIM_BE_OPTION)
-                End If
-            End If
-
+            sProdCode1 = colRS.Item(1).Item(gsCAT_TTDP_TDSPROD)
+            sPkgcode1 = colRS.Item(1).Item(gsCAT_TTDP_PKGCODE)
+            sPincount1 = colRS.Item(1).Item(gsCAT_TTDP_PINCOUNT)
+            sPcdType1 = colRS.Item(1).Item(gsCAT_TTDP_PCDTYPE)
+            sMaxsite1 = colRS.Item(1).Item(gsCAT_TTDP_MAXSITE)
+            sWireVersion1 = colRS.Item(1).Item(gsCAT_TTDP_WIRE_VERSION)
+            sPgMode1 = colRS.Item(1).Item(gsCAT_TTDP_PGMODE) 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
+            sFormFactor1 = colRS.Item(1).Item(gsCAT_TTDP_FORMFACTORNAME) 'Add by Sam on 20241224 for  #199154
+            sModuleOption1 = colRS.Item(1).Item(gsCAT_TTDP_MODULEOPTION) 'Add by Sam on 20241224 for  #199154
         End If
-    End If
-    'Add by Weilun on 20180601 for By Lot TECN修正 <end>
-    
-    If sStepName Like "SORT*" Then
-        sTestMode = "S" & Replace(sStepName, "SORT", "")
-    ElseIf sStepName Like "TQAE*" Then
-    
-        Call Get_TQAE_Mapping_Act_PGmode(moAppLog, moProRawSql, sStepID, sStepName, sEqType2, sProdCode, sQCTestMode, bAdvanGroup)
-        sTestMode = sQCTestMode
-        
-        'sTestMode = "FT" & Replace(sStepName, "TQAE", "")'Marked by Jack on 2018/01/03 for Project TECN 自動化
-        'Added by Jack on 2018/01/03 for Project TECN 自動化 <Start>
-        'sSQL_1 = "select " & gsCAT_TEGT_TESTER_GROUP & " " & _
-        '          " From " & gsCAT_TBL_EQ_GROUP_TIM & " a" & _
-        '         " where a." & gsCAT_TEGT_DELETEFLAG & " = 'N' " & _
-        '           " and " & gsCAT_TEGT_TESTER_TYPE & " = '" & sEqType2 & "' "
-        'Set colRS = moProRawSql.QueryDatabase(sSQL_1)
-        'If colRS.Count > 0 Then
-        '    sTesterGroup = colRS.Item(1).Item(gsCAT_TEGT_TESTER_GROUP)
-        '    '(A-1) Tester_Group = 'ADVAN' ??   ==> TestMode : TQAE4 置換為 FT4."  <-- bAdvanGroup = True
-        '    '(A-2) Tester_Group <> 'ADVAN'     ==> 檢查  [SQL-2] ==> (C)"         <-- bAdvanGroup = False (DEFAULT)
-        '    If sTesterGroup = "ADVAN" Then
-        '        sTestMode = "FT" & Replace(sStepName, "TQAE", "")
-        '        bAdvanGroup = True
-        '    End If
-        'Else
-        '    '(B) 若  [SQL-2] 沒有資料 :        ==> 檢查  [SQL-2] ==> (C)"             <-- bAdvanGroup = False (DEFAULT)
-        'End If
-        
-        '(C)
-        'If Not bAdvanGroup Then
-        '    sSQL_1 = "select " & gsCAT_TTMAP_QCTESTMODE & " " & _
-        '              " from " & gsCAT_TBL_TQAE_MAPPING_ACT_PGMODE & " a " & _
-        '             " where a." & gsCAT_TTMAP_DELETEFLAG & " = 'N' " & _
-        '               " and " & gsCAT_TTMAP_PRODBODY & " = '" & Mid(sProdCode, 1, 4) & "' " & _
-        '               " and " & gsCAT_TTMAP_TESTER & " = '" & sEqType2 & "' " & _
-        '               " and " & gsCAT_TTMAP_STEPNAME & "= '" & sStepName & "' "
-        '    Set colRS = moProRawSql.QueryDatabase(sSQL_1)
-        '    '(C-1) 若  [SQL-2] 有資料 :        ==> TestMode : TQAE4 置換為 FTQ (QcTestMode欄位).
-        '    If colRS.Count > 0 Then
-        '        sQcTestMode = colRS.Item(1).Item(gsCAT_TTMAP_QCTESTMODE)
-        '        sTestMode = sQcTestMode
-        '    '(C-2) 若  [SQL-2] 沒有資料 :      ==> TestMode : TQAE4 保留 TQAE4
-        '    Else
-        '        sTestMode = sStepName
-        '    End If
-        'End If
-        'Added by Jack on 2018/01/03 for Project TECN 自動化 <End>
-    Else
-        sTestMode = sStepName
-    End If
-    
-    Select Case UCase(sGrade)
-        Case "I"
-            sTempColumn = gsCAT_TTP_TEMP_I
-        Case "C"
-            sTempColumn = gsCAT_TTP_TEMP_C
-        Case "S"
-            sTempColumn = gsCAT_TTP_TEMP_S
-        Case "P"
-            sTempColumn = gsCAT_TTP_TEMP_P
-        Case "Q"
-            sTempColumn = gsCAT_TTP_TEMP_Q
-       Case "R"
-            sTempColumn = gsCAT_TTP_TEMP_R
-        Case "T"
-            sTempColumn = gsCAT_TTP_TEMP_T
-        Case "W"
-            sTempColumn = gsCAT_TTP_TEMP_W
-        Case "Y"
-            sTempColumn = gsCAT_TTP_TEMP_Y
-        Case "J"
-            sTempColumn = gsCAT_TTP_TEMP_J
-        Case "K"
-            sTempColumn = gsCAT_TTP_TEMP_K
-        Case "L"
-            sTempColumn = gsCAT_TTP_TEMP_L
-        Case "N"
-            sTempColumn = gsCAT_TTP_TEMP_N
-        Case "B"
-            sTempColumn = gsCAT_TTP_TEMP_B
-        Case "E"
-            sTempColumn = gsCAT_TTP_TEMP_E
-        Case "U"
-            sTempColumn = gsCAT_TTP_TEMP_U
-        Case Else
-            sTempColumn = gsCAT_TTP_TEMP_C
-            GoTo ExitHandler
-    End Select
-        
-    sSQL_1 = "select a." & gsCAT_TTP_TECNNO & ", A." & gsCAT_TTP_TECNLEVEL & " , a." & gsCAT_TTP_PGNAME & _
-                 " , a." & gsCAT_TTP_PGID & ", a." & gsCAT_TTP_STATUS & "  , A." & gsCAT_TTP_SOURCE & "   " & _
-                 " , A." & sTempColumn & " as temp " & _
-                 " ,case when to_char(sysdate, 'YYYYMMDD HH24MISS') || '000' between " & _
-                 "      A." & gsCAT_TTP_STARTTIME & " and A." & gsCAT_TTP_ENDTIME & " then 'N' else 'Y' end as overtime "
-    'Modify by Sam on 20180418 for Project TECN 自動化,取消tcaseno,ecrstarttime條件
-'    sSQL_1 = sSQL_1 & " from " & gsCAT_TBL_TECN_PGM & " a " & _
-'                 " WHERE A." & gsCAT_TTP_TCASENO & " IS NULL " & _
-'                 " and A." & gsCAT_TTP_ECRSTARTTIME & " is null " & _
-'                 " AND A." & gsCAT_TTP_TESTERTYPE & "='" & sEqType2 & "' "
-    sSQL_1 = sSQL_1 & " from " & gsCAT_TBL_TECN_PGM & " a " & _
-                 " WHERE A." & gsCAT_TTP_TESTERTYPE & "='" & sEqType2 & "' "
-    
-    If sRunRule = "Y" Then
-        sSQL_1 = sSQL_1 & " and a." & gsCAT_TTP_REFRENCE & "='引用' " & _
-                          " and a." & gsCAT_TTP_STATUS & " <> '失效已Confirm' "
-    Else
-        sSQL_1 = sSQL_1 & " AND A." & gsCAT_TTP_STARTTIME & " <=TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS') || '000' " & _
-                 " AND TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS') || '000' <=A." & gsCAT_TTP_ENDTIME & " " & _
-                 " AND ( (A." & gsCAT_TTP_REFRENCE & "='引用' and a." & gsCAT_TTP_STATUS & " ='生效已Confirm') or a." & gsCAT_TTP_SOURCE & " ='Old' ) "
-    End If
-            
-    'PGM
-    For iLevel = 1 To 6
-        If iLevel = 5 Then
-            GoTo PGMContinue
-        End If
-        Select Case iLevel
-            Case 1
-                sDescription = sLotID
-            Case 2, 3
-                sDescription = sIPN
-            Case 4
-                sDescription = sProdGroupKey
-            Case 6
-                sDescription = sProdCode
-        End Select
-        
-        'Add by Sam Start on 20180313 for Project TECN 自動化,TQAE站時先取Q
-        If sStepName Like "TQAE*" Then
-            sSQL_2 = " AND A." & gsCAT_TTP_TESTMODE & "='" & sStepName & "' " & _
-                    " AND A." & gsCAT_TTP_PATH & "='" & sPath & "' " & _
-                    " AND A." & gsCAT_TTP_STEPID & "='" & sStepID & "' " & _
-                    " AND A." & gsCAT_TTP_TECNLEVEL & "='" & iLevel & "' "
-        Else
-        'Add by Sam End on 20180313 for Project TECN 自動化,TQAE站時先取Q
-            sSQL_2 = " AND A." & gsCAT_TTP_TESTMODE & "='" & sTestMode & "' " & _
-                    " AND A." & gsCAT_TTP_TECNLEVEL & "='" & iLevel & "' "
-        End If
-        If iLevel < 4 And sIpnTecnNo <> "" Then
-            sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_TECNNO & "='" & sIpnTecnNo & "'"
-        Else
-            sSQL_2 = sSQL_2 & " AND '" & sDescription & "' like A." & gsCAT_TTP_DESCRIPTION & " "
-        End If
-        Set colRS = moProRawSql.QueryDatabase(sSQL_1 & sSQL_2)
-        'Add by Sam Start on 20180313 for Project TECN 自動化,TQAE站時先取Q,無資料時再取FT站資料
-        If colRS.Count = 0 Then
-            If sStepName Like "TQAE*" Then
-                sSQL_2 = " AND A." & gsCAT_TTP_TESTMODE & "='" & sTestMode & "' " & _
-                        " AND A." & gsCAT_TTP_TECNLEVEL & "='" & iLevel & "' "
-                If iLevel < 4 And sIpnTecnNo <> "" Then
-                    sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_TECNNO & "='" & sIpnTecnNo & "'"
-                Else
-                    sSQL_2 = sSQL_2 & " AND '" & sDescription & "' like A." & gsCAT_TTP_DESCRIPTION & " "
-                End If
-            End If
-            Set colRS = moProRawSql.QueryDatabase(sSQL_1 & sSQL_2)
-        End If
-        'Add by Sam End on 20180313 for Project TECN 自動化,TQAE站時先取Q
-        
+                
+        'gsCAT_TTDP_PGMODE Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
+        'Modify by Sam on 20241224 for  #199154,Add  formfactor,moduleoption
+        sSQL = "select a." & gsCAT_TTDP_TDSPROD & ",a." & gsCAT_TTDP_PKGCODE & " ,a." & gsCAT_TTDP_PCDTYPE & "  " & _
+               " ,a." & gsCAT_TTDP_PINCOUNT & ",a." & gsCAT_TTDP_MAXSITE & ",a." & gsCAT_TTDP_WIRE_VERSION & "  " & _
+               " ,a." & gsCAT_TTDP_PGMODE & "  " & _
+               " ,a." & gsCAT_TTDP_FORMFACTORNAME & ",a." & gsCAT_TTDP_MODULEOPTION & " " & _
+               " from " & gsCAT_TBL_TDS_PGM & " a " & _
+               " where a." & gsCAT_TTDP_PGID & " = '" & sPgID2 & "' " & _
+               " and a." & gsCAT_TTDP_PGNAME & " = '" & sPgm2 & "' " & _
+               " and a." & gsCAT_TTDP_TDSTESTERTYPE & " = '" & sTesterType & "' " & _
+               " and a." & gsCAT_TTDP_TESTMODE & " = '" & sTestMode & "' "
+        Set colRS = moProRawSql.QueryDatabase(sSQL)
         If colRS.Count > 0 Then
-            'Modify by Sam on 20180417 for Project TECN 自動化,變更為先檢核TECN PG 可以使用才取
-            For lIndex = 1 To colRS.Count
-                If ComparePgmAttr(moAppLog, moProRawSql, _
-                                 sStage, sStepName, sEqType2, sPgId, sPgName, _
-                                 colRS.Item(lIndex).Item(gsCAT_TTP_PGID), colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME)) = "PASS" Then
-                    sRefPgmTecnNo = colRS.Item(lIndex).Item(gsCAT_TTP_TECNNO)
-                    
-                    'Added by Jack on 2018/02/02 for Project TECN 自動化 <Start>
-                    'by Lot階, 若該 Lot's TecnPGM 已刪除, 視為未設定, 繼續往下一階找.
-                    'gsCAT_TLTCL_ACTIONTIME : Added by Jack on 2018/02/07 for UAT debug.
-                    If iLevel = 1 Then
-                        sSQL_Lot = " select " & gsCAT_TLTCL_LOTID & ", " & gsCAT_TLTCL_ACTION & ", " & gsCAT_TLTCL_CREATETIME & " " & _
-                                     " From " & gsCAT_TBL_TBL_LOT_TECN_CONTROL_LIST & " " & _
-                                    " where (" & gsCAT_TLTCL_TECNNO & ", " & gsCAT_TLTCL_LOTID & _
-                                             ", " & gsCAT_TLTCL_CREATETIME & ", " & gsCAT_TLTCL_ACTIONTIME & " ) in " & _
-                                         " (select " & gsCAT_TLTCL_TECNNO & ", " & gsCAT_TLTCL_LOTID & ", max(c.createtime) createtime " & _
-                                                   " ,max(c." & gsCAT_TLTCL_ACTIONTIME & ") as " & gsCAT_TLTCL_ACTIONTIME & " " & _
-                                            " from " & gsCAT_TBL_TBL_LOT_TECN_CONTROL_LIST & " c " & _
-                                           " where c." & gsCAT_TLTCL_TECNNO & " = '" & sRefPgmTecnNo & "' " & _
-                                             " and " & gsCAT_TLTCL_LOTID & " = '" & sLotID & "' " & _
-                                             " and c." & gsCAT_TLTCL_DELETEFLAG & " = 'N' " & _
-                                           " group by " & gsCAT_TLTCL_TECNNO & ", " & gsCAT_TLTCL_LOTID & ") "
-                        Set colRS_Lot = moProRawSql.QueryDatabase(sSQL_Lot)
-                        If colRS_Lot.Count > 0 Then
-                            sAction = colRS_Lot.Item(lIndex).Item(gsCAT_TLTCL_ACTION)
-                            If sAction = "Delete" Then
-                                sRefPgmTecnNo = ""
-                                GoTo PGMContinue
-                            End If
-                        End If
-                    End If
-                    'Added by Jack on 2018/02/02 for Project TECN 自動化 <End>
-                    
-                    sRefPgID = colRS.Item(lIndex).Item(gsCAT_TTP_PGID)
-                    sRefPgmSource = colRS.Item(lIndex).Item(gsCAT_TTP_SOURCE)
-                    sPGM = colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME)
-                    
-                    If sStepName Like "TQAE*" Then
-                        'Modified by Jack on 2018/01/03 for Project TECN 自動化 <Start>
-                        '增加 bAdvanGroup 條件 (TesterGroup='ADVAN 才需要變更 "程式名稱". (Daniel 01/22 決議)
-                        If Left(colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME), 2) = "TF" And bAdvanGroup Then
-                           sRefPgm = "TQ" & Mid(colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME), 3, Len(colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME)) - 2)
-                        ElseIf Left(colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME), 1) = "F" And bAdvanGroup Then
-                           sRefPgm = "Q" & Mid(colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME), 2, Len(colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME)) - 1)
-                        Else
-                           sRefPgm = colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME)
-                        End If
-                        'Modified by Jack on 2018/01/03 for Project TECN 自動化 <End>
-                    Else
-                        sRefPgm = colRS.Item(lIndex).Item(gsCAT_TTP_PGNAME)
-                    End If
-                    
-                    sRefTemp = colRS.Item(lIndex).Item("temp")
-                    If Trim(sRefTemp) <> "" Then
-                        sRefTempTecno = colRS.Item(lIndex).Item(gsCAT_TTP_TECNNO)
-                        sRefTempSource = colRS.Item(lIndex).Item(gsCAT_TTP_SOURCE)
-                    End If
-                    If sRefOverTime <> "Y" Then
-                        sRefOverTime = colRS.Item(lIndex).Item("overtime")
-                    End If
-                    sRefLevel = colRS.Item(lIndex).Item(gsCAT_TTP_TECNLEVEL)
-                    Exit For
-                End If
-            Next
-            If sRefPgm <> "" Then
-                Exit For
-            End If
+            sProdCode2 = colRS.Item(1).Item(gsCAT_TTDP_TDSPROD)
+            sPkgcode2 = colRS.Item(1).Item(gsCAT_TTDP_PKGCODE)
+            sPincount2 = colRS.Item(1).Item(gsCAT_TTDP_PINCOUNT)
+            sPcdType2 = colRS.Item(1).Item(gsCAT_TTDP_PCDTYPE)
+            sMaxsite2 = colRS.Item(1).Item(gsCAT_TTDP_MAXSITE)
+            sWireVersion2 = colRS.Item(1).Item(gsCAT_TTDP_WIRE_VERSION)
+            sPgMode2 = colRS.Item(1).Item(gsCAT_TTDP_PGMODE) 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
+            sFormFactor2 = colRS.Item(1).Item(gsCAT_TTDP_FORMFACTORNAME) 'Add by Sam on 20241224 for  #199154
+            sModuleOption2 = colRS.Item(1).Item(gsCAT_TTDP_MODULEOPTION) 'Add by Sam on 20241224 for  #199154
+            
         End If
-PGMContinue:
-    Next
-     
-    'PGM無變更TEMP,單獨取TEMP資訊
-    sSQL_1 = sSQL_1 & " and A." & sTempColumn & " is not null "
-    If Trim(sRefTemp) = "" Then
+        
+        'Modify by Sam on 20241224 for  #199154,Add  formfactor,moduleoption
+        sSQL = "select distinct b." & gsCAT_TEGPM_EQGROUP & ",b." & gsCAT_TEGPM_CHK_PGMODE & " ,b." & gsCAT_TEGPM_CHK_PRODCODE & "  " & _
+               " ,b." & gsCAT_TEGPM_CHK_TESTMODE & ",b." & gsCAT_TEGPM_CHK_TESTTYPE & " ,b." & gsCAT_TEGPM_CHK_PCDTYPE & "  " & _
+               " ,b." & gsCAT_TEGPM_CHK_MAXSITE & ",b." & gsCAT_TEGPM_CHK_WIRE_VERSION & " ,b." & gsCAT_TEGPM_CHK_PINCOUNT & "  " & _
+               " ,b." & gsCAT_TEGPM_CHK_PKGCODE & " " & _
+               " ,b." & gsCAT_TEGPM_CHK_FORMFACTORNAME & " " & _
+               " ,b." & gsCAT_TEGPM_CHK_MODULEOPTION & " " & _
+               " from " & gsCAT_TBL_EQ_GROUP_TIM & " a, " & gsCAT_TBL_EQ_GROUP_PGM_MAPPING & " b  " & _
+               " where a." & gsCAT_TEGPM_DELETEFLAG & " = 'N' " & _
+               " and a." & gsCAT_TEGT_TESTER_TYPE & " = '" & sTesterType & "' " & _
+               " and b." & gsCAT_TEGPM_AREA & " = '" & sStage & "' " & _
+               " and a." & gsCAT_TEGT_TESTER_GROUP & " = b." & gsCAT_TEGPM_EQGROUP & " "
+        Set colRS = moProRawSql.QueryDatabase(sSQL)
+        ComparePgmAttr = ""
+        If colRS.Count > 0 Then
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PCDTYPE) = "Y" Then
+                If sPcdType1 <> sPcdType2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_MAXSITE) = "Y" Then
+                If sMaxsite1 <> sMaxsite2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_WIRE_VERSION) = "Y" Then
+                If sWireVersion1 <> sWireVersion2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PINCOUNT) = "Y" Then
+                If sPincount1 <> sPincount2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PKGCODE) = "Y" Then
+                If sPkgcode1 <> sPkgcode2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改 <Start>.
+            'Dim sPgMode1      As String 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PGMODE) = "Y" Then
+                If sPgMode1 <> sPgMode2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PRODCODE) = "Y" Then
+                If sProdCode1 <> sProdCode2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改 <End>.
+        'Add by Sam start on 20241224 for  #199154,
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_FORMFACTORNAME) = "Y" Then
+                If sFormFactor1 <> sFormFactor2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_MODULEOPTION) = "Y" Then
+                If sModuleOption1 <> sModuleOption2 Then
+                    ComparePgmAttr = "FAIL"
+                Else
+                    If ComparePgmAttr = "" Then
+                         ComparePgmAttr = "PASS"
+                    End If
+                End If
+            End If
+        'Add by Sam end on 20241224 for  #199154,
+            
+        End If
+        
+        If ComparePgmAttr = "" Then
+            ComparePgmAttr = "FAIL"
+        End If
+        
 
-        For iLevel = 1 To 6
-            If iLevel = 5 Then
-                GoTo TEMPContinue
-            End If
-            Select Case iLevel
-                Case 1
-                    sDescription = sLotID
-                Case 2, 3
-                    sDescription = sIPN
-                Case 4
-                    sDescription = sProdGroupKey
-                Case 6
-                    sDescription = sProdCode
-            End Select
-                       
-            If sStepName Like "TQAE*" Then
-                sSQL_2 = " AND A." & gsCAT_TTP_TESTMODE & "='" & sStepName & "' " & _
-                        " AND A." & gsCAT_TTP_PATH & "='" & sPath & "' " & _
-                        " AND A." & gsCAT_TTP_STEPID & "='" & sStepID & "' " & _
-                        " AND A." & gsCAT_TTP_TECNLEVEL & "='" & iLevel & "' "
-            Else
-                sSQL_2 = " AND A." & gsCAT_TTP_TESTMODE & "='" & sTestMode & "' " & _
-                        " AND A." & gsCAT_TTP_TECNLEVEL & "='" & iLevel & "' "
-            End If
-            
-            If sPGM <> "" Then
-                '有前一張單獨變更PGM的資料,單獨變更的溫度需程式相同才可變更
-                sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_PGNAME & "='" & sPGM & "' "
-            End If
-            
-            If iLevel < 4 And sIpnTecnNo <> "" Then
-                sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_TECNNO & "='" & sIpnTecnNo & "'"
-            Else
-                sSQL_2 = sSQL_2 & " AND '" & sDescription & "' like A." & gsCAT_TTP_DESCRIPTION & " "
-            End If
-            
-            Set colRS = moProRawSql.QueryDatabase(sSQL_1 & sSQL_2)
-            'Add by Sam start on 20180313 for Project TECN 自動化 ,TQAE站時先取Q,無資料時再取FT站資料
-            If colRS.Count = 0 Then
-                If sStepName Like "TQAE*" Then
-                    sSQL_2 = " AND A." & gsCAT_TTP_TESTMODE & "='" & sTestMode & "' " & _
-                            " AND A." & gsCAT_TTP_TECNLEVEL & "='" & iLevel & "' "
-                    If sPGM <> "" Then
-                        '有前一張單獨變更PGM的資料,單獨變更的溫度需程式相同才可變更
-                        sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_PGNAME & "='" & sPGM & "' "
-                    End If
-                    
-                    If iLevel < 4 And sIpnTecnNo <> "" Then
-                        sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_TECNNO & "='" & sIpnTecnNo & "'"
-                    Else
-                        sSQL_2 = sSQL_2 & " AND '" & sDescription & "' like A." & gsCAT_TTP_DESCRIPTION & " "
-                    End If
-                    Set colRS = moProRawSql.QueryDatabase(sSQL_1 & sSQL_2)
-                End If
-            End If
-            'Add by Sam END on 20180313 for Project TECN 自動化
-            If colRS.Count > 0 Then
-                sRefTemp = colRS.Item(1).Item("temp")
-                sRefTempTecno = colRS.Item(1).Item(gsCAT_TTP_TECNNO)
-                sRefTempSource = colRS.Item(1).Item(gsCAT_TTP_SOURCE)
-                If sRefOverTime <> "Y" Then
-                    sRefOverTime = colRS.Item(1).Item("overtime")
-                End If
-                If sRefLevel = "" Then
-                    sRefLevel = colRS.Item(1).Item(gsCAT_TTP_TECNLEVEL)
-                End If
-                Exit For
-            End If
-TEMPContinue:
-        Next
-    End If
-            
-'    If Trim(sRefTemp) = "" And sStepName Like "TQAE*" Then
-'    'TQAE站無PGM資料,取FT站的資料
-''TQAE TEMP
-'        For iLevel = 1 To 6
-'            If iLevel = 5 Then
-'                GoTo TQAEContinue
-'            End If
-'            Select Case iLevel
-'                Case 1
-'                    sDescription = sLotID
-'                Case 2, 3
-'                    sDescription = sIPN
-'                Case 4
-'                    sDescription = sProdGroupKey
-'                Case 6
-'                    sDescription = sProdCode
-'            End Select
-'
-'            sSQL_2 = " AND A." & gsCAT_TTP_TESTMODE & "='" & sTestMode & "' " & _
-'                    " AND A." & gsCAT_TTP_TECNLEVEL & "='" & iLevel & "' "
-'
-'            If sPgm <> "" Then
-'                '有前一張單獨變更PGM的資料,單獨變更的溫度需程式相同才可變更
-'                sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_PGNAME & "='" & sPgm & "' "
-'            End If
-'
-'            If iLevel < 4 And sIpnTecnNo <> "" Then
-'                sSQL_2 = sSQL_2 & " AND A." & gsCAT_TTP_TECNNO & "='" & sIpnTecnNo & "'"
-'            Else
-'                sSQL_2 = sSQL_2 & " AND '" & sDescription & "' like A." & gsCAT_TTP_DESCRIPTION & " "
-'            End If
-'
-'            Set colRS = moProRawSql.QueryDatabase(sSQL_1 & sSQL_2)
-'            If colRS.Count > 0 Then
-'                sRefTemp = colRS.Item(1).Item(sTempColumn)
-'                sRefTempTecno = colRS.Item(1).Item(gsCAT_TTP_TECNNO)
-'                sRefTempSource = colRS.Item(1).Item(gsCAT_TTP_SOURCE)
-'                If sRefOverTime <> "Y" Then
-'                    sRefOverTime = colRS.Item(1).Item("overtime")
-'                End If
-'                If sRefLevel = "" Then
-'                    sRefLevel = colRS.Item(1).Item(gsCAT_TTP_TECNLEVEL)
-'                End If
-'                Exit For
-'            End If
-'TQAEContinue:
-'        Next
-'    End If
-    
     '----
     ' Done
     '----
