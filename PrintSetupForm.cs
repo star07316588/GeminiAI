@@ -1996,11 +1996,12 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                 dto.SubSystem1 = eqFullInfo.SUBSYS1?.ToString() ?? "";
                 dto.SubSystem2 = eqFullInfo.SUBSYS2?.ToString() ?? "";
                 
-                // SubSystem Accessory Data
-                // 若有逗號取前半段的邏輯
-                string ExtractFirst(string val) => val?.Contains(",") == true ? val.Split(',')[0] : val;
-                
-                // VB 中若上方 Spec 沒取到，會從 EqInfo 補齊，此處可依需求實作
+                // 🌟 AT3 專屬配件擷取 (處理逗號分隔，只取前半段)
+                string contactBoardId = eqFullInfo.CONTACTBOARDID?.ToString() ?? "";
+                dto.EqContactBoardId = contactBoardId.Contains(",") ? contactBoardId.Split(',')[0] : contactBoardId;
+
+                string vacuumCupZ1 = eqFullInfo.VACUUMCUPZ1?.ToString() ?? "";
+                dto.EqVacuumCupZ1 = vacuumCupZ1.Contains(",") ? vacuumCupZ1.Split(',')[0] : vacuumCupZ1;
             }
 
             // Soak Time
@@ -2044,6 +2045,7 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                     dto.LoadBoard = erunOverride.LOADBOARDTYPE?.ToString() ?? dto.LoadBoard;
                     dto.ContactBoard = erunOverride.CONTACTBOARDTYPE?.ToString() ?? dto.ContactBoard;
                     dto.JumperPinNo = erunOverride.JUMPERPINNO?.ToString() ?? dto.JumperPinNo; // 需擴充 Repository
+                    dto.GoodBin = erunOverride.GOODBIN?.ToString() ?? dto.GoodBin;
                 }
             }
 
@@ -2082,89 +2084,139 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                 // ==========================================
                 // 3. 填寫基本標頭資訊 (依據我們先前盤點的 Cell 位置)
                 // ==========================================
-                ws.Cell("C3").Value = dto.OperatorId;
-                ws.Cell("H3").Value = dto.ShiftCode;
-                ws.Cell("R3").Value = dto.PrintDate;
-                
-                // 停測提示 (通常是合併儲存格，直接對左上角賦值即可)
-                ws.Cell("F5").Value = dto.StopInfo; 
-
-                // ==========================================
-                // 4. 填寫 Lot 與產品資訊
-                // ==========================================
-                ws.Cell("E6").Value = dto.LotId;
-                ws.Cell("R6").Value = dto.LotOwner;
-                ws.Cell("E7").Value = dto.Ipn;
-                ws.Cell("R7").Value = dto.ErunTicNo;
-                ws.Cell("E8").Value = dto.StepName;
-                ws.Cell("R8").Value = dto.TesterId;
-
-                ws.Cell("E9").Value = dto.PackageName;
-                ws.Cell("E10").Value = dto.Speed;
-                ws.Cell("R10").Value = dto.Code;
-                ws.Cell("E11").Value = dto.PgmName;
-                ws.Cell("R11").Value = dto.CheckSum;
-                ws.Cell("E12").Value = dto.WsDeviceFile;
-                ws.Cell("R12").Value = dto.Temperature;
-                ws.Cell("R13").Value = dto.SoakTime;
-
-                // ==========================================
-                // 5. 填寫 Jumper 與備註 (需依實際版面微調)
-                // ==========================================
-                ws.Cell("E16").Value = dto.NeedJumper;
-                ws.Cell("E17").Value = dto.JumperPinNo;
-                // 若 Comments 要放在旁邊，可指定例如 H16 或與 Jumper 共用
-                ws.Cell("R16").Value = dto.Comments; 
-
-                // ==========================================
-                // 6. 填寫機台配件 (Accessories)
-                // ==========================================
-                ws.Cell("E20").Value = dto.SubSystem1;
-                ws.Cell("R20").Value = dto.SubSystem2;
-
-                ws.Cell("E28").Value = dto.LoadBoard;
-                ws.Cell("R28").Value = dto.LoadBoard; // 依 VB 邏輯可能左右都有
-                ws.Cell("E29").Value = dto.Cable;
-                ws.Cell("R29").Value = dto.Cable;
-                ws.Cell("E30").Value = dto.ContactBoard;
-                ws.Cell("R30").Value = dto.ContactBoard;
-                ws.Cell("E31").Value = dto.KitType;
-                ws.Cell("R31").Value = dto.KitType;
-                ws.Cell("E33").Value = dto.MatchPlate;
-                ws.Cell("R33").Value = dto.MatchPlate;
-                
-                ws.Cell("E35").Value = dto.Pitch;
-                ws.Cell("E36").Value = dto.VacuumCup;
-
-                // PbFree 打勾邏輯 (假設 E36/G36 旁有對應的框)
-                if (dto.PbFree == "Y")
-                    ws.Cell("H36").Value = "V"; // 視模板勾選框位置調整
-                else if (dto.PbFree == "N")
-                    ws.Cell("J36").Value = "V";
-
-                // ==========================================
-                // 7. 填寫 Recipe Spec List (動態產生列)
-                // ==========================================
-                // 假設 Recipe 清單從第 49 列開始，分左右兩欄 (A/B 與 P/Q)
-                int startRow = 49;
-                for (int i = 0; i < dto.RecipeList.Count; i++)
+                if (dto.SheetName == "AT3-300AL" || dto.SheetName == "FT-940")
                 {
-                    int currentRow = startRow + (i / 2); // 每兩筆換一列
+                    // === AT3 專屬排版 (根據 VB6 換算) ===
+                    ws.Cell("C2").Value = dto.OperatorId;
+                    ws.Cell("H2").Value = dto.ShiftCode;
+                    ws.Cell("R2").Value = dto.PrintDate;
+                    ws.Cell("G4").Value = dto.StopInfo;
                     
-                    if (i % 2 == 0)
+                    ws.Cell("E5").Value = dto.LotId;
+                    ws.Cell("R5").Value = dto.LotOwner;
+                    ws.Cell("E6").Value = dto.Ipn;
+                    ws.Cell("R6").Value = dto.ErunTicNo;
+                    ws.Cell("E7").Value = dto.StepName;
+                    ws.Cell("R7").Value = dto.TesterId;
+
+                    ws.Cell("E8").Value = dto.PackageName;
+                    ws.Cell("R8").Value = dto.Temperature;
+                    ws.Cell("E9").Value = dto.PgmName;
+                    ws.Cell("R9").Value = dto.Code;
+                    ws.Cell("R10").Value = dto.CheckSum;
+                    ws.Cell("R11").Value = dto.GoodBin; // Erun 專屬
+                    
+                    ws.Cell("E12").Value = dto.ErunTicNo.Contains("+") ? dto.ErunTicNo : ""; // 簡化 TECN NO 邏輯
+                    ws.Cell("E15").Value = dto.Comments; // iPosTitle(0) + 13 + iPosDown(2) = 15
+
+                    // AT3 配件區 (刻意忽略 LoadBoard, Jumper, Subsystem)
+                    ws.Cell("E20").Value = dto.EqContactBoardId;
+                    ws.Cell("E21").Value = dto.EqVacuumCupZ1;
+                    ws.Cell("E27").Value = dto.ContactBoard; // iPosTitle(0) + 25 + iPosDown(2) = 27
+                    ws.Cell("E28").Value = dto.VacuumCup;
+
+                    // Recipe Spec List (AT3 從 38 列開始)
+                    int startRowAt3 = 38;
+                    for (int i = 0; i < dto.RecipeList.Count; i++)
                     {
-                        // 填在左半邊 (A, B)
-                        ws.Cell($"A{currentRow}").Value = dto.RecipeList[i].Id;
-                        ws.Cell($"B{currentRow}").Value = dto.RecipeList[i].SpecName;
-                    }
-                    else
-                    {
-                        // 填在右半邊 (P, Q)
-                        ws.Cell($"P{currentRow}").Value = dto.RecipeList[i].Id;
-                        ws.Cell($"Q{currentRow}").Value = dto.RecipeList[i].SpecName;
+                        int currentRow = startRowAt3 + (i / 2);
+                        if (i % 2 == 0)
+                        {
+                            ws.Cell($"A{currentRow}").Value = dto.RecipeList[i].Id;
+                            ws.Cell($"B{currentRow}").Value = dto.RecipeList[i].SpecName;
+                        }
+                        else
+                        {
+                            ws.Cell($"P{currentRow}").Value = dto.RecipeList[i].Id;
+                            ws.Cell($"Q{currentRow}").Value = dto.RecipeList[i].SpecName;
+                        }
                     }
                 }
-
+                else
+                {
+                    ws.Cell("C3").Value = dto.OperatorId;
+                    ws.Cell("H3").Value = dto.ShiftCode;
+                    ws.Cell("R3").Value = dto.PrintDate;
+                    
+                    // 停測提示 (通常是合併儲存格，直接對左上角賦值即可)
+                    ws.Cell("F5").Value = dto.StopInfo; 
+    
+                    // ==========================================
+                    // 4. 填寫 Lot 與產品資訊
+                    // ==========================================
+                    ws.Cell("E6").Value = dto.LotId;
+                    ws.Cell("R6").Value = dto.LotOwner;
+                    ws.Cell("E7").Value = dto.Ipn;
+                    ws.Cell("R7").Value = dto.ErunTicNo;
+                    ws.Cell("E8").Value = dto.StepName;
+                    ws.Cell("R8").Value = dto.TesterId;
+    
+                    ws.Cell("E9").Value = dto.PackageName;
+                    ws.Cell("E10").Value = dto.Speed;
+                    ws.Cell("R10").Value = dto.Code;
+                    ws.Cell("E11").Value = dto.PgmName;
+                    ws.Cell("R11").Value = dto.CheckSum;
+                    ws.Cell("E12").Value = dto.WsDeviceFile;
+                    ws.Cell("R12").Value = dto.Temperature;
+                    ws.Cell("R13").Value = dto.SoakTime;
+    
+                    // ==========================================
+                    // 5. 填寫 Jumper 與備註 (需依實際版面微調)
+                    // ==========================================
+                    ws.Cell("E16").Value = dto.NeedJumper;
+                    ws.Cell("E17").Value = dto.JumperPinNo;
+                    // 若 Comments 要放在旁邊，可指定例如 H16 或與 Jumper 共用
+                    ws.Cell("R16").Value = dto.Comments; 
+    
+                    // ==========================================
+                    // 6. 填寫機台配件 (Accessories)
+                    // ==========================================
+                    ws.Cell("E20").Value = dto.SubSystem1;
+                    ws.Cell("R20").Value = dto.SubSystem2;
+    
+                    ws.Cell("E28").Value = dto.LoadBoard;
+                    ws.Cell("R28").Value = dto.LoadBoard; // 依 VB 邏輯可能左右都有
+                    ws.Cell("E29").Value = dto.Cable;
+                    ws.Cell("R29").Value = dto.Cable;
+                    ws.Cell("E30").Value = dto.ContactBoard;
+                    ws.Cell("R30").Value = dto.ContactBoard;
+                    ws.Cell("E31").Value = dto.KitType;
+                    ws.Cell("R31").Value = dto.KitType;
+                    ws.Cell("E33").Value = dto.MatchPlate;
+                    ws.Cell("R33").Value = dto.MatchPlate;
+                    
+                    ws.Cell("E35").Value = dto.Pitch;
+                    ws.Cell("E36").Value = dto.VacuumCup;
+    
+                    // PbFree 打勾邏輯 (假設 E36/G36 旁有對應的框)
+                    if (dto.PbFree == "Y")
+                        ws.Cell("H36").Value = "V"; // 視模板勾選框位置調整
+                    else if (dto.PbFree == "N")
+                        ws.Cell("J36").Value = "V";
+    
+                    // ==========================================
+                    // 7. 填寫 Recipe Spec List (動態產生列)
+                    // ==========================================
+                    // 假設 Recipe 清單從第 49 列開始，分左右兩欄 (A/B 與 P/Q)
+                    int startRow = 49;
+                    for (int i = 0; i < dto.RecipeList.Count; i++)
+                    {
+                        int currentRow = startRow + (i / 2); // 每兩筆換一列
+                        
+                        if (i % 2 == 0)
+                        {
+                            // 填在左半邊 (A, B)
+                            ws.Cell($"A{currentRow}").Value = dto.RecipeList[i].Id;
+                            ws.Cell($"B{currentRow}").Value = dto.RecipeList[i].SpecName;
+                        }
+                        else
+                        {
+                            // 填在右半邊 (P, Q)
+                            ws.Cell($"P{currentRow}").Value = dto.RecipeList[i].Id;
+                            ws.Cell($"Q{currentRow}").Value = dto.RecipeList[i].SpecName;
+                        }
+                    }
+                }
                 // ==========================================
                 // 8. 儲存為 MemoryStream 並回傳 Byte Array
                 // ==========================================
