@@ -3,7 +3,8 @@
         // ==========================================
         public async Task<dynamic> GetTecnPgmByLevelAsync(
             string eqType2, string runRule, string tempColumn, string testMode, 
-            int level, string description, string tecnNo, string pgmNameCondition)
+            int level, string description, string tecnNo, string pgmNameCondition, 
+            string path = null, string stepId = null) // 🌟 補上可選參數
         {
             // 組裝 Base SQL (對應 VB6 的 sSQL_1)
             string sql = $@"
