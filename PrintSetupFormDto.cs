@@ -241,6 +241,11 @@ namespace MES.Net.Shared.DTOs.Print
         public string Pitch { get; set; }           // E35
         public string VacuumCup { get; set; }       // E36
 
+        // === 機台專屬配件 (AT3 使用) ===
+        public string EqContactBoardId { get; set; } // E20
+        public string EqVacuumCupZ1 { get; set; }    // E21
+        public string GoodBin { get; set; }          // R11 (重工品專用)
+        
         // === 設備架機確認清單 (Recipe List) ===
         // 裝載 1~40 筆的 Recipe Spec (對應 A49/B49 或 P49/Q49)
         public List<RecipeItemDto> RecipeList { get; set; } = new List<RecipeItemDto>();
@@ -251,4 +256,6 @@ namespace MES.Net.Shared.DTOs.Print
         public string Id { get; set; }
         public string SpecName { get; set; }
     }
+
+    
 }
