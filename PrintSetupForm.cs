@@ -698,6 +698,33 @@ public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string
                 SubSystem = string.IsNullOrEmpty(subSystem) ? " " : subSystem
             });
         }
+        // 取得 TBL_TDS_PGM 的配方屬性
+        public async Task<TdsPgmDto> GetTdsPgmAsync(string pgId, string pgmName, string testerType, string testMode)
+        {
+            string sql = @"
+                SELECT TDSPROD as TdsProd, PKGCODE as PkgCode, PCDTYPE as PcdType, 
+                       PINCOUNT as PinCount, MAXSITE as MaxSite, WIRE_VERSION as WireVersion, 
+                       PGMODE as PgMode, FORMFACTORNAME as FormFactorName, MODULEOPTION as ModuleOption
+                FROM TBL_TDS_PGM 
+                WHERE PGID = :PgId AND PGNAME = :PgmName 
+                  AND TDSTESTERTYPE = :TesterType AND TESTMODE = :TestMode";
+                  
+            return await _dbConnection.QueryFirstOrDefaultAsync<TdsPgmDto>(sql, new { PgId = pgId, PgmName = pgmName, TesterType = testerType, TestMode = testMode });
+        }
+
+        // 取得機台群組的檢核開關
+        public async Task<EqGroupPgmMappingDto> GetEqGroupPgmMappingAsync(string testerType, string stage)
+        {
+            string sql = @"
+                SELECT b.CHK_PCDTYPE as ChkPcdType, b.CHK_MAXSITE as ChkMaxSite, b.CHK_WIRE_VERSION as ChkWireVersion, 
+                       b.CHK_PINCOUNT as ChkPinCount, b.CHK_PKGCODE as ChkPkgCode, b.CHK_PGMODE as ChkPgMode, 
+                       b.CHK_PRODCODE as ChkProdCode, b.CHK_FORMFACTORNAME as ChkFormFactorName, b.CHK_MODULEOPTION as ChkModuleOption
+                FROM TBL_EQ_GROUP_TIM a
+                JOIN TBL_EQ_GROUP_PGM_MAPPING b ON a.TESTER_GROUP = b.EQGROUP
+                WHERE a.DELETEFLAG = 'N' AND a.TESTER_TYPE = :TesterType AND b.AREA = :Stage";
+                
+            return await _dbConnection.QueryFirstOrDefaultAsync<EqGroupPgmMappingDto>(sql, new { TesterType = testerType, Stage = stage });
+        }
     }
 }
 
@@ -1130,6 +1157,18 @@ namespace MES.Net.Application.Services.Print
             }
             else if (stepName.StartsWith("TQAE"))
             {
+                // 呼叫比對邏輯 (使用傳入的原本 pgId 與 pgName 作為配方2)
+                    string compareCheck = await ComparePgmAttrAsync(
+                        stage, testMode, eqType2, 
+                        record.PGID?.ToString(), record.PGNAME?.ToString(), 
+                        sPgId, sPgName // <-- 這兩個是 GetTecnPgmRecipeAttrAsync 原本傳入的參數
+                    );
+
+                    if (compareCheck != "PASS")
+                    {
+                        // 若比對失敗，則跳過此筆，繼續往下一筆 TECN 尋找
+                        continue; 
+                    }
                 // 若為 TQAE 站，需呼叫 Get_TQAE_Mapping_Act_PGmode 來決定 testMode[cite: 4]
                 // testMode = ... 
             }
@@ -2226,6 +2265,69 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                     return ms.ToArray();
                 }
             }
+        }
+        public async Task<string> ComparePgmAttrAsync(
+            string stage, string testMode, string testerType, 
+            string pgId1, string pgm1, string pgId2, string pgm2)
+        {
+            // 1. TestMode 與 PgmName 的字串置換處理 (還原 VB6 邏輯)
+            if (testMode.StartsWith("SORT"))
+            {
+                testMode = "S" + testMode.Substring(4);
+            }
+            else if (testMode.StartsWith("TQAE"))
+            {
+                testMode = "FT" + testMode.Substring(4);
+
+                // TQAE 要轉回 FT，否則串不到程式
+                string ReplacePgm(string pgm)
+                {
+                    if (pgm.StartsWith("TQ")) return "TF" + pgm.Substring(2);
+                    if (pgm.StartsWith("Q")) return "F" + pgm.Substring(1);
+                    return pgm;
+                }
+                pgm1 = ReplacePgm(pgm1);
+                pgm2 = ReplacePgm(pgm2);
+            }
+
+            // 2. 撈取資料庫設定 (若查無資料，給予空物件防呆)
+            var p1 = await _tecnRepo.GetTdsPgmAsync(pgId1, pgm1, testerType, testMode) ?? new TdsPgmDto();
+            var p2 = await _tecnRepo.GetTdsPgmAsync(pgId2, pgm2, testerType, testMode) ?? new TdsPgmDto();
+            var mapping = await _tecnRepo.GetEqGroupPgmMappingAsync(testerType, stage);
+
+            string compareResult = "";
+
+            if (mapping != null)
+            {
+                // 3. 建立共用的比對函數
+                void Evaluate(string flag, string val1, string val2)
+                {
+                    if (flag == "Y")
+                    {
+                        if (val1 != val2) compareResult = "FAIL";
+                        else if (compareResult == "") compareResult = "PASS";
+                    }
+                }
+
+                // 4. 逐一比對各項屬性
+                Evaluate(mapping.ChkPcdType, p1.PcdType, p2.PcdType);
+                Evaluate(mapping.ChkMaxSite, p1.MaxSite, p2.MaxSite);
+                Evaluate(mapping.ChkWireVersion, p1.WireVersion, p2.WireVersion);
+                Evaluate(mapping.ChkPinCount, p1.PinCount, p2.PinCount);
+                Evaluate(mapping.ChkPkgCode, p1.PkgCode, p2.PkgCode);
+                Evaluate(mapping.ChkPgMode, p1.PgMode, p2.PgMode);
+                Evaluate(mapping.ChkProdCode, p1.TdsProd, p2.TdsProd);
+                Evaluate(mapping.ChkFormFactorName, p1.FormFactorName, p2.FormFactorName);
+                Evaluate(mapping.ChkModuleOption, p1.ModuleOption, p2.ModuleOption);
+            }
+
+            // 若最終仍未得到 PASS (例如沒有任何 Flag 為 Y，或 mapping 找不到)，則判為 FAIL
+            if (string.IsNullOrEmpty(compareResult))
+            {
+                compareResult = "FAIL";
+            }
+
+            return compareResult;
         }
     }
 }
