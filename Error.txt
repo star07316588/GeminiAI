@@ -7,21 +7,55 @@ public async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(
         {
             var result = new TecnPgmRecipeAttrDto { RefOverTime = "N" };
 
+            // ==========================================
+            // [缺失補齊 1] 判斷 Stage (By Sam 20180417)
+            // ==========================================
+            string stage = string.Compare(stepId, "42810") < 0 ? "WS" : "FT";
+
+            // ==========================================
+            // [缺失補齊 2] By Lot TECN 修正 (By Weilun 20180601)
+            // 若傳入的參數有缺，則主動向資料庫撈取補齊
+            // ==========================================
+            if (!string.IsNullOrEmpty(lotId) && (string.IsNullOrEmpty(ipn) || string.IsNullOrEmpty(prodGroupKey) || string.IsNullOrEmpty(prodCode)))
+            {
+                // 注意：您需要在 Repository 實作 GetLotAttributeAndIpnMasterAsync
+                var lotAttr = await _tecnRepo.GetLotAttributeAndIpnMasterAsync(lotId);
+                if (lotAttr != null)
+                {
+                    if (string.IsNullOrEmpty(ipn)) ipn = lotAttr.IPN?.ToString();
+                    if (string.IsNullOrEmpty(prodGroupKey)) prodGroupKey = lotAttr.PRODGROUPKEY?.ToString();
+                    
+                    if (string.IsNullOrEmpty(prodCode) && !string.IsNullOrEmpty(ipn) && ipn.Length >= 4)
+                    {
+                        prodCode = stage == "WS" 
+                            ? (ipn.Substring(0, 4) + lotAttr.MASK_OPTION?.ToString()) 
+                            : (ipn.Substring(0, 4) + lotAttr.BE_OPTION?.ToString());
+                    }
+                }
+            }
+
             // 1. 決定溫度欄位 (Grade 轉換)
             string tempColumn = "TEMP_" + (string.IsNullOrEmpty(grade) ? "C" : grade.ToUpper());
 
-            // 2. 決定 TestMode
+            // 2. 決定 TestMode 與 TQAE 旗標
             string testMode = stepName;
             bool isTqae = stepName.StartsWith("TQAE");
+            bool bAdvanGroup = false;
+
             if (stepName.StartsWith("SORT"))
             {
                 testMode = "S" + stepName.Substring(4);
             }
             else if (isTqae)
             {
-                // TODO: 呼叫 Get_TQAE_Mapping_Act_PGmode 取得 QCTestMode
-                // 此處假設已經取得 mappedTestMode
-                // testMode = mappedTestMode; 
+                // [缺失補齊 3] 呼叫 TQAE Mapping
+                // 注意：您需要在 Repository 實作 GetTqaeMappingAsync
+                var tqaeMapping = await _tecnRepo.GetTqaeMappingAsync(stepId, stepName, eqType2, prodCode);
+                if (tqaeMapping != null)
+                {
+                    testMode = tqaeMapping.QCTestMode ?? stepName;
+                    bAdvanGroup = tqaeMapping.IsAdvanGroup;
+                }
             }
 
             // ==========================================
@@ -32,17 +66,24 @@ public async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(
                 if (iLevel == 5) continue;
 
                 string description = GetDescriptionForLevel(iLevel, lotId, ipn, prodGroupKey, prodCode);
+                dynamic record = null;
 
-                // 若為 TQAE 站，VB6 邏輯會先嘗試原 stepName，找不到再嘗試 testMode (QC Test Mode)
-                var record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, stepName, iLevel, description, ipnTecnNo, null);
-
-                if (record == null && isTqae)
+                // [缺失補齊 4] TQAE 必須先加上 path 與 stepId 搜尋
+                if (isTqae)
                 {
-                    record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, null);
+                    // 第一次嘗試：用 stepName + path + stepId
+                    record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, stepName, iLevel, description, ipnTecnNo, null, path, stepId);
+                    
+                    if (record == null)
+                    {
+                        // 第二次嘗試：若找不到，改用 testMode (不含 path, stepId)
+                        record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, null, null, null);
+                    }
                 }
-                else if (record == null && !isTqae)
+                else
                 {
-                    record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, null);
+                    // 非 TQAE：直接用 testMode (不含 path, stepId)
+                    record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, null, null, null);
                 }
 
                 if (record != null)
@@ -64,8 +105,7 @@ public async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(
 
                     string rawPgmName = record.PGNAME?.ToString() ?? "";
 
-                    // TQAE AdvanGroup 字串置換邏輯 (需依據 bAdvanGroup 判斷，此處示意)
-                    bool bAdvanGroup = false; // 需由前方邏輯取得
+                    // TQAE AdvanGroup 字串置換邏輯
                     if (isTqae && bAdvanGroup)
                     {
                         if (rawPgmName.StartsWith("TF")) result.RefPgm = "TQ" + rawPgmName.Substring(2);
@@ -103,12 +143,20 @@ public async Task<TecnPgmRecipeAttrDto> GetTecnPgmRecipeAttrAsync(
                     if (iLevel == 5) continue;
 
                     string description = GetDescriptionForLevel(iLevel, lotId, ipn, prodGroupKey, prodCode);
+                    dynamic record = null;
 
-                    var record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, result.RefPgm);
-
-                    if (record == null && isTqae)
+                    // 一樣套用 TQAE 的 path/stepId 邏輯
+                    if (isTqae)
                     {
-                        record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, result.RefPgm);
+                        record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, stepName, iLevel, description, ipnTecnNo, result.RefPgm, path, stepId);
+                        if (record == null)
+                        {
+                            record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, result.RefPgm, null, null);
+                        }
+                    }
+                    else
+                    {
+                        record = await _tecnRepo.GetTecnPgmByLevelAsync(eqType2, runRule, tempColumn, testMode, iLevel, description, ipnTecnNo, result.RefPgm, null, null);
                     }
 
                     if (record != null)
