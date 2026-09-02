@@ -1,62 +1,37 @@
-Public Function ComparePgmAttr(ByVal moAppLog As Object, ByVal moProRawSql As Object, _
-                         ByVal sStage As String, ByVal sTestMode As String, ByVal sTesterType As String, _
-                         ByVal sPgID1 As String, ByVal sPgm1 As String, _
-                         ByVal sPgID2 As String, ByVal sPgm2 As String) As String
-                         
+幫我實作GetLotAttributeAndIpnMasterAsync
+
+
+以及補上以下Get_TQAE_Mapping_Act_PGmode
+
+Public Function Get_TQAE_Mapping_Act_PGmode(ByVal moAppLog As Object, ByVal moProRawSql As Object, _
+                                     ByVal sStepID As String, ByVal sStepName As String, _
+                                     ByVal sEqType2 As String, ByVal sProdCode As String, _
+                                     ByRef sQCTestMode As String, ByRef bAdvanGroup As Boolean) As String
     On Error GoTo ExitHandler:
     Dim sProcID As String
     Dim typErrInfo As tErrInfo
-    Dim sSQL As String, colRS As Collection
-        
-    Dim sProdCode1 As String
-    Dim sPkgcode1 As String
-    Dim sPcdType1 As String
-    Dim sPincount1 As String
-    Dim sMaxsite1 As String
-    Dim sWireVersion1 As String
-    Dim sPgMode1      As String 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
     
-    Dim sProdCode2 As String
-    Dim sPkgcode2 As String
-    Dim sPcdType2 As String
-    Dim sPincount2 As String
-    Dim sMaxsite2 As String
-    Dim sWireVersion2 As String
-    Dim sPgMode2      As String 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
-        
-Dim sFormFactor1 As String 'Add by Sam on 20241224 for  #199154
-Dim sModuleOption1 As String 'Add by Sam on 20241224 for  #199154
-Dim sFormFactor2 As String 'Add by Sam on 20241224 for  #199154
-Dim sModuleOption2 As String 'Add by Sam on 20241224 for  #199154
-        
+    Dim lIdx As Long, lIdx2 As Long
+    Dim sSQL_1 As String
+    Dim colRS As Collection
+    
+    Dim sTesterGroup     As String
+'    Dim bAdvanGroup      As Boolean
+'    Dim sQcTestMode      As String
+    
     '----
     ' Init
     '----
-    sProcID = "ComparePgmAttr"
+    sProcID = "Get_TQAE_Mapping_Act_PGmode"
     Call LogProcIn(msMODULE_ID, sProcID, moAppLog) '"Entering Function...", moAppLog, glLOG_PROC, msMODULE_ID, sProcID)
-    ComparePgmAttr = ""
     
-    If moProRawSql Is Nothing Then
+    Get_TQAE_Mapping_Act_PGmode = ""
+         
+    bAdvanGroup = False
+    If (moProRawSql Is Nothing) Then
         GoTo ExitHandler
     End If
-    If sTestMode Like "SORT*" Then
-        sTestMode = Replace(sTestMode, "SORT", "S")
-    End If
     
-    If sTestMode Like "TQAE*" Then
-        sTestMode = Replace(sTestMode, "TQAE", "FT") 'Added by Jack on 2018/02/02 for TECN 自動化.
-        'TQAE* 要轉回 FT*, 否則串不到 程式1 & 程式2, 相關 Key值比對, 空值 vs. 空值 會視為 by pass.
-        If sPgm1 Like "TQ*" Then
-            sPgm1 = "TF" & Mid(sPgm1, 3, Len(sPgm1) - 2)
-        ElseIf sPgm1 Like "Q*" Then
-            sPgm1 = "F" & Mid(sPgm1, 2, Len(sPgm1) - 1)
-        End If
-        If sPgm2 Like "TQ*" Then
-            sPgm2 = "TF" & Mid(sPgm2, 3, Len(sPgm2) - 2)
-        ElseIf sPgm2 Like "Q*" Then
-            sPgm2 = "F" & Mid(sPgm2, 2, Len(sPgm2) - 1)
-        End If
-    End If
     '----
     ' Condition Checking
     '----
@@ -66,164 +41,54 @@ Dim sModuleOption2 As String 'Add by Sam on 20241224 for  #199154
     ' Action
     '----
     ' <Put your Action codes here>...
-        'gsCAT_TTDP_PGMODE Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
-        'Modify by Sam on 20241224 for  #199154,Add  formfactor,moduleoption
-        sSQL = "select a." & gsCAT_TTDP_TDSPROD & ",a." & gsCAT_TTDP_PKGCODE & ",a." & gsCAT_TTDP_PCDTYPE & "  " & _
-               " ,a." & gsCAT_TTDP_PINCOUNT & ",a." & gsCAT_TTDP_MAXSITE & ",a." & gsCAT_TTDP_WIRE_VERSION & "  " & _
-               " ,a." & gsCAT_TTDP_PGMODE & "  " & _
-               " ,a." & gsCAT_TTDP_FORMFACTORNAME & ",a." & gsCAT_TTDP_MODULEOPTION & " " & _
-              " from " & gsCAT_TBL_TDS_PGM & " a " & _
-               " where a." & gsCAT_TTDP_PGID & " = '" & sPgID1 & "' " & _
-               " and a." & gsCAT_TTDP_PGNAME & " = '" & sPgm1 & "' " & _
-               " and a." & gsCAT_TTDP_TDSTESTERTYPE & " = '" & sTesterType & "' " & _
-               " and a." & gsCAT_TTDP_TESTMODE & " = '" & sTestMode & "' "
-        Set colRS = moProRawSql.QueryDatabase(sSQL)
+    
+    If sStepName Like "SORT*" Then
+        sQCTestMode = "S" & Replace(sStepName, "SORT", "")
+    ElseIf sStepName Like "TQAE*" Then
+        'sTestMode = "FT" & Replace(sStepName, "TQAE", "")'Marked by Jack on 2018/01/03 for Project TECN 自動化
+        'Added by Jack on 2018/01/03 for Project TECN 自動化 <Start>
+        'Modify by Sam on 20230504 for ReqNo:202200071,add gsCAT_TEGT_TESTER_TYPE
+        sSQL_1 = "select " & gsCAT_TEGT_TESTER_GROUP & "," & gsCAT_TEGT_TESTER_TYPE & " " & _
+                  " From " & gsCAT_TBL_EQ_GROUP_TIM & " a" & _
+                 " where a." & gsCAT_TEGT_DELETEFLAG & " = 'N' " & _
+                   " and " & gsCAT_TEGT_TESTER_TYPE & " = '" & sEqType2 & "' "
+        Set colRS = moProRawSql.QueryDatabase(sSQL_1)
         If colRS.Count > 0 Then
-            sProdCode1 = colRS.Item(1).Item(gsCAT_TTDP_TDSPROD)
-            sPkgcode1 = colRS.Item(1).Item(gsCAT_TTDP_PKGCODE)
-            sPincount1 = colRS.Item(1).Item(gsCAT_TTDP_PINCOUNT)
-            sPcdType1 = colRS.Item(1).Item(gsCAT_TTDP_PCDTYPE)
-            sMaxsite1 = colRS.Item(1).Item(gsCAT_TTDP_MAXSITE)
-            sWireVersion1 = colRS.Item(1).Item(gsCAT_TTDP_WIRE_VERSION)
-            sPgMode1 = colRS.Item(1).Item(gsCAT_TTDP_PGMODE) 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
-            sFormFactor1 = colRS.Item(1).Item(gsCAT_TTDP_FORMFACTORNAME) 'Add by Sam on 20241224 for  #199154
-            sModuleOption1 = colRS.Item(1).Item(gsCAT_TTDP_MODULEOPTION) 'Add by Sam on 20241224 for  #199154
-        End If
-                
-        'gsCAT_TTDP_PGMODE Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
-        'Modify by Sam on 20241224 for  #199154,Add  formfactor,moduleoption
-        sSQL = "select a." & gsCAT_TTDP_TDSPROD & ",a." & gsCAT_TTDP_PKGCODE & " ,a." & gsCAT_TTDP_PCDTYPE & "  " & _
-               " ,a." & gsCAT_TTDP_PINCOUNT & ",a." & gsCAT_TTDP_MAXSITE & ",a." & gsCAT_TTDP_WIRE_VERSION & "  " & _
-               " ,a." & gsCAT_TTDP_PGMODE & "  " & _
-               " ,a." & gsCAT_TTDP_FORMFACTORNAME & ",a." & gsCAT_TTDP_MODULEOPTION & " " & _
-               " from " & gsCAT_TBL_TDS_PGM & " a " & _
-               " where a." & gsCAT_TTDP_PGID & " = '" & sPgID2 & "' " & _
-               " and a." & gsCAT_TTDP_PGNAME & " = '" & sPgm2 & "' " & _
-               " and a." & gsCAT_TTDP_TDSTESTERTYPE & " = '" & sTesterType & "' " & _
-               " and a." & gsCAT_TTDP_TESTMODE & " = '" & sTestMode & "' "
-        Set colRS = moProRawSql.QueryDatabase(sSQL)
-        If colRS.Count > 0 Then
-            sProdCode2 = colRS.Item(1).Item(gsCAT_TTDP_TDSPROD)
-            sPkgcode2 = colRS.Item(1).Item(gsCAT_TTDP_PKGCODE)
-            sPincount2 = colRS.Item(1).Item(gsCAT_TTDP_PINCOUNT)
-            sPcdType2 = colRS.Item(1).Item(gsCAT_TTDP_PCDTYPE)
-            sMaxsite2 = colRS.Item(1).Item(gsCAT_TTDP_MAXSITE)
-            sWireVersion2 = colRS.Item(1).Item(gsCAT_TTDP_WIRE_VERSION)
-            sPgMode2 = colRS.Item(1).Item(gsCAT_TTDP_PGMODE) 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
-            sFormFactor2 = colRS.Item(1).Item(gsCAT_TTDP_FORMFACTORNAME) 'Add by Sam on 20241224 for  #199154
-            sModuleOption2 = colRS.Item(1).Item(gsCAT_TTDP_MODULEOPTION) 'Add by Sam on 20241224 for  #199154
-            
+            sTesterGroup = colRS.Item(1).Item(gsCAT_TEGT_TESTER_GROUP)
+            '(A-1) Tester_Group = 'ADVAN' ??   ==> TestMode : TQAE4 置換為 FT4."  <-- bAdvanGroup = True
+            '(A-2) Tester_Group <> 'ADVAN'     ==> 檢查  [SQL-2] ==> (C)"         <-- bAdvanGroup = False (DEFAULT)
+            'Modify by Sam on 20230504 for ReqNo:202200071,增加NEXTEST_M5X,20230628 變更為改看group
+            'If sTesterGroup = "ADVAN" Then
+            'If sTesterGroup = "ADVAN" Or colRS.Item(1).Item(gsCAT_TEGT_TESTER_TYPE) = "NEXTEST_M5X" Then
+            If sTesterGroup = "ADVAN" Or sTesterGroup = "NEXTEST" Then
+                sQCTestMode = "FT" & Replace(sStepName, "TQAE", "")
+                bAdvanGroup = True
+            End If
+        Else
+            '(B) 若  [SQL-2] 沒有資料 :        ==> 檢查  [SQL-2] ==> (C)"             <-- bAdvanGroup = False (DEFAULT)
         End If
         
-        'Modify by Sam on 20241224 for  #199154,Add  formfactor,moduleoption
-        sSQL = "select distinct b." & gsCAT_TEGPM_EQGROUP & ",b." & gsCAT_TEGPM_CHK_PGMODE & " ,b." & gsCAT_TEGPM_CHK_PRODCODE & "  " & _
-               " ,b." & gsCAT_TEGPM_CHK_TESTMODE & ",b." & gsCAT_TEGPM_CHK_TESTTYPE & " ,b." & gsCAT_TEGPM_CHK_PCDTYPE & "  " & _
-               " ,b." & gsCAT_TEGPM_CHK_MAXSITE & ",b." & gsCAT_TEGPM_CHK_WIRE_VERSION & " ,b." & gsCAT_TEGPM_CHK_PINCOUNT & "  " & _
-               " ,b." & gsCAT_TEGPM_CHK_PKGCODE & " " & _
-               " ,b." & gsCAT_TEGPM_CHK_FORMFACTORNAME & " " & _
-               " ,b." & gsCAT_TEGPM_CHK_MODULEOPTION & " " & _
-               " from " & gsCAT_TBL_EQ_GROUP_TIM & " a, " & gsCAT_TBL_EQ_GROUP_PGM_MAPPING & " b  " & _
-               " where a." & gsCAT_TEGPM_DELETEFLAG & " = 'N' " & _
-               " and a." & gsCAT_TEGT_TESTER_TYPE & " = '" & sTesterType & "' " & _
-               " and b." & gsCAT_TEGPM_AREA & " = '" & sStage & "' " & _
-               " and a." & gsCAT_TEGT_TESTER_GROUP & " = b." & gsCAT_TEGPM_EQGROUP & " "
-        Set colRS = moProRawSql.QueryDatabase(sSQL)
-        ComparePgmAttr = ""
-        If colRS.Count > 0 Then
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PCDTYPE) = "Y" Then
-                If sPcdType1 <> sPcdType2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
+        If Not bAdvanGroup Then
+            sSQL_1 = "select " & gsCAT_TTMAP_QCTESTMODE & " " & _
+                      " from " & gsCAT_TBL_TQAE_MAPPING_ACT_PGMODE & " a " & _
+                     " where a." & gsCAT_TTMAP_DELETEFLAG & " = 'N' " & _
+                       " and " & gsCAT_TTMAP_PRODBODY & " = '" & Mid(sProdCode, 1, 4) & "' " & _
+                       " and " & gsCAT_TTMAP_TESTER & " = '" & sEqType2 & "' " & _
+                       " and " & gsCAT_TTMAP_STEPNAME & "= '" & sStepName & "' "
+            Set colRS = moProRawSql.QueryDatabase(sSQL_1)
+            '(C-1) 若  [SQL-2] 有資料 :        ==> TestMode : TQAE4 置換為 FTQ (QcTestMode欄位).
+            If colRS.Count > 0 Then
+                sQCTestMode = colRS.Item(1).Item(gsCAT_TTMAP_QCTESTMODE)
+            '(C-2) 若  [SQL-2] 沒有資料 :      ==> TestMode : TQAE4 保留 TQAE4
+            Else
+                sQCTestMode = sStepName
             End If
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_MAXSITE) = "Y" Then
-                If sMaxsite1 <> sMaxsite2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_WIRE_VERSION) = "Y" Then
-                If sWireVersion1 <> sWireVersion2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PINCOUNT) = "Y" Then
-                If sPincount1 <> sPincount2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PKGCODE) = "Y" Then
-                If sPkgcode1 <> sPkgcode2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-            'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改 <Start>.
-            'Dim sPgMode1      As String 'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改.
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PGMODE) = "Y" Then
-                If sPgMode1 <> sPgMode2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_PRODCODE) = "Y" Then
-                If sProdCode1 <> sProdCode2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-            'Added by Jack on 2018/02/23 for Project TECN 自動化 UAT修改 <End>.
-        'Add by Sam start on 20241224 for  #199154,
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_FORMFACTORNAME) = "Y" Then
-                If sFormFactor1 <> sFormFactor2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-            If colRS.Item(1).Item(gsCAT_TEGPM_CHK_MODULEOPTION) = "Y" Then
-                If sModuleOption1 <> sModuleOption2 Then
-                    ComparePgmAttr = "FAIL"
-                Else
-                    If ComparePgmAttr = "" Then
-                         ComparePgmAttr = "PASS"
-                    End If
-                End If
-            End If
-        'Add by Sam end on 20241224 for  #199154,
-            
         End If
         
-        If ComparePgmAttr = "" Then
-            ComparePgmAttr = "FAIL"
-        End If
+    Else
+        sQCTestMode = sStepName
+    End If
         
-
     '----
     ' Done
     '----
