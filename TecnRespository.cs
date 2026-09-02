@@ -25,28 +25,26 @@
             }
 
             // 組裝 Level 條件 (對應 VB6 的 sSQL_2)
-            sql += " AND TESTMODE = :TestMode AND TECNLEVEL = :Level ";
+        sql += " AND TESTMODE = :TestMode AND TECNLEVEL = :Level ";
 
-            if (level < 4 && !string.IsNullOrEmpty(tecnNo))
+            // 🌟 處理 TQAE 的專屬過濾條件
+            if (!string.IsNullOrEmpty(path))
             {
-                sql += " AND TECNNO = :TecnNo ";
+                sql += " AND PATH = :Path ";
             }
-            else
+            if (!string.IsNullOrEmpty(stepId))
             {
-                sql += " AND :Description LIKE DESCRIPTION ";
-            }
-
-            // 針對第二階段(單獨找溫度)的條件
-            if (!string.IsNullOrEmpty(pgmNameCondition))
-            {
-                sql += " AND PGNAME = :PgmNameCondition ";
-                sql += $" AND {tempColumn} IS NOT NULL ";
+                sql += " AND STEPID = :StepId ";
             }
 
+            // ... (後面的 SQL 組裝與 QueryFirstOrDefaultAsync 邏輯) ...
+            
+            // 記得要把 Path 與 StepId 放進 Dapper 參數裡
             return await _dbConnection.QueryFirstOrDefaultAsync(sql, new 
             { 
                 EqType2 = eqType2, TestMode = testMode, Level = level, 
-                Description = description, TecnNo = tecnNo, PgmNameCondition = pgmNameCondition 
+                Description = description, TecnNo = tecnNo, PgmNameCondition = pgmNameCondition,
+                Path = path, StepId = stepId
             });
         }
         
