@@ -257,5 +257,32 @@ namespace MES.Net.Shared.DTOs.Print
         public string SpecName { get; set; }
     }
 
+    // 承載 TBL_TDS_PGM 的配方屬性
+    public class TdsPgmDto
+    {
+        public string TdsProd { get; set; } = "";
+        public string PkgCode { get; set; } = "";
+        public string PcdType { get; set; } = "";
+        public string PinCount { get; set; } = "";
+        public string MaxSite { get; set; } = "";
+        public string WireVersion { get; set; } = "";
+        public string PgMode { get; set; } = "";
+        public string FormFactorName { get; set; } = "";
+        public string ModuleOption { get; set; } = "";
+    }
+
+    // 承載 TBL_EQ_GROUP_PGM_MAPPING 的檢核開關
+    public class EqGroupPgmMappingDto
+    {
+        public string ChkPcdType { get; set; } = "";
+        public string ChkMaxSite { get; set; } = "";
+        public string ChkWireVersion { get; set; } = "";
+        public string ChkPinCount { get; set; } = "";
+        public string ChkPkgCode { get; set; } = "";
+        public string ChkPgMode { get; set; } = "";
+        public string ChkProdCode { get; set; } = "";
+        public string ChkFormFactorName { get; set; } = "";
+        public string ChkModuleOption { get; set; } = "";
+    }
     
 }
