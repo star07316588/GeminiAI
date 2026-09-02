@@ -284,5 +284,19 @@ namespace MES.Net.Shared.DTOs.Print
         public string ChkFormFactorName { get; set; } = "";
         public string ChkModuleOption { get; set; } = "";
     }
-    
+    // 承載 Lot 屬性與 IPN 主檔資料
+    public class LotAttributeIpnDto
+    {
+        public string IPN { get; set; }
+        public string PRODGROUPKEY { get; set; }
+        public string MASK_OPTION { get; set; }
+        public string BE_OPTION { get; set; }
+    }
+
+    // 承載 TQAE 站別的 TestMode 轉換結果
+    public class TqaeMappingDto
+    {
+        public string QCTestMode { get; set; }
+        public bool IsAdvanGroup { get; set; }
+    }
 }
