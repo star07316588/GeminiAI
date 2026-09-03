@@ -1,9 +1,9 @@
-                        <!-- Row 5 -->
-                        <v-col cols="12">
-                            <v-text-field label="Program Name" v-model="formData.pgName" dense outlined hide-details></v-text-field>
-                        </v-col>
+在VB SetupForm除了開啟Excel之外
 
-                        <!-- Row 6 -->
-                        <v-col cols="12">
-                            <v-text-field label="WaferID" v-model="formData.waferId" dense outlined hide-details></v-text-field>
-                        </v-col>
+還會直接透過印表機列印，這個有辦法在c# web api做到嗎?
+
+還是它必須要先開啟列印視窗?
+
+這是一個在從傳統桌面軟體 (VB6) 轉型為現代 Web 架構時，最常遇到也最核心的架構衝擊。
+
+答案很明確：在標準的 Web API + Vue.js (瀏覽器) 架構下，無法像 VB6 那樣「無聲無息地直接從使用者的印表機印出」，通常必定會彈出列印視窗。
