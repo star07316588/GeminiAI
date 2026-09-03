@@ -2121,6 +2121,23 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                 var ws = wb.Worksheet(dto.SheetName);
 
                 // ==========================================
+                // 🌟 寫入預設的 Excel 列印設定 (PageSetup)
+                // ==========================================
+                // 1. 設定方向為直向 (Portrait) 或 橫向 (Landscape)
+                ws.PageSetup.PageOrientation = XLPageOrientation.Portrait;
+
+                // 2. 將工作表縮放至單一頁面 (寬度 1 頁，高度 1 頁)
+                ws.PageSetup.FitToPages(1, 1);
+
+                // 3.邊界設定
+                ws.PageSetup.Margins.Top = 0.5;
+                ws.PageSetup.Margins.Bottom = 0.5;
+                ws.PageSetup.Margins.Left = 0.25;
+                ws.PageSetup.Margins.Right = 0.25;
+
+                // 4.置中列印
+                ws.PageSetup.CenterHorizontally = true;
+                // ==========================================
                 // 3. 填寫基本標頭資訊 (依據我們先前盤點的 Cell 位置)
                 // ==========================================
                 if (dto.SheetName == "AT3-300AL" || dto.SheetName == "FT-940")
