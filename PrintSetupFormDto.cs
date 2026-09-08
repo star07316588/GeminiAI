@@ -195,6 +195,24 @@ namespace MES.Net.Shared.DTOs.Print
         public string DeviceFile { get; set; }
         public string BePeSet { get; set; }
     }
+    // 承接 TBL_STOP_TEST 的查詢結果
+    public class StopTestAccDto
+    {
+        public string StopTicNo { get; set; }
+        public string SpecifyEq { get; set; }
+        public string EqId { get; set; }
+        public string AccName { get; set; }
+    }
+
+    // 承接 TBL_IPN_MASTER 的實體屬性 (NP 停測比對用)
+    public class IpnPhysicalAttrDto
+    {
+        public string PackageCode { get; set; }
+        public string BodySize { get; set; }
+        public string PinCount { get; set; }
+        public string CarrierType { get; set; }
+    }
+    
     // 專門用來裝載要塞進 Excel 裡的資料
     public class FtSetupExcelDto
     {
