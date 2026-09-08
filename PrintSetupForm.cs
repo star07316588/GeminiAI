@@ -725,6 +725,104 @@ public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string
                 
             return await _dbConnection.QueryFirstOrDefaultAsync<EqGroupPgmMappingDto>(sql, new { TesterType = testerType, Stage = stage });
         }
+
+        // ==========================================
+        // 取得產品/配方相關的配件停測資訊 (P)
+        // ==========================================
+        public async Task<IEnumerable<StopTestAccDto>> GetStopTestByAccAsync(
+            string eqType2, string prodGroup, string ipn, string pgId, string pgMode, 
+            string prodCode, string stepName, string curAccName, string lotId, string wsDeviceFile)
+        {
+            string sql = @"
+                SELECT DISTINCT d.STOPTICNO as StopTicNo, d.SPECIFYEQ as SpecifyEq, 
+                                d.EQID as EqId, d.ACCNAME as AccName
+                FROM 
+                (
+                    SELECT aa.productname as prodgroup, cc.magnitude as prodcode, dd.IPN, 
+                           dd.PRODBODY, dd.PRODGROUPKEY
+                    FROM fwproductversion aa
+                    JOIN fwproductversion_n2m bb ON bb.fromid = aa.sysid AND bb.linkname = 'attributes' AND bb.keydata = 'TdsProd'
+                    JOIN fwprpattributeinstance cc ON bb.toid = cc.sysid
+                    LEFT JOIN TBL_IPN_MASTER dd ON aa.productname = dd.PROD_GROUP
+                    WHERE aa.revstate = 'Active'
+                ) c,
+                (
+                    SELECT STOPTICNO, PRODCODE, IPN, STEPNAME, EQTYPE2, SPECIFYEQ, EQID, 
+                           PGMODE, PGID, PGNAME, ACCNAME, LOTID, PRODGROUPKEY, PRODBODY, 
+                           ACCNO, DEVICEFILE, BEPE_SET
+                    FROM TBL_STOP_TEST 
+                    WHERE DELETEFLAG = 'N' AND BEPE_SET = 'A'
+                ) d 
+                WHERE d.EQTYPE2 = :EqType2 
+                  AND c.prodgroup = :ProdGroup
+                  AND NVL(c.IPN, ' ') LIKE NVL(REPLACE(REPLACE(d.IPN, '%', '_'), '*', '%'), NVL(c.IPN, ' '))
+                  AND NVL(:PgId, ' ') = NVL(d.PGID, NVL(:PgId, ' '))
+                  AND NVL(:PgMode, ' ') = NVL(d.PGMODE, NVL(:PgMode, ' '))
+                  AND NVL(c.prodcode, ' ') = NVL(d.PRODCODE, NVL(c.prodcode, ' '))
+                  AND :StepName = NVL(d.STEPNAME, :StepName)
+                  AND (NVL(:CurAccName, ' ') = NVL(d.ACCNAME, NVL(:CurAccName, ' ')) OR INSTR(d.ACCNAME, :CurAccName) > 0)
+                  AND NVL(:LotId, ' ') LIKE NVL(REPLACE(REPLACE(d.LOTID, '%', '_'), '*', '%'), NVL(:LotId, ' '))
+                  AND NVL(c.PRODGROUPKEY, ' ') = NVL(d.PRODGROUPKEY, NVL(c.PRODGROUPKEY, ' '))
+                  AND NVL(c.PRODBODY, ' ') = NVL(d.PRODBODY, NVL(c.PRODBODY, ' '))
+                  AND NVL(:WsDeviceFile, ' ') = NVL(d.DEVICEFILE, NVL(:WsDeviceFile, ' '))
+                  AND d.ACCNO LIKE :CurAccName || '%'
+                ORDER BY d.ACCNAME, d.SPECIFYEQ DESC, 
+                         DECODE(d.EQID, NULL, 'A', 'B') || d.STOPTICNO";
+
+            return await _dbConnection.QueryAsync<StopTestAccDto>(sql, new 
+            { 
+                EqType2 = eqType2, ProdGroup = prodGroup, PgId = pgId, PgMode = pgMode, 
+                StepName = stepName, CurAccName = curAccName, LotId = lotId, WsDeviceFile = wsDeviceFile
+            });
+        }
+
+        // ==========================================
+        // 取得 IPN 實體屬性 (供 NP 比對用)
+        // ==========================================
+        public async Task<IpnPhysicalAttrDto> GetIpnPhysicalAttrAsync(string ipn)
+        {
+            string sql = @"
+                SELECT PACKAGE_CODE as PackageCode, BODY_SIZE as BodySize, 
+                       PIN_COUNT as PinCount, CARRIER_TYPE as CarrierType 
+                FROM TBL_IPN_MASTER WHERE IPN = :Ipn";
+            return await _dbConnection.QueryFirstOrDefaultAsync<IpnPhysicalAttrDto>(sql, new { Ipn = ipn });
+        }
+
+        // ==========================================
+        // 取得硬體屬性限制的配件停測資訊 (NP)
+        // ==========================================
+        public async Task<IEnumerable<string>> GetStopTestNpByAccAsync(
+            string eqType2, string curEqId, string curAccName, string packageType, 
+            string pinCount, string carrierType, string bodySize, int temperature)
+        {
+            string sql = @"
+                SELECT DISTINCT STOPTICNO 
+                FROM TBL_STOP_TEST_NP 
+                WHERE DELETEFLAG = 'N' 
+                  AND NVL(:EqType2, ' ') = NVL(EQTYPE2, NVL(:EqType2, ' '))
+                  AND NVL(:CurEqId, ' ') = NVL(TESTERID, NVL(:CurEqId, ' '))
+                  AND NVL(:CurAccName, ' ') = NVL(ACCNAME, NVL(:CurAccName, ' '))
+                  AND NVL(:PackageType, ' ') = NVL(PACKAGETYPE, NVL(:PackageType, ' '))
+                  AND NVL(:PinCount, 0) = NVL(PINCOUNT, NVL(:PinCount, 0))
+                  AND NVL(:CarrierType, ' ') = NVL(CARRIERTYPE, NVL(:CarrierType, ' '))
+                  AND NVL(:BodySize, ' ') = NVL(BODYSIZE, NVL(:BodySize, ' '))
+                  AND NVL(:Temperature, 0) >= NVL(TEMP_MIN, NVL(:Temperature, 0))
+                  AND NVL(:Temperature, 0) <= NVL(TEMP_MAX, NVL(:Temperature, 0))
+                  AND ACCNO LIKE :CurAccName || '%' ";
+
+            // Dapper 參數如果為空字串，我們補上 ' ' 讓 NVL 順利運作
+            return await _dbConnection.QueryAsync<string>(sql, new 
+            { 
+                EqType2 = string.IsNullOrEmpty(eqType2) ? " " : eqType2,
+                CurEqId = string.IsNullOrEmpty(curEqId) ? " " : curEqId,
+                CurAccName = string.IsNullOrEmpty(curAccName) ? " " : curAccName,
+                PackageType = string.IsNullOrEmpty(packageType) ? " " : packageType,
+                PinCount = string.IsNullOrEmpty(pinCount) ? 0 : int.Parse(pinCount),
+                CarrierType = string.IsNullOrEmpty(carrierType) ? " " : carrierType,
+                BodySize = string.IsNullOrEmpty(bodySize) ? " " : bodySize,
+                Temperature = temperature
+            });
+        }
     }
 }
 
@@ -1487,6 +1585,33 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
                 throw new Exception($"停測中，停測資訊:\n{stopTestResult.StopMessage}");
             }
 
+            // ============================================================
+            // 🌟 2. 補上漏掉的配件防呆機制 (P 與 NP)
+            // ============================================================
+            string stopInfoP = await GetStopInfoPByAccAsync(
+                request.LotId, prodGroup, eqType2, request.TesterId, stepName, 
+                request.PgId, request.PgName, request.PgMode, request.WsDeviceFile, request.AccType);
+
+            string stopInfoNp = await GetStopInfoNpByAccAsync(
+                ipn, eqType2, request.TesterId, request.AccType, request.Temp);
+
+            // 合併停測訊息
+            var stopMessages = new List<string>();
+            if (!string.IsNullOrEmpty(stopInfoP)) stopMessages.Add(stopInfoP);
+            if (!string.IsNullOrEmpty(stopInfoNp)) stopMessages.Add(stopInfoNp);
+
+            string finalStopInfo = stopMessages.Count > 0 ? string.Join(",", stopMessages) : "";
+
+            if (!string.IsNullOrEmpty(finalStopInfo))
+            {
+                // 這裡對應 VB6 的 lblStopInfo.Caption = sStopInfo
+                response.StopInfoMsg = finalStopInfo;
+            }
+            else
+            {
+                response.StopInfoMsg = "NA";
+            }
+
             // 處理純提示型的停測字串 (對應 VB 的 lblStopInfo.Caption 處理)[cite: 1]
             string stopInfoMsg = stopTestResult.StopMessage;
             if (!string.IsNullOrEmpty(stopInfoMsg))
@@ -1801,6 +1926,68 @@ public async Task<PrintSetupFormSubmitResponse> SubmitSetupFormAsync(PrintSetupF
             // 整理最終的停測字串[cite: 10]
             string finalStopTicNos = string.Join(",", stopTicNoList.OrderBy(x => x));
             return (finalStopTicNos == "", finalStopTicNos);
+        }
+
+        // ==========================================================
+        // 實作 GetStopInfoPByAcc (回傳以逗號分隔的停測單號，若為空代表 PASS)
+        // ==========================================================
+        public async Task<string> GetStopInfoPByAccAsync(
+            string lotId, string prodGroup, string eqType2, string curEqId, string stepName, 
+            string pgId, string pgName, string pgMode, string wsDeviceFile, string curAccName)
+        {
+            if (string.IsNullOrEmpty(curAccName)) return "";
+
+            // 處理虛擬批號 (去除 . 之後的字元)
+            string searchLotId = lotId.Contains(".") ? lotId.Split('.')[0] : lotId;
+            
+            var records = await _repo.GetStopTestByAccAsync(eqType2, prodGroup, "", pgId, pgMode, "", stepName, curAccName, searchLotId, wsDeviceFile);
+            var stopTicList = new HashSet<string>();
+
+            foreach (var rec in records)
+            {
+                bool isEqInList = !string.IsNullOrEmpty(rec.EqId) && rec.EqId.Split(',').Contains(curEqId);
+
+                if (rec.SpecifyEq == "Y")
+                {
+                    if (!isEqInList) stopTicList.Add(rec.StopTicNo); // 指定可用機台，但不包含當前機台 -> 停測
+                }
+                else if (rec.SpecifyEq == "N")
+                {
+                    if (isEqInList) stopTicList.Add(rec.StopTicNo);  // 指定不可用機台，且包含當前機台 -> 停測
+                }
+                else
+                {
+                    stopTicList.Add(rec.StopTicNo); // 無論機台皆停測
+                }
+            }
+
+            return string.Join(",", stopTicList);
+        }
+
+        // ==========================================================
+        // 實作 GetStopInfoNPByAcc (回傳以逗號分隔的停測單號，若為空代表 PASS)
+        // ==========================================================
+        public async Task<string> GetStopInfoNpByAccAsync(
+            string ipn, string eqType2, string curEqId, string curAccName, string temperature)
+        {
+            if (string.IsNullOrEmpty(curAccName)) return "";
+
+            var ipnAttr = await _repo.GetIpnPhysicalAttrAsync(ipn);
+            if (ipnAttr == null) return "";
+
+            // 處理溫度轉換 (假設常溫 giDEFAULT_ROOM_TEMP 在貴司通常定義為 25)
+            int tempVal = 25; 
+            if (!string.IsNullOrEmpty(temperature) && temperature.ToUpper() != "ROOM TEMP")
+            {
+                int.TryParse(temperature, out tempVal);
+            }
+
+            var stopTicList = await _repo.GetStopTestNpByAccAsync(
+                eqType2, curEqId, curAccName, 
+                ipnAttr.PackageCode, ipnAttr.PinCount, ipnAttr.CarrierType, ipnAttr.BodySize, tempVal
+            );
+
+            return string.Join(",", stopTicList.Where(x => !string.IsNullOrEmpty(x)).Distinct());
         }
 
         // ==============================================================================
