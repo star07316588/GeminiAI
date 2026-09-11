@@ -141,6 +141,7 @@ namespace MES.Net.Shared.DTOs.Print
         public string WaferId { get; set; }
         public string PgName { get; set; }
         public string SetupReason { get; set; }
+        public string TestFlag { get; set; }
         
         // 畫面上的 Setup Wafer IDs
         public string SetupWaferId1 { get; set; }
