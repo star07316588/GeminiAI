@@ -1,9 +1,167 @@
-在VB SetupForm除了開啟Excel之外
+    If Mid(sTmpAssignWaferID, 1, 1) = "Y" Then
+        sAssignWaferID = Mid(sTmpAssignWaferID, 3) '"CORR(F8-26E),CORR(F8-18E),CORR(F8-8C WLCSP)"
+        sArysAssignWaferID() = Split(sAssignWaferID, ",")
+        iCount = 0
+        For lIdx = LBound(sArysAssignWaferID) To UBound(sArysAssignWaferID)
+            txtSetupWaferID(iCount).Text = sArysAssignWaferID(lIdx)
+            iCount = iCount + 1
+            If iCount >= 3 Then Exit For '最多3個, 不跳走會程式執行失敗(Index Out Of Bound).
+        Next
+    Else
+        Call modQuery.getActProbingQtySQLString(moProRawSql, sLotID, sSQL, "PrintSetupForm", sTimeHereSince, sStepNo)
+    'Added by Jack on 2016/03/21 for JC201500392 <End>
+    
+        Set colRS = moProRawSql.QueryDatabase(sSQL)
+        iCount = 0
+        For lIdx = 1 To colRS.Count
+            If colRS.Item(lIdx).Item("TestFlag") <> "Y" Then
+                txtSetupWaferID(iCount).Text = colRS.Item(lIdx).Item("waferid")
+                iCount = iCount + 1
+            End If
+            If iCount >= 3 Then Exit For
+        Next
+    End If
 
-還會直接透過印表機列印，這個有辦法在c# web api做到嗎?
+以下為該getActProbingQtySQLString function內容
 
-還是它必須要先開啟列印視窗?
-
-這是一個在從傳統桌面軟體 (VB6) 轉型為現代 Web 架構時，最常遇到也最核心的架構衝擊。
-
-答案很明確：在標準的 Web API + Vue.js (瀏覽器) 架構下，無法像 VB6 那樣「無聲無息地直接從使用者的印表機印出」，通常必定會彈出列印視窗。
+Public Sub getActProbingQtySQLString(moProRawSql As Object, ByVal sFullLotID As String, _
+                                     ByRef strActProbingQtySQL As String, ByVal sQueryType As String, _
+                                     Optional ByVal strInStepTime As String, Optional ByVal strStepNo As String)
+    
+    Dim sParentLotID     As String
+    
+    strActProbingQtySQL = ""
+    sParentLotID = Trim(Left(sFullLotID, 8))
+    
+    If sQueryType = "PrintSetupForm" Or sQueryType = "PrintRepairForm" Then
+        strActProbingQtySQL = "   select wafer.lotid , wafer.waferid, wt.TestFlag, " & _
+                "   nvl(a.total, 0) manualQty, " & _
+                "   nvl(b.total, 0) tdsQty, " & _
+                "   nvl(c.total, 0) subQty, " & _
+                "   nvl(d.total, 0) + nvl(e.total, 0) + nvl(f.total, 0) setupQty, " & _
+                "   nvl(a.total, 0) + nvl(b.total, 0) + nvl(c.total, 0) + " & _
+                "   nvl(d.total, 0) + nvl(e.total, 0) + nvl(f.total, 0) actQty "
+               
+        strActProbingQtySQL = strActProbingQtySQL & " from " & _
+                "   (SELECT substr(a.appid,1,8) as lotid , c.componentid as waferid  " & _
+                "   FROM fwlot a, fwlot_n2m b, fwcomponent c " & _
+                "   where a.sysid = b.fromid " & _
+                "   and b.toid = c.sysid " & _
+                "   AND A.APPID = '" & sFullLotID & "') wafer, "
+    Else
+        strActProbingQtySQL = " select ae.waferid," & _
+               " nvl(a.total, 0) manualQty," & _
+               " nvl(b.total, 0) tdsQty," & _
+               " nvl(c.total, 0) subQty," & _
+               " nvl(d.total, 0) + nvl(e.total, 0) + nvl(f.total, 0) setupQty," & _
+               " nvl(a.total, 0) + nvl(b.total, 0) + nvl(c.total, 0) +" & _
+               " nvl(d.total, 0) + nvl(e.total, 0) + nvl(f.total, 0) actQty" & _
+              " from "
+    End If
+          
+    strActProbingQtySQL = strActProbingQtySQL & _
+          "(select c.waferid waferid, 'A' type, count(*) total" & _
+          " from tbl_manual_testqty c" & _
+          " where c.lotid like '" & sParentLotID & "%'" & _
+          " and c.probingflag = 'Y'" & _
+          " group by c.waferid, 'A') a," & _
+          " (select d.waferno waferid, 'B' type, count(*) total" & _
+          " from TBL_WS_TDS_SUM d" & _
+          " where d.probinglotid = '" & sParentLotID & "'" & _
+          " and d.probingflag = 'Y'" & _
+          " group by d.waferno, 'B') b," & _
+          " (select waferid, 'C' type, sum(e.probingcount) total" & _
+          " from tbl_ws_probing_count e" & _
+          " where e.lotid like '" & sParentLotID & "%' group by waferid) c," & _
+          " (select distinct(setupwaferid_1) waferid ,'D' type, sum(probingqty_1) total" & _
+          " from Tbl_Ws_Eqform_Basic B1" & _
+          " WHERE B1.FORMTYPE  IN ('SETUP' , 'REPAIR') " & _
+          " AND b1.lotid like '" & sParentLotID & "%' "
+          
+    strActProbingQtySQL = strActProbingQtySQL & "group by setupwaferid_1) d," & _
+          " (select distinct(setupwaferid_2) waferid ,'D' type, sum(probingqty_2) total" & _
+          " from Tbl_Ws_Eqform_Basic B2" & _
+          " WHERE B2.FORMTYPE  IN ('SETUP' , 'REPAIR') " & _
+          " AND b2.lotid like '" & sParentLotID & "%' " & _
+          " group by setupwaferid_2) e," & _
+          " (select distinct(setupwaferid_3) waferid ,'D' type, sum(probingqty_3) total" & _
+          " from Tbl_Ws_Eqform_Basic B3" & _
+          " WHERE B3.FORMTYPE  IN ('SETUP' , 'REPAIR') " & _
+          " AND b3.lotid like '" & sParentLotID & "%' " & _
+          " group by setupwaferid_3) f," & _
+          " (select cc.waferid AS waferid,substr(lotid,1,8) as lotid" & _
+          " from tbl_manual_testqty cc" & _
+          " where cc.lotid like '" & sParentLotID & "%'" & _
+          "and cc.probingflag = 'Y'" & _
+          " Union" & _
+          " select dd.waferno AS waferid,substr(lotid,1,8) as lotid" & _
+          " from TBL_WS_TDS_SUM dd" & _
+          " where probinglotid = '" & sParentLotID & "'" & _
+          " and dd.probingflag = 'Y'"
+    
+    strActProbingQtySQL = strActProbingQtySQL & "union" & _
+          " select ee.waferid,substr(lotid,1,8) as lotid" & _
+          " from tbl_ws_probing_count ee" & _
+          " where ee.lotid like '" & sParentLotID & "%'" & _
+          " union" & _
+          " select setupwaferid_1,substr(lotid,1,8) as lotid" & _
+          " from Tbl_Ws_Eqform_Basic" & _
+          " WHERE FORMTYPE  IN ('SETUP' , 'REPAIR') " & _
+          " and lotid like '" & sParentLotID & "%'" & _
+          " union" & _
+          " select setupwaferid_2,substr(lotid,1,8) as lotid" & _
+          " from Tbl_Ws_Eqform_Basic" & _
+          " WHERE FORMTYPE  IN ('SETUP' , 'REPAIR') " & _
+          " and lotid like '" & sParentLotID & "%'"
+    
+    strActProbingQtySQL = strActProbingQtySQL & "union" & _
+          " select setupwaferid_3,substr(lotid,1,8) as lotid" & _
+          " from Tbl_Ws_Eqform_Basic" & _
+          " WHERE FORMTYPE  IN ('SETUP' , 'REPAIR') " & _
+          " and substr(lotid, 1, 8)='" & sParentLotID & "') ae"
+          
+    If sQueryType = "PrintSetupForm" Or sQueryType = "PrintRepairForm" Then
+        strActProbingQtySQL = strActProbingQtySQL & _
+                "   ,(select " & gsCAT_TWTS_PARENT_LOT_ID & " , " & gsCAT_TWTS_WAFER_IDN & "," & _
+                "   decode(nvl(" & gsCAT_TWTS_REVISE_GOOD_DIEN & ", " & gsCAT_TWTS_TDS_GOOD_DIEN & "),null,null,'Y')  TestFlag  " & _
+                "   from " & gsCAT_TBL_WS_TDS_SUM & " " & _
+                "   where (" & gsCAT_TWTS_TEST_MODE & "," & gsCAT_TWTS_PARENT_LOT_ID & " , " & _
+                " " & gsCAT_TWTS_WAFER_IDN & ", " & gsCAT_TWTS_STEPNO & ", " & gsCAT_TWTS_INSTEPTIME & ", " & _
+                "   nvl(" & gsCAT_TWTS_TIME_STAMP & ", 'NULL')) IN " & _
+                "   (SELECT " & gsCAT_TWTS_TEST_MODE & ", " & _
+                "   " & gsCAT_TWTS_PARENT_LOT_ID & ", " & _
+                "   " & gsCAT_TWTS_WAFER_IDN & ", " & _
+                "    " & gsCAT_TWTS_STEPNO & ", " & _
+                "    " & gsCAT_TWTS_INSTEPTIME & ", " & _
+                "   NVL(MAX(" & gsCAT_TWTS_TIME_STAMP & "), 'NULL') " & _
+                "   FROM " & gsCAT_TBL_WS_TDS_SUM & "  " & _
+                "   WHERE " & gsCAT_TWTS_INSTEPTIME & " = '" & strInStepTime & "' " & _
+                "   and " & gsCAT_TWTS_STEPNO & " = '" & strStepNo & "' " & _
+                "   and " & gsCAT_TWTS_PARENT_LOT_ID & " = '" & sParentLotID & "' " & _
+                "   and " & gsCAT_TWTS_DELETE_FLAG & " = 'N' " & _
+                "   GROUP BY " & gsCAT_TWTS_TEST_MODE & ", " & gsCAT_TWTS_PARENT_LOT_ID & ", " & gsCAT_TWTS_WAFER_IDN & _
+                " , " & gsCAT_TWTS_STEPNO & ",  " & gsCAT_TWTS_INSTEPTIME & ")) wt  "
+             
+        strActProbingQtySQL = strActProbingQtySQL & _
+                "   where wafer.lotid = ae.lotid(+)  and wafer.waferid = ae.waferid(+)  " & _
+                "   and wafer.waferid = a. waferid(+) " & _
+                "   and wafer.waferid = b.waferid(+) " & _
+                "   and wafer.waferid = c.waferid(+) " & _
+                "   and wafer.waferid = d.waferid(+) " & _
+                "   and wafer.waferid = e.waferid(+) " & _
+                "   and wafer.waferid = f.waferid(+) " & _
+                "   and wafer.lotid = wt. " & gsCAT_TWTS_PARENT_LOT_ID & "(+) " & _
+                "   and wafer.waferid  = wt." & gsCAT_TWTS_WAFER_IDN & "(+) " & _
+                "   and wt.TestFlag is null " & _
+                "   ORDER BY actQty,setupQty,WAFERID   "
+    Else
+        strActProbingQtySQL = strActProbingQtySQL & _
+          " where ae.waferid = a.waferid(+)" & _
+          " and ae.waferid = b.waferid(+)" & _
+          " and ae.waferid = c.waferid(+)" & _
+          " and ae.waferid = d.waferid(+)" & _
+          " and ae.waferid = e.waferid(+)" & _
+          " and ae.waferid = f.waferid(+)" & _
+          ""
+    End If
+End Sub
