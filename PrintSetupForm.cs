@@ -1023,6 +1023,34 @@ namespace MES.Net.Application.Services.Print
                 followProd = await _repo.GetFollowProductAsync(lotId, erunTicNo, response.Stage) ?? "";
             }
 
+            else
+            {
+                // ============================================================
+                // 🌟 呼叫我們剛剛建立的 SQL 查詢來取得建議的 Setup Wafer
+                // ============================================================
+                var candidateWafers = await _repo.GetActProbingQtyWafersAsync(request.LotId, sTimeHereSince, sStepNo);
+                
+                int count = 0;
+                
+                // 迴圈遍歷找出的 Wafer，最多取 3 片
+                foreach (var wafer in candidateWafers)
+                {
+                    // 再次確保 TestFlag 不為 Y (雖然 SQL 裡的 wt.TestFlag IS NULL 已經擋掉大部分了)
+                    if (wafer.TestFlag != "Y")
+                    {
+                        // 依序將 WaferID 填入對應的欄位 (對應 VB6 的 txtSetupWaferID(iCount))
+                        if (count == 0) dto.SetupWaferId1 = wafer.WaferId;
+                        else if (count == 1) dto.SetupWaferId2 = wafer.WaferId;
+                        else if (count == 2) dto.SetupWaferId3 = wafer.WaferId;
+                        
+                        count++;
+                    }
+                    
+                    // 最多 3 個，超過就跳出迴圈
+                    if (count >= 3) break;
+                }
+            }
+
             string bodySize = await _repo.GetIpnBodySizeAsync(response.IPN) ?? "";
 
             // 1. 組裝 SQL (將 AssignLoadBoard 也傳入以利 SQL 判斷)
