@@ -823,6 +823,95 @@ public async Task<RecipeSpecData> GetLotStepEqSpecAsync(string tecnLotId, string
                 Temperature = temperature
             });
         }
+        // ==============================================================================
+        // 取代原 VB6 的 getActProbingQtySQLString
+        // 取得 WS 站別建議的架機片 (Setup Wafer) 清單
+        // ==============================================================================
+        public async Task<IEnumerable<ActProbingWaferDto>> GetActProbingQtyWafersAsync(string fullLotId, string inStepTime, string stepNo)
+        {
+            // 擷取前 8 碼作為 ParentLotId
+            string parentLotId = fullLotId.Length >= 8 ? fullLotId.Substring(0, 8) : fullLotId;
+            string parentLotIdLike = parentLotId + "%";
+
+            // 直接將 VB6 複雜的組裝邏輯，寫成乾淨的結構化 SQL
+            string sql = @"
+                SELECT wafer.lotid, wafer.waferid, wt.TestFlag, 
+                       NVL(a.total, 0) manualQty, 
+                       NVL(b.total, 0) tdsQty, 
+                       NVL(c.total, 0) subQty, 
+                       NVL(d.total, 0) + NVL(e.total, 0) + NVL(f.total, 0) setupQty, 
+                       NVL(a.total, 0) + NVL(b.total, 0) + NVL(c.total, 0) + 
+                       NVL(d.total, 0) + NVL(e.total, 0) + NVL(f.total, 0) actQty 
+                FROM 
+                    (SELECT substr(a.appid,1,8) as lotid, c.componentid as waferid  
+                     FROM fwlot a, fwlot_n2m b, fwcomponent c 
+                     WHERE a.sysid = b.fromid AND b.toid = c.sysid AND a.appid = :FullLotId) wafer, 
+                    
+                    (SELECT c.waferid waferid, 'A' type, count(*) total 
+                     FROM tbl_manual_testqty c WHERE c.lotid like :ParentLotIdLike AND c.probingflag = 'Y' GROUP BY c.waferid, 'A') a, 
+                    
+                    (SELECT d.waferno waferid, 'B' type, count(*) total 
+                     FROM TBL_WS_TDS_SUM d WHERE d.probinglotid = :ParentLotId AND d.probingflag = 'Y' GROUP BY d.waferno, 'B') b, 
+                    
+                    (SELECT waferid, 'C' type, sum(e.probingcount) total 
+                     FROM tbl_ws_probing_count e WHERE e.lotid like :ParentLotIdLike GROUP BY waferid) c, 
+                    
+                    (SELECT distinct(setupwaferid_1) waferid ,'D' type, sum(probingqty_1) total 
+                     FROM Tbl_Ws_Eqform_Basic B1 WHERE B1.FORMTYPE IN ('SETUP', 'REPAIR') AND b1.lotid like :ParentLotIdLike GROUP BY setupwaferid_1) d, 
+                    
+                    (SELECT distinct(setupwaferid_2) waferid ,'D' type, sum(probingqty_2) total 
+                     FROM Tbl_Ws_Eqform_Basic B2 WHERE B2.FORMTYPE IN ('SETUP', 'REPAIR') AND b2.lotid like :ParentLotIdLike GROUP BY setupwaferid_2) e, 
+                    
+                    (SELECT distinct(setupwaferid_3) waferid ,'D' type, sum(probingqty_3) total 
+                     FROM Tbl_Ws_Eqform_Basic B3 WHERE B3.FORMTYPE IN ('SETUP', 'REPAIR') AND b3.lotid like :ParentLotIdLike GROUP BY setupwaferid_3) f, 
+                    
+                    (
+                        SELECT cc.waferid AS waferid, substr(cc.lotid,1,8) as lotid FROM tbl_manual_testqty cc WHERE cc.lotid like :ParentLotIdLike AND cc.probingflag = 'Y' 
+                        UNION 
+                        SELECT dd.waferno AS waferid, substr(dd.lotid,1,8) as lotid FROM TBL_WS_TDS_SUM dd WHERE dd.probinglotid = :ParentLotId AND dd.probingflag = 'Y' 
+                        UNION 
+                        SELECT ee.waferid, substr(ee.lotid,1,8) as lotid FROM tbl_ws_probing_count ee WHERE ee.lotid like :ParentLotIdLike 
+                        UNION 
+                        SELECT setupwaferid_1, substr(lotid,1,8) as lotid FROM Tbl_Ws_Eqform_Basic WHERE FORMTYPE IN ('SETUP', 'REPAIR') AND lotid like :ParentLotIdLike AND setupwaferid_1 IS NOT NULL 
+                        UNION 
+                        SELECT setupwaferid_2, substr(lotid,1,8) as lotid FROM Tbl_Ws_Eqform_Basic WHERE FORMTYPE IN ('SETUP', 'REPAIR') AND lotid like :ParentLotIdLike AND setupwaferid_2 IS NOT NULL 
+                        UNION 
+                        SELECT setupwaferid_3, substr(lotid,1,8) as lotid FROM Tbl_Ws_Eqform_Basic WHERE FORMTYPE IN ('SETUP', 'REPAIR') AND substr(lotid, 1, 8) = :ParentLotId AND setupwaferid_3 IS NOT NULL 
+                    ) ae, 
+                    
+                    (
+                        SELECT PARENT_LOT_ID, WAFER_IDN, DECODE(NVL(REVISE_GOOD_DIEN, TDS_GOOD_DIEN), NULL, NULL, 'Y') TestFlag  
+                        FROM TBL_WS_TDS_SUM 
+                        WHERE (TEST_MODE, PARENT_LOT_ID, WAFER_IDN, STEPNO, INSTEPTIME, NVL(TIME_STAMP, 'NULL')) IN 
+                        (
+                            SELECT TEST_MODE, PARENT_LOT_ID, WAFER_IDN, STEPNO, INSTEPTIME, NVL(MAX(TIME_STAMP), 'NULL') 
+                            FROM TBL_WS_TDS_SUM  
+                            WHERE INSTEPTIME = :InStepTime AND STEPNO = :StepNo AND PARENT_LOT_ID = :ParentLotId AND DELETE_FLAG = 'N' 
+                            GROUP BY TEST_MODE, PARENT_LOT_ID, WAFER_IDN, STEPNO, INSTEPTIME
+                        )
+                    ) wt  
+                WHERE wafer.lotid = ae.lotid(+)  
+                  AND wafer.waferid = ae.waferid(+)  
+                  AND wafer.waferid = a.waferid(+) 
+                  AND wafer.waferid = b.waferid(+) 
+                  AND wafer.waferid = c.waferid(+) 
+                  AND wafer.waferid = d.waferid(+) 
+                  AND wafer.waferid = e.waferid(+) 
+                  AND wafer.waferid = f.waferid(+) 
+                  AND wafer.lotid = wt.PARENT_LOT_ID(+) 
+                  AND wafer.waferid = wt.WAFER_IDN(+) 
+                  AND wt.TestFlag IS NULL 
+                ORDER BY actQty, setupQty, WAFERID";
+
+            return await _dbConnection.QueryAsync<ActProbingWaferDto>(sql, new 
+            { 
+                FullLotId = fullLotId,
+                ParentLotId = parentLotId,
+                ParentLotIdLike = parentLotIdLike,
+                InStepTime = inStepTime,
+                StepNo = stepNo
+            });
+        }
     }
 }
 
