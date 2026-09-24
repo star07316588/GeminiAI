@@ -10,11 +10,9 @@
     <link href="/Content/css/slimselect.css" rel="stylesheet">
     <link href="/Content/css/site.css?v=260522" rel="stylesheet">
 
-    <style>
-        .msc-panel, .mab-bar {
-            margin-bottom: 10px;
-        }
-
+<style>
+        .msc-panel, .mab-bar { margin-bottom: 10px; }
+        
         /* 表單外框與標題設計 */
         .form-panel {
             background: var(--bg-surface, #ffffff);
@@ -23,88 +21,52 @@
             padding: 20px;
             margin-bottom: 16px;
         }
-
+        
         .form-title {
-            font-size: 15px;
-            font-weight: bold;
-            color: var(--accent, #1565C0);
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 6px;
+            font-size: 15px; font-weight: bold; color: var(--accent, #1565C0);
+            margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid #eee; padding-bottom: 6px;
         }
 
-        /* 網格排版 */
-        .form-grid {
+        /* 💡 舊版仿製條列式排版 (Vertical List Layout) */
+        .form-list-layout {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-        }
-
-        .col-span-2 {
-            grid-column: span 2;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-            .form-group label {
-                font-size: 13px;
-                font-weight: 600;
-                color: var(--text-main, #333);
-            }
-
-        .form-control {
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 13px;
-            outline: none;
-            transition: border-color 0.2s;
-            background-color: #fff;
-            height: 32px;
-        }
-
-            .form-control:focus {
-                border-color: var(--accent, #1565C0);
-            }
-
-            .form-control:disabled {
-                background-color: #f5f5f5;
-                cursor: not-allowed;
-                color: #888;
-            }
-
-        /* Radio Button 群組樣式 */
-        .radio-group {
-            display: flex;
+            /* 左側標籤 140px，右側輸入框最大 400px，剩餘留白 */
+            grid-template-columns: 140px minmax(200px, 400px); 
+            row-gap: 14px;
+            column-gap: 16px;
             align-items: center;
-            gap: 16px;
-            height: 32px;
         }
 
-        .radio-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
+        .form-list-layout .field-label {
+            text-align: right;
             font-size: 13px;
-            cursor: pointer;
-        }
-
-        fieldset {
-            border: none;
-            padding: 0;
+            font-weight: 600;
+            color: var(--text-main, #333);
             margin: 0;
         }
 
-            fieldset:disabled .form-title {
-                color: #999;
-            }
+        .form-control {
+            width: 100%;
+            padding: 6px 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px;
+            font-size: 13px; 
+            outline: none; 
+            transition: border-color 0.2s;
+            background-color: #fff; 
+            height: 32px;
+            box-sizing: border-box;
+        }
+
+        .form-control:focus { border-color: var(--accent, #1565C0); }
+        .form-control:disabled { background-color: #f5f5f5; cursor: not-allowed; color: #888; }
+        
+        .radio-group { display: flex; align-items: center; gap: 16px; height: 32px; }
+        .radio-item { display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; margin: 0; }
+        
+        fieldset { border: none; padding: 0; margin: 0; }
+        fieldset:disabled .form-title { color: #999; }
     </style>
 </head>
 <body>
