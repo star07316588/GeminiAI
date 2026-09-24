@@ -439,6 +439,18 @@ namespace MES.Net.Application.Services.Print
         Task<IEnumerable<string>> GetBrandsAsync(DropdownRequest request);
         Task<IEnumerable<string>> GetPinCountsAsync(DropdownRequest request);
         Task ExecutePrintAsync(PrintLabelRequest request);
+
+        // 💡 畫面初始化與基礎連動
+        Task<IEnumerable<string>> GetLabelFormatsByStageAsync(string stage);
+        Task<IEnumerable<string>> GetMappedPrinterServersAsync(string stage, string labelFormat);
+
+        // 💡 LPI (Label Pack Info) 六層連動下拉選單
+        Task<IEnumerable<string>> GetLpiLabelSpecsAsync();
+        Task<IEnumerable<string>> GetLpiCarrierTypesAsync(string labelSpecNo);
+        Task<IEnumerable<string>> GetLpiBoxingSpecsAsync(DropdownRequest request);
+        Task<IEnumerable<string>> GetLpiBrandsAsync(DropdownRequest request);
+        Task<IEnumerable<string>> GetLpiPinCountsAsync(DropdownRequest request);
+        Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request);
     }
 
     public class PrintLabelService : IPrintLabelService
@@ -495,6 +507,50 @@ namespace MES.Net.Application.Services.Print
             {
                 throw new InvalidOperationException("Failed to generate label file or printer offline !! 無法產出標籤檔案或印表機連線中斷 !!");
             }
+        }
+
+        public async Task<IEnumerable<string>> GetLabelFormatsByStageAsync(string stage)
+        {
+            return await _repo.GetLabelFormatsByStageAsync(stage);
+        }
+
+        public async Task<IEnumerable<string>> GetMappedPrinterServersAsync(string stage, string labelFormat)
+        {
+            return await _repo.GetMappedPrinterServersAsync(stage, labelFormat);
+        }
+
+        // =========================================================================
+        // 💡 LPI (Label Pack Info) 六層連動下拉選單 (單純轉接 Repository)
+        // =========================================================================
+        public async Task<IEnumerable<string>> GetLpiLabelSpecsAsync()
+        {
+            return await _repo.GetLpiLabelSpecsAsync();
+        }
+
+        public async Task<IEnumerable<string>> GetLpiCarrierTypesAsync(string labelSpecNo)
+        {
+            return await _repo.GetLpiCarrierTypesAsync(labelSpecNo);
+        }
+
+        public async Task<IEnumerable<string>> GetLpiBoxingSpecsAsync(DropdownRequest request)
+        {
+            return await _repo.GetLpiBoxingSpecsAsync(request);
+        }
+
+        public async Task<IEnumerable<string>> GetLpiBrandsAsync(DropdownRequest request)
+        {
+            return await _repo.GetLpiBrandsAsync(request);
+        }
+
+        public async Task<IEnumerable<string>> GetLpiPinCountsAsync(DropdownRequest request)
+        {
+            return await _repo.GetLpiPinCountsAsync(request);
+        }
+
+        public async Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request)
+        {
+            // 注意：前一輪我們在 Repository 裡命名為 GetPackageCodesAsync
+            return await _repo.GetPackageCodesAsync(request);
         }
     }
 }
