@@ -1,3 +1,5 @@
+http://localhost:53131/api/print/print-label/init
+
 using MES.Net.Application.Services.Print;
 using MES.Net.Shared.DTOs.Print;
 using MES.Net.Web.Filters;
