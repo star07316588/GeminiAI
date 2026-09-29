@@ -1,3 +1,95 @@
-Error: HTTP error! status: 404
-at mesfetch (http://localhost:53131/Scripts/mes-util.js?v=260522:74:13)
-at async Er.loadInitData (http://localhost:53131/Content/Print/PrintLabel.html:244:42)
+using MES.Net.Application.Services.Print;
+using MES.Net.Shared.DTOs.Print;
+using MES.Net.Web.Filters;
+using System;
+using System.Threading.Tasks;
+using System.Web.Http;
+
+namespace MES.Net.Web.Controllers.Print
+{
+    [RoutePrefix("api/print/print-label")]
+    public class PrintLabelController : ApiController
+    {
+        private readonly IPrintLabelService _printLabelService;
+
+        public PrintLabelController()
+        {
+            _printLabelService = new PrintLabelService();
+        }
+        public PrintLabelController(IPrintLabelService printLabelService)
+        {
+            _printLabelService = printLabelService;
+        }
+
+        /// <summary>
+        /// 取得 ISG 出貨單報表資料
+        /// </summary>
+        [HttpPost, Route("shipNo")]
+        public async Task<IHttpActionResult> GetISGData([FromBody] PrintISGRequest request)
+        {
+            try
+            {
+                // 防呆：確保前端有傳值過來
+                if (request == null || string.IsNullOrWhiteSpace(request.ShipNo))
+                {
+                    return Ok(new { Success = false, Message = "請輸入出貨單號! (Please key in ShipNo!)" });
+                }
+
+                var data = await _printLabelService.GetInitDataAsync();
+                return Ok(new { Success = true, Data = data });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { Success = false, Message = ex.Message });
+            }
+        }
+    }
+}
+
+using MES.Net.Application.Services.Print;
+using MES.Net.Shared.DTOs.Print;
+using MES.Net.Web.Filters;
+using System;
+using System.Threading.Tasks;
+using System.Web.Http;
+
+namespace MES.Net.Web.Controllers.Print
+{
+    [RoutePrefix("api/print/print-label")]
+    public class PrintISG1Controller : ApiController
+    {
+        private readonly IPrintISGService _printISGService1;
+
+        public PrintISG1Controller()
+        {
+            _printISGService1 = new PrintISGService();
+        }
+        public PrintISG1Controller(IPrintISGService printISGService)
+        {
+            _printISGService1 = printISGService;
+        }
+
+        /// <summary>
+        /// 取得 ISG 出貨單報表資料
+        /// </summary>
+        [HttpPost, Route("shipNo")]
+        public async Task<IHttpActionResult> GetISGData([FromBody] PrintISGRequest request)
+        {
+            try
+            {
+                // 防呆：確保前端有傳值過來
+                if (request == null || string.IsNullOrWhiteSpace(request.ShipNo))
+                {
+                    return Ok(new { Success = false, Message = "請輸入出貨單號! (Please key in ShipNo!)" });
+                }
+
+                var data = await _printISGService1.GetISGFormDataAsync(request.ShipNo);
+                return Ok(new { Success = true, Data = data });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { Success = false, Message = ex.Message });
+            }
+        }
+    }
+}
