@@ -419,6 +419,37 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = "取得 Label Formats 失敗" });
             }
         }
+
+        // =========================================================================
+        // 依據 LotId 取得批號詳細資訊 (供前端 Lot List 表格自動帶入使用)
+        // =========================================================================
+        [HttpGet, Route("lot-info/{lotId}"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLotInfo(string lotId)
+        {
+            if (string.IsNullOrWhiteSpace(lotId)) return BadRequest("請提供批號");
+            try
+            {
+                // 💡 這裡請在您的 Service 與 Repository 實作對應的 DB 查詢
+                // 查詢 TBL_LOT_INFO 等資料表，撈出 Ipn, WQty, CQty, Owner 等
+                // 下方為模擬回傳，請替換為真實的 await _printLabelService.GetLotDetailAsync(lotId);
+                var mockData = new 
+                {
+                    LotNo = lotId,
+                    ProductNo = "F13S-TEST-IPN", 
+                    WaferQty = 25,
+                    ChipQty = 15000,
+                    LotOwner = "ENGINEER_A",
+                    Speed = "NORMAL"
+                };
+
+                return Ok(new { Success = true, Message = "", Data = mockData });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error(this, ex.Message, ex);
+                return Ok(new { Success = false, Message = "查無此批號資訊" });
+            }
+        }
     }
 }
 
