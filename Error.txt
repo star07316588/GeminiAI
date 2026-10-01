@@ -1,97 +1,80 @@
-http://localhost:53131/api/print/print-label/init
-
-using MES.Net.Application.Services.Print;
-using MES.Net.Shared.DTOs.Print;
-using MES.Net.Web.Filters;
-using System;
-using System.Threading.Tasks;
-using System.Web.Http;
-
-namespace MES.Net.Web.Controllers.Print
-{
-    [RoutePrefix("api/print/print-label")]
-    public class PrintLabelController : ApiController
-    {
-        private readonly IPrintLabelService _printLabelService;
-
-        public PrintLabelController()
-        {
-            _printLabelService = new PrintLabelService();
-        }
-        public PrintLabelController(IPrintLabelService printLabelService)
-        {
-            _printLabelService = printLabelService;
-        }
-
-        /// <summary>
-        /// 取得 ISG 出貨單報表資料
-        /// </summary>
-        [HttpPost, Route("shipNo")]
-        public async Task<IHttpActionResult> GetISGData([FromBody] PrintISGRequest request)
-        {
-            try
-            {
-                // 防呆：確保前端有傳值過來
-                if (request == null || string.IsNullOrWhiteSpace(request.ShipNo))
-                {
-                    return Ok(new { Success = false, Message = "請輸入出貨單號! (Please key in ShipNo!)" });
-                }
-
-                var data = await _printLabelService.GetInitDataAsync();
-                return Ok(new { Success = true, Data = data });
-            }
-            catch (Exception ex)
-            {
-                return Ok(new { Success = false, Message = ex.Message });
-            }
-        }
-    }
-}
-
-using MES.Net.Application.Services.Print;
-using MES.Net.Shared.DTOs.Print;
-using MES.Net.Web.Filters;
-using System;
-using System.Threading.Tasks;
-using System.Web.Http;
-
-namespace MES.Net.Web.Controllers.Print
-{
-    [RoutePrefix("api/print/print-label")]
-    public class PrintISG1Controller : ApiController
-    {
-        private readonly IPrintISGService _printISGService1;
-
-        public PrintISG1Controller()
-        {
-            _printISGService1 = new PrintISGService();
-        }
-        public PrintISG1Controller(IPrintISGService printISGService)
-        {
-            _printISGService1 = printISGService;
-        }
-
-        /// <summary>
-        /// 取得 ISG 出貨單報表資料
-        /// </summary>
-        [HttpPost, Route("shipNo")]
-        public async Task<IHttpActionResult> GetISGData([FromBody] PrintISGRequest request)
-        {
-            try
-            {
-                // 防呆：確保前端有傳值過來
-                if (request == null || string.IsNullOrWhiteSpace(request.ShipNo))
-                {
-                    return Ok(new { Success = false, Message = "請輸入出貨單號! (Please key in ShipNo!)" });
-                }
-
-                var data = await _printISGService1.GetISGFormDataAsync(request.ShipNo);
-                return Ok(new { Success = true, Data = data });
-            }
-            catch (Exception ex)
-            {
-                return Ok(new { Success = false, Message = ex.Message });
-            }
-        }
-    }
-}
+Private Sub spdLotList_Change(ByVal Col As Long, ByVal Row As Long)
+    Dim oLot       As FwLot
+    Dim sSQL As String
+    Dim colRS As Collection
+    
+    'gsLABEL_FT_BIN_CARD_LABEL added by Jack on 2011/04/18 for JC201100104.
+    'gsLABEL_FT_LOT_INFO Added by Jack on 2016/06/03 for 2016 MES Phase-5 Project (FT eRunCard Paperless Phase-2 Project)
+    'Modify by Sam on 20180814 for BE工業 3.5 BE MES Phase 24 -- CP Auto Dispatch,ADD cp_small_label
+    'Modify by Sam on 20201203 for Project CP 測前併批 ,新增cp virtual label
+    'Modify by Ernest on 20210315 for Project CP 測前併批 ,新增cp virtual label 新增AY
+    If (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_WS_SMALL_LABEL) Or _
+       (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_SMALL_LABEL) Or _
+        (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_LOT_LABEL) Or _
+        (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_MERGE) Or _
+       (Me.cboStage.Text = gsSTAGE_AY And Me.cboLabelSpec.Text = modPrint.gsLABEL_WS_SMALL_LABEL) Or _
+       (Me.cboStage.Text = gsSTAGE_AY And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_LOT_LABEL) Or _
+        (Me.cboStage.Text = gsSTAGE_AY And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_MERGE) Or _
+       (Me.cboStage.Text = gsSTAGE_FT And Me.cboLabelSpec.Text = modPrint.gsLABEL_FT_BIN_CARD_LABEL) Or _
+       (Me.cboStage.Text = gsSTAGE_FT And Me.cboLabelSpec.Text = modPrint.gsLABEL_FT_LOT_INFO) Or _
+       (Me.cboStage.Text = gsSTAGE_FT And Me.cboLabelSpec.Text = modPrint.gsLABEL_FT_SMALL_LABEL) Then
+       If Col = miSPDLOTLIST_LOT_ID Then
+            With Me.spdLotList
+                .Col = miSPDLOTLIST_LOT_ID
+                .Row = Row
+                'Add by Sam start on 20201203 for Project CP 測前併批
+                Select Case cboLabelSpec.Text
+                    Case gsLABEL_CP_VIRTUAL_LOT_LABEL, gsLABEL_CP_VIRTUAL_MERGE
+                        'Add by Dexter on 20220809 for CP 併批測試 Phase II-第二階段需求 Key值取消IPN條件 <Start>
+                        sSQL = "select substr(tla." & gsCAT_TLATT_IPN & ", 0, 4) as IPN, sum(tla." & gsCAT_TLATT_WAFERQTY & ") as wqty,sum(tla." & gsCAT_TLATT_CHIPQTY & ") as cqty " & _
+                               " from (select distinct " & gsCAT_TVMG_VIRTUALLOTID & " ," & gsCAT_TVMG_LOTID & " " & _
+                               "       from " & gsCAT_TBL_VIRTUAL_MERGE & " where " & gsCAT_TVMG_DELETEFLAG & "= 'N'  " & _
+                               "        and " & gsCAT_TVMG_VIRTUALLOTID & " ='" & .Text & "' ) a " & _
+                               " , " & gsCAT_TBL_LOT_ATTRIBUTE & " tla " & _
+                               " where a." & gsCAT_TVMG_LOTID & " = tla." & gsCAT_TLATT_LOTID & " " & _
+                               " group by substr(tla." & gsCAT_TLATT_IPN & ", 0, 4) "
+                        'Add by Dexter on 20220809 for CP 併批測試 Phase II-第二階段需求 Key值取消IPN條件 <End>
+                        Set colRS = moProRawSql.QueryDatabase(sSQL)
+                        If colRS.Count = 0 Then
+                            UtShowMsgBox ("The Virtual Lot [" & .Text & "] is not exist!")
+                            Call .SetText(mispdLotList_CHECK, Row, 0) '取消勾消.
+                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, "")
+                            Call .SetText(mispdLotList_WQTY, Row, "")
+                            Call .SetText(mispdLotList_CQTY, Row, "")
+                        Else
+                            Call .SetText(mispdLotList_CHECK, Row, 1) '勾選.
+                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, colRS.Item(1).Item(gsCAT_TLATT_IPN))
+                            Call .SetText(mispdLotList_WQTY, Row, colRS.Item(1).Item("wqty"))
+                            Call .SetText(mispdLotList_CQTY, Row, colRS.Item(1).Item("cqty"))
+                        End If
+                    Case Else
+                'Add by Sam End on 20201203 for Project CP 測前併批
+                        Set oLot = moFwWIP.LotById(Trim(.Text))
+                        If oLot Is Nothing Then
+                            UtShowMsgBox ("The Lot [" & .Text & "] is not exist!")
+                            Call .SetText(mispdLotList_CHECK, Row, 0) '取消勾消.
+                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, "")
+                            Call .SetText(mispdLotList_WQTY, Row, "")
+                            Call .SetText(mispdLotList_CQTY, Row, "")
+                            Call .SetText(miSPDLOTLIST_LOT_OWNER, Row, "")
+                            Call .SetText(miSPDLOTLIST_SPEED, Row, "")
+                            Call .SetText(mispdLotList_ROUTE, Row, "") '
+                            Call .SetText(mispdLotList_STEP, Row, "") 'added by Jack on 2011/04/18 for JC201100104.
+                        Else
+                            Call .SetText(mispdLotList_CHECK, Row, 1) '勾選.
+                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value)
+                            Call .SetText(mispdLotList_WQTY, Row, oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value)
+                            Call .SetText(mispdLotList_CQTY, Row, oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value)
+                            Call .SetText(miSPDLOTLIST_LOT_OWNER, Row, oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_LOT_OWNER).Value)
+                            Call .SetText(miSPDLOTLIST_SPEED, Row, GetSpeed(oLot.CustomAttributes(gsLOT_CUSTOMATTR_IPN), moProRawSql, moAppLog))
+                            Call .SetText(mispdLotList_ROUTE, Row, oLot.PlanId)
+                            Call .SetText(mispdLotList_STEP, Row, oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_STEPNAME).Value) 'added by Jack on 2011/04/18 for JC201100104.
+                        End If
+                End Select
+                Call .SetCellBorder(0, 0, .MaxCols, .MaxRows, 15, -1, CellBorderStyleSolid)
+                Call ResizeSpdColumn(Me.spdLotList, moAppLog)
+            End With
+        End If
+        
+    End If
+End Sub
