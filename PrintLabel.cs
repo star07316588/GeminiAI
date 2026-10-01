@@ -1569,6 +1569,68 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return await _dbConnection.QueryAsync<string>(sql, new { p_Stage = stage });
         }
+        public async Task<LotDetailData> GetLotDetailAsync(string lotId, string labelFormat)
+        {
+            // =========================================================
+            // 邏輯一：CP 虛擬併批 (對應 VB6 的 Case gsLABEL_CP_VIRTUAL...)
+            // =========================================================
+            if (labelFormat == "CP_VIRTUAL_LOT_LABEL" || labelFormat == "CP_VIRTUAL_MERGE")
+            {
+                // 將 VB6 內嵌的字串 SQL 改為 Dapper 參數化查詢
+                string sqlVirtual = @"
+                    SELECT 
+                        SUBSTR(tla.IPN, 1, 4) AS ProductNo, 
+                        SUM(tla.WAFERQTY) AS WaferQty,
+                        SUM(tla.CHIPQTY) AS ChipQty
+                    FROM (
+                        SELECT DISTINCT VIRTUALLOTID, LOTID 
+                        FROM TBL_VIRTUAL_MERGE 
+                        WHERE DELETEFLAG = 'N' AND VIRTUALLOTID = :p_LotId
+                    ) a
+                    INNER JOIN TBL_LOT_ATTRIBUTE tla ON a.LOTID = tla.LOTID 
+                    GROUP BY SUBSTR(tla.IPN, 1, 4)";
+
+                var virtualData = await _dbConnection.QueryFirstOrDefaultAsync<LotDetailData>(sqlVirtual, new { p_LotId = lotId });
+                return virtualData; // 若為 null 則代表查無此虛擬批
+            }
+
+            // =========================================================
+            // 邏輯二：一般批號 (對應 VB6 的 Case Else -> moFwWIP.LotById)
+            // 將 WIP EAV 架構 (FWLOT_PN2M) 透過 Pivot 方式一次查出
+            // =========================================================
+            string sqlNormal = @"
+                SELECT 
+                    MAX(CASE WHEN C.KEYDATA = 'IPN' THEN C.VALDATA END) AS ProductNo,
+                    MAX(CASE WHEN C.KEYDATA = 'WaferQty' THEN C.VALDATA END) AS WaferQty,
+                    MAX(CASE WHEN C.KEYDATA = 'ChipQty' THEN C.VALDATA END) AS ChipQty,
+                    MAX(CASE WHEN C.KEYDATA = 'LotOwner' THEN C.VALDATA END) AS LotOwner,
+                    MAX(CASE WHEN C.KEYDATA = 'StepName' THEN C.VALDATA END) AS Step,
+                    B.PLANID AS Route
+                FROM TBL_LOT_INFO A
+                INNER JOIN FWLOT B ON A.LOT_ID = B.APPID
+                INNER JOIN FWLOT_PN2M C ON B.SYSID = C.FROMID
+                WHERE A.LOT_ID = :p_LotId
+                GROUP BY B.PLANID";
+
+            var normalData = await _dbConnection.QueryFirstOrDefaultAsync<LotDetailData>(sqlNormal, new { p_LotId = lotId });
+
+            if (normalData != null && !string.IsNullOrEmpty(normalData.ProductNo))
+            {
+                // 模擬 VB6 中的 GetSpeed(IPN) 函數
+                normalData.Speed = await GetProductSpeedAsync(normalData.ProductNo);
+            }
+
+            return normalData;
+        }
+
+        // 輔助方法：取得 Speed
+        private async Task<string> GetProductSpeedAsync(string ipn)
+        {
+            // 💡 依據貴廠儲存 Speed 的資料表進行查詢，此為範例表名
+            string sql = "SELECT SPEED FROM TBL_PRODUCT_MSTR WHERE IPN = :p_Ipn";
+            var speed = await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { p_Ipn = ipn });
+            return speed ?? "";
+        }
     }
 }
 
