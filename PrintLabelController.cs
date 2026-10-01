@@ -204,7 +204,9 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = "列印發生預期外的系統錯誤" });
             }
         }
-        // 💡 改為 HttpPost，路由拿掉 {lotId}，統一從 Body 接收
+        // =========================================================================
+        // 依據 LotId 與 LabelFormat 取得批號詳細資訊
+        // =========================================================================
         [HttpPost, Route("lot-info"), AuthorizeToken]
         public async Task<IHttpActionResult> GetLotInfo([FromBody] LotInfoRequest request)
         {
@@ -215,26 +217,20 @@ namespace MES.Net.Web.Controllers.Print
 
             try
             {
-                string lotId = request.LotId.Trim();
-
-                // 💡 這裡請替換為真實的 Service / Repository DB 查詢
-                // 查詢 TBL_LOT_INFO 等資料表，撈出 Ipn, WQty, CQty, Owner 等
-                var mockData = new 
+                // 呼叫 Service 查詢資料庫
+                var result = await _printLabelService.GetLotDetailAsync(request.LotId.Trim(), request.LabelFormat);
+                
+                if (result == null)
                 {
-                    LotNo = lotId,
-                    ProductNo = "F13S-TEST-IPN", 
-                    WaferQty = 25,
-                    ChipQty = 15000,
-                    LotOwner = "ENGINEER_A",
-                    Speed = "NORMAL"
-                };
+                    return Ok(new { Success = false, Message = $"查無此批號資訊 [{request.LotId}]" });
+                }
 
-                return Ok(new { Success = true, Message = "", Data = mockData });
+                return Ok(new { Success = true, Message = "", Data = result });
             }
             catch (Exception ex)
             {
                 AppLogger.Error(this, ex.Message, ex);
-                return Ok(new { Success = false, Message = "查無此批號資訊" });
+                return Ok(new { Success = false, Message = "批號查詢發生例外錯誤" });
             }
         }
     }
