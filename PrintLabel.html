@@ -202,7 +202,11 @@
 
                     try {
                         // 呼叫我們剛剛在後端加的 API
-                        const response = await mesfetch("/api/print/print-label/lot-info", { LotId: row.lotNo });
+                        // 💡 加入 LabelFormat 參數，完美對齊 VB6 的 Select Case cboLabelSpec.Text
+                        const response = await mesfetch("/api/print/print-label/lot-info", { 
+                            LotId: row.lotNo,
+                            LabelFormat: this.form.labelFormat 
+                        });
                         if (response.Success && response.Data) {
                             row.productNo = response.Data.ProductNo || '';
                             row.waferQty = response.Data.WaferQty || '';
