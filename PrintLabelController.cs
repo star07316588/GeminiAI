@@ -204,5 +204,38 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = "列印發生預期外的系統錯誤" });
             }
         }
+        // 💡 改為 HttpPost，路由拿掉 {lotId}，統一從 Body 接收
+        [HttpPost, Route("lot-info"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLotInfo([FromBody] LotInfoRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.LotId)) 
+            {
+                return BadRequest("請提供批號");
+            }
+
+            try
+            {
+                string lotId = request.LotId.Trim();
+
+                // 💡 這裡請替換為真實的 Service / Repository DB 查詢
+                // 查詢 TBL_LOT_INFO 等資料表，撈出 Ipn, WQty, CQty, Owner 等
+                var mockData = new 
+                {
+                    LotNo = lotId,
+                    ProductNo = "F13S-TEST-IPN", 
+                    WaferQty = 25,
+                    ChipQty = 15000,
+                    LotOwner = "ENGINEER_A",
+                    Speed = "NORMAL"
+                };
+
+                return Ok(new { Success = true, Message = "", Data = mockData });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error(this, ex.Message, ex);
+                return Ok(new { Success = false, Message = "查無此批號資訊" });
+            }
+        }
     }
 }
