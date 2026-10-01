@@ -88,7 +88,7 @@
                 <div class="form-title"><i class="mdi mdi-table"></i> Lot List</div>
                 <div style="overflow-x: auto; max-height: 300px; overflow-y: auto;">
                     <table class="grid-table">
-                        <thead>
+<thead>
                             <tr>
                                 <th style="width: 40px;">No.</th>
                                 <th style="width: 40px;"><input type="checkbox" @change="toggleAllLots" v-model="allLotsChecked" title="全選/取消全選"></th>
@@ -98,6 +98,8 @@
                                 <th style="width: 80px;">Chip Qty</th>
                                 <th style="width: 100px;">Lot Owner</th>
                                 <th style="width: 100px;">Speed</th>
+                                <!-- 💡 新增：操作欄位 -->
+                                <th style="width: 40px;"></th> 
                             </tr>
                         </thead>
                         <tbody>
@@ -105,14 +107,32 @@
                                 <td>{{ index + 1 }}</td>
                                 <td><input type="checkbox" v-model="row.checked"></td>
                                 <td>
-                                    <!-- 離開焦點(blur)或按下 Enter 時，觸發後端查詢 -->
-                                    <input type="text" v-model="row.lotNo" @blur="fetchLotInfo(row)" @keyup.enter="fetchLotInfo(row)">
+                                    <!-- 💡 核心魔法：加入 ref、綁定上下鍵與 Enter 鍵 -->
+                                    <input type="text" 
+                                           ref="lotInputs"
+                                           v-model="row.lotNo" 
+                                           @change="fetchLotInfo(row)" 
+                                           @keyup.enter="handleEnter(row, index)"
+                                           @keydown.down.prevent="handleDown(index)"
+                                           @keydown.up.prevent="handleUp(index)">
                                 </td>
                                 <td><input type="text" v-model="row.productNo" readonly></td>
                                 <td><input type="text" v-model="row.waferQty" readonly></td>
                                 <td><input type="text" v-model="row.chipQty" readonly></td>
                                 <td><input type="text" v-model="row.lotOwner" readonly></td>
                                 <td><input type="text" v-model="row.speed" readonly></td>
+                                <td>
+                                    <!-- 💡 新增：刪除單列按鈕 -->
+                                    <button type="button" @click="removeRow(index)" title="刪除此列" style="border: none; background: transparent; cursor: pointer; color: #d32f2f; font-weight: bold;">✖</button>
+                                </td>
+                            </tr>
+                            <!-- 💡 新增：手動新增一列按鈕 (給滑鼠使用者) -->
+                            <tr>
+                                <td colspan="9" style="text-align: left; padding: 4px;">
+                                    <button type="button" @click="addNewRow" style="border: 1px dashed #ccc; background: #f9f9f9; padding: 4px 12px; cursor: pointer; color: #1565C0; font-size: 13px; width: 100%;">
+                                        ➕ 點擊或按 [ ↓ ] 向下新增一列
+                                    </button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -207,6 +227,85 @@
                             LotId: row.lotNo,
                             LabelFormat: this.form.labelFormat 
                         });
+                        if (response.Success && response.Data) {
+                            row.productNo = response.Data.ProductNo || '';
+                            row.waferQty = response.Data.WaferQty || '';
+                            row.chipQty = response.Data.ChipQty || '';
+                            row.lotOwner = response.Data.LotOwner || '';
+                            row.speed = response.Data.Speed || '';
+                            row.checked = true; // 自動打勾
+                        } else {
+                            VMessageBox.alert(response.Message || '查無此批號');
+                            row.checked = false;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        row.checked = false;
+                    }
+                },
+
+                // =======================================================
+                // 💡 動態表格與鍵盤操作邏輯
+                // =======================================================
+                
+                // 新增一列空白行
+                addNewRow() {
+                    this.lotList.push({ checked: false, lotNo: '', productNo: '', waferQty: '', chipQty: '', lotOwner: '', speed: '' });
+                },
+
+                // 移除指定列
+                removeRow(index) {
+                    this.lotList.splice(index, 1);
+                    // 如果全部刪光了，自動補回第一列空白
+                    if (this.lotList.length === 0) {
+                        this.addNewRow();
+                    }
+                },
+
+                // 處理 [ ↓ ] 方向鍵
+                handleDown(index) {
+                    // 如果已經是最後一列了，自動幫他長出新的一列
+                    if (index === this.lotList.length - 1) {
+                        this.addNewRow();
+                    }
+                    // 利用 $nextTick 等待 Vue 把新的一列畫到畫面上後，將焦點(游標)移過去
+                    this.$nextTick(() => {
+                        if (this.$refs.lotInputs && this.$refs.lotInputs[index + 1]) {
+                            this.$refs.lotInputs[index + 1].focus();
+                        }
+                    });
+                },
+
+                // 處理 [ ↑ ] 方向鍵
+                handleUp(index) {
+                    // 只要不是第一列，就把焦點移到上一列
+                    if (index > 0) {
+                        if (this.$refs.lotInputs && this.$refs.lotInputs[index - 1]) {
+                            this.$refs.lotInputs[index - 1].focus();
+                        }
+                    }
+                },
+
+                // 處理 [ Enter ] 鍵 (適用於手打或條碼掃描槍)
+                handleEnter(row, index) {
+                    // 主動觸發查詢
+                    this.fetchLotInfo(row);
+                    // 查詢完直接模擬按下方向鍵往下，順暢到底！
+                    this.handleDown(index);
+                },
+
+                // (您原本的 fetchLotInfo 保持不變)
+                async fetchLotInfo(row) {
+                    if (!row.lotNo) {
+                        row.productNo = ''; row.waferQty = ''; row.chipQty = ''; row.lotOwner = ''; row.speed = ''; row.checked = false;
+                        return;
+                    }
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lot-info", { 
+                            LotId: row.lotNo,
+                            LabelFormat: this.form.labelFormat 
+                        });
+                        
                         if (response.Success && response.Data) {
                             row.productNo = response.Data.ProductNo || '';
                             row.waferQty = response.Data.WaferQty || '';
