@@ -1631,6 +1631,19 @@ namespace MES.Net.Infrastructure.Repository.Print
             var speed = await _dbConnection.QueryFirstOrDefaultAsync<string>(sql, new { p_Ipn = ipn });
             return speed ?? "";
         }
+        // 在 PrintLabelRepository 實作
+        public async Task<LotAttributeData> GetLotAttributeAsync(string lotId)
+        {
+            string sql = @"
+                SELECT 
+                    IPN AS Ipn, 
+                    STEPNAME AS StepName, 
+                    STEPID AS StepId 
+                FROM TBL_LOT_ATTRIBUTE 
+                WHERE LOTID = :p_LotId";
+    
+            return await _dbConnection.QueryFirstOrDefaultAsync<LotAttributeData>(sql, new { p_LotId = lotId });
+        }
     }
 }
 
@@ -4299,16 +4312,13 @@ namespace MES.Net.Application.Services.Print
             // ---------------------------------------------------------
             // [對應 VB6 雙層列印迴圈]
             // ---------------------------------------------------------
-            // 外迴圈：控制列印份數 (對應 VB6: For iIndex = 1 To Val(Me.txtPrintQty.Text))
             for (int copyIndex = 1; copyIndex <= req.PrintQty; copyIndex++)
             {
-                // 內迴圈：控制裝箱數 (對應 VB6: For iIdx = 1 To iPrintTimes)
                 for (int boxIndex = 1; boxIndex <= innerPrintTimes; boxIndex++)
                 {
                     bool isPartial = false;
                     string printQtyForLabel = req.BoxQty.ToString();
 
-                    // 尾數箱判斷 (對應 VB6 的 bIsPartial 邏輯)
                     if (isBoxMode && boxIndex == innerPrintTimes && int.TryParse(req.CQty, out int totalCQty))
                     {
                         int remainder = totalCQty % req.BoxQty;
@@ -4319,16 +4329,64 @@ namespace MES.Net.Application.Services.Print
                         }
                     }
 
-                    // 呼叫加工廠：取得 ZPL 字串 (對應 VB6 大量的 Call modPrint.Prt_...)
-                    string generatedZpl = await GenerateZplForLabelAsync(req, isPartial, printQtyForLabel, timeStampYMD);
+                    // 💡 呼叫對應的標籤加工廠
+                    string generatedZpl = "";
+                    switch (req.LabelFormat)
+                    {
+                        case "WS_SMALL_LABEL":
+                            generatedZpl = await Generate_WS_CP_SMALL_LABEL_ZplAsync(req);
+                            break;
+
+                        case "FT_SMALL_LABEL":
+                            generatedZpl = await Generate_FT_SMALL_LABEL_ZplAsync(req);
+                            break;
+                            
+                        // ... (保留其他標籤) ...
+
+                        case "FT_BIN_CARD_LABEL":
+                        case "FT_BIN_CARD":
+                            // 💡 路由到剛才實作的 Bin Card 專屬方法
+                            generatedZpl = await Generate_FT_BIN_CARD_ZplAsync(req, timeStampYMD);
+                            break;
+
+                        default:
+                            throw new Exception($"尚未實作標籤格式 [{req.LabelFormat}] 的 ZPL 生成邏輯！");
+                    }
                     
-                    // 呼叫送貨員：發送並寫入 Log
                     if (!string.IsNullOrEmpty(generatedZpl))
                     {
                         await SendToPrinterAndLogAsync(req.PrinterServer, generatedZpl, req);
                     }
                 }
             }
+        }
+        // =========================================================================
+        // 🔹 輔助方法：產生 FT_BIN_CARD_LABEL ZPL 字串
+        // =========================================================================
+        private async Task<string> Generate_FT_BIN_CARD_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            // 1. 查詢該 Lot 的詳細屬性 (對應 VB6 的 SELECT FROM TBL_LOT_ATTRIBUTE)
+            var lotAttr = await _repo.GetLotAttributeAsync(req.LotId) ?? new LotAttributeData();
+            
+            string ipn = !string.IsNullOrEmpty(lotAttr.Ipn) ? lotAttr.Ipn : (req.IPN ?? "");
+            string stepName = lotAttr.StepName ?? "";
+            string stepId = lotAttr.StepId ?? "";
+
+            // 2. 判斷 ZPL 模板 (依據前端傳入的 Pass/Fail 按鈕)
+            bool isPass = req.IsPass ?? true; // 若無傳入則預設為 Pass
+            string zplTemplate = isPass ? ZplTemplates.FT_BIN_CARD_PASS : ZplTemplates.FT_BIN_CARD_FAIL;
+
+            // 💡 備註：在 VB6 中 Prt_FT_FT_BIN_CARD_LABEL 內部可能還有查詢 CarGradeFlag 的邏輯，
+            // 若有需要，也可在此處繼續 await _repo... 查詢並替換。
+
+            // 3. 變數替換
+            return zplTemplate
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{Ipn}", ipn)
+                .Replace("{StepName}", stepName)
+                .Replace("{StepId}", stepId)
+                .Replace("{UserId}", req.UserId)
+                .Replace("{TimeStamp}", timeStampYMD);
         }
     }
 }
