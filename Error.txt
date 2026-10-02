@@ -1,16 +1,17 @@
-            // 這些標籤不需要計算箱數，直接印 (對應 VB6 cmdOK_Click 中 iPrintTimes = 1 的判斷)
-            string[] singleCopyLabels = {
-                "FT_SMALL_LABEL", "FT_ETEST_MERGE", "FT_LOT_INFO", "FT_Label_PACK_INFO",
-                "FT_TR_LABEL", "FT_BOX_COUNTING", "WS_SMALL_LABEL", "CP_SMALL_LABEL",
-                "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_ENG_LOC_LABEL"
+// 💡 修正：將 FT_BIN_CARD_LABEL 與 FT_BIN_CARD 加入不需計算箱數的陣列中
+            string[] singleCopyLabels = { 
+                "FT_SMALL_LABEL", "FT_ETEST_MERGE", "FT_LOT_INFO", "FT_Label_PACK_INFO", 
+                "FT_TR_LABEL", "FT_BOX_COUNTING", "WS_SMALL_LABEL", "CP_SMALL_LABEL", 
+                "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_ENG_LOC_LABEL", 
+                "FT_BIN_CARD_LABEL", "FT_BIN_CARD" 
             };
 
             if (!singleCopyLabels.Contains(req.LabelFormat))
             {
                 // 對應 VB6: iPrintTimes = CLng(Me.txtQty(miIndex).Text) \ CLng(Me.txtBoxQty)
                 isBoxMode = true;
-                if (req.BoxQty <= 0) throw new ArgumentException("Please Input Correct BoxQty");
-                if (!int.TryParse(req.CQty, out int totalCQty) || totalCQty <= 0) throw new ArgumentException("Please Input Correct LotQty");
+                if (req.BoxQty <= 0) throw new ArgumentException("請輸入正確的 BoxQty (箱數)!");
+                if (!int.TryParse(req.CQty, out int totalCQty) || totalCQty <= 0) throw new ArgumentException("無效的 Lot Qty，無法計算箱數!");
 
                 innerPrintTimes = totalCQty / req.BoxQty;
                 if (totalCQty % req.BoxQty > 0) innerPrintTimes++;
