@@ -107,10 +107,9 @@
                         .Replace("{ReelId}", req.WaferId); // 對應原 VB6 的 ReelID
 
                 case "FT_BOX_COUNTING":
-                    return ZplTemplates.FT_BOX_COUNTING_LABEL
-                        .Replace("{LotId}", req.LotId)
-                        .Replace("{IPN}", req.IPN)
-                        .Replace("{PrintCount}", printQtyForLabel);
+                    // 💡 將原本直接 return ZplTemplates... 的寫法改為呼叫加工廠
+                    generatedZpl = await Generate_FT_BOX_COUNTING_ZplAsync(req, printQtyForLabel);
+                    break;
 
                 case "WS_ENG_LOC_LABEL":
                     var engLocData = await _printLabelRepo.GetEngLocMasterDataAsync(req.LotId) ?? new EngLocMasterData();
@@ -158,29 +157,20 @@
         }
 
         // =========================================================================
-        // 🔹 加工廠：產生 FT_BIN_CARD_LABEL (支援 Pass/Fail 切換)
+        // 🔹 加工廠：產生 FT_BOX_COUNTING
         // =========================================================================
-        private async Task<string> Generate_FT_BIN_CARD_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        private async Task<string> Generate_FT_BOX_COUNTING_ZplAsync(PrintLabelRequest req, string printQtyForLabel)
         {
-            // 1. 查詢該 Lot 的詳細屬性 (還原 VB6 的 SELECT IPN, STEPNAME, STEPID FROM TBL_LOT_ATTRIBUTE)
-            var lotAttr = await _printLabelRepo.GetLotAttributeAsync(req.LotId) ?? new LotAttributeData();
-            
-            // 若資料庫查無 IPN，則降級使用前端傳來的 IPN (若有)
-            string ipn = !string.IsNullOrEmpty(lotAttr.Ipn) ? lotAttr.Ipn : (req.IPN ?? "");
-            string stepName = lotAttr.StepName ?? "";
-            string stepId = lotAttr.StepId ?? "";
+            // 由於 Box Counting 畫面只要求輸入 LotNo，我們必須自動幫它查出 IPN
+            string ipn = req.IPN;
+            if (string.IsNullOrEmpty(ipn))
+            {
+                var lotAttr = await _printLabelRepo.GetLotAttributeAsync(req.LotId);
+                ipn = lotAttr?.Ipn ?? "";
+            }
 
-            // 2. 判斷 ZPL 模板 (依據前端按下 Pass 或 Fail 按鈕傳入的 IsPass 參數)
-            // 若沒傳入預設當作 Pass 處理
-            bool isPass = req.IsPass ?? true; 
-            string zplTemplate = isPass ? ZplTemplates.FT_BIN_CARD_PASS : ZplTemplates.FT_BIN_CARD_FAIL;
-
-            // 3. 變數替換並回傳 ZPL 字串
-            return zplTemplate
-                .Replace("{LotNo}", req.LotId)
-                .Replace("{Ipn}", ipn)
-                .Replace("{StepName}", stepName)
-                .Replace("{StepId}", stepId)
-                .Replace("{UserId}", req.UserId)      // 紀錄列印人員
-                .Replace("{TimeStamp}", timeStampYMD); // 紀錄列印日期
+            return ZplTemplates.FT_BOX_COUNTING_LABEL
+                .Replace("{LotId}", req.LotId)
+                .Replace("{IPN}", ipn)
+                .Replace("{PrintCount}", printQtyForLabel);
         }
