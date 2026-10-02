@@ -1,11 +1,11 @@
 'Added by Jack on 2011/04/18 for JC201100104.
-Private Sub cmdPrintFail_Click()
-    Call printFtBinCardLabel(False)
+Private Sub cmdPrintPass_Click()
+    Call printFtBinCardLabel(True)
 End Sub
 
 'Added by Jack on 2011/04/18 for JC201100104.
-Private Sub cmdPrintPass_Click()
-    Call printFtBinCardLabel(True)
+Private Sub cmdPrintFail_Click()
+    Call printFtBinCardLabel(False)
 End Sub
 
 Private Sub printFtBinCardLabel(bPrintPass As Boolean)
