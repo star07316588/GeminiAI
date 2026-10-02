@@ -37,6 +37,12 @@ namespace MES.Net.Shared.DTOs.Print
         public string LabelFormat { get; set; } 
     }
 
+    public class LotAttributeData
+    {
+        public string Ipn { get; set; }
+        public string StepName { get; set; }
+        public string StepId { get; set; }
+    }
     public class LotDetailData
     {
         public string ProductNo { get; set; }
