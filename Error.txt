@@ -120,14 +120,10 @@
                         .Replace("{OwnerId}", engLocData.OwnerId ?? "")
                         .Replace("{OwnerDep}", engLocData.OwnerDep ?? "");
 
+                // 💡 更新這裡：將 FT_BIN_CARD_LABEL 指向專屬的加工廠方法
                 case "FT_BIN_CARD_LABEL":
-                    // 假設傳入的 PrintMode 區分 PASS 或 FAIL
-                    bool isPassBin = req.PrintMode != "FAIL";
-                    string binZpl = isPassBin ? ZplTemplates.FT_BIN_CARD_PASS : ZplTemplates.FT_BIN_CARD_FAIL;
-                    return binZpl.Replace("{LotNo}", req.LotId)
-                                 .Replace("{ProdNo}", req.IPN)
-                                 .Replace("{StepID}", req.RouteId) // 借用欄位傳遞
-                                 .Replace("{TestMode}", req.SearchData); // 借用欄位傳遞
+                case "FT_BIN_CARD":
+                    return await Generate_FT_BIN_CARD_ZplAsync(req, timeStampYMD);
 
                 case "WS_SMALL_LABEL":
                 case "CP_SMALL_LABEL":
@@ -159,4 +155,32 @@
                 default:
                     throw new ArgumentException($"不支援的標籤格式: {req.LabelFormat}");
             }
+        }
+
+        // =========================================================================
+        // 🔹 加工廠：產生 FT_BIN_CARD_LABEL (支援 Pass/Fail 切換)
+        // =========================================================================
+        private async Task<string> Generate_FT_BIN_CARD_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            // 1. 查詢該 Lot 的詳細屬性 (還原 VB6 的 SELECT IPN, STEPNAME, STEPID FROM TBL_LOT_ATTRIBUTE)
+            var lotAttr = await _printLabelRepo.GetLotAttributeAsync(req.LotId) ?? new LotAttributeData();
+            
+            // 若資料庫查無 IPN，則降級使用前端傳來的 IPN (若有)
+            string ipn = !string.IsNullOrEmpty(lotAttr.Ipn) ? lotAttr.Ipn : (req.IPN ?? "");
+            string stepName = lotAttr.StepName ?? "";
+            string stepId = lotAttr.StepId ?? "";
+
+            // 2. 判斷 ZPL 模板 (依據前端按下 Pass 或 Fail 按鈕傳入的 IsPass 參數)
+            // 若沒傳入預設當作 Pass 處理
+            bool isPass = req.IsPass ?? true; 
+            string zplTemplate = isPass ? ZplTemplates.FT_BIN_CARD_PASS : ZplTemplates.FT_BIN_CARD_FAIL;
+
+            // 3. 變數替換並回傳 ZPL 字串
+            return zplTemplate
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{Ipn}", ipn)
+                .Replace("{StepName}", stepName)
+                .Replace("{StepId}", stepId)
+                .Replace("{UserId}", req.UserId)      // 紀錄列印人員
+                .Replace("{TimeStamp}", timeStampYMD); // 紀錄列印日期
         }
