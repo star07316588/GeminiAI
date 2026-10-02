@@ -1,80 +1,268 @@
-Private Sub spdLotList_Change(ByVal Col As Long, ByVal Row As Long)
-    Dim oLot       As FwLot
-    Dim sSQL As String
-    Dim colRS As Collection
+'Added by Jack on 2011/04/18 for JC201100104.
+Private Sub cmdPrintFail_Click()
+    Call printFtBinCardLabel(False)
+End Sub
+
+'Added by Jack on 2011/04/18 for JC201100104.
+Private Sub cmdPrintPass_Click()
+    Call printFtBinCardLabel(True)
+End Sub
+
+Private Sub printFtBinCardLabel(bPrintPass As Boolean)
+'This method added by Jack on 2011/04/18 for JC201100104 Print FT_Bin_Card.
+On Error GoTo ExitHandler:
+Dim sProcID As String
+Dim typErrInfo As tErrInfo
+Dim bIsPartial As Boolean
+Dim colCompIds As FwStrings
+Dim oLot       As FwLot
+Dim oComp      As FwComponent
+Dim sSysTime   As String
+Dim dteNow     As Date
+Dim iIndex     As Integer
+
+Dim colRS           As Collection
+Dim colWSMCDInfo    As Collection
+Dim sParentLotID    As String
+Dim sParentIPN      As String
+Dim sMcpFlag        As String
+Dim oItem           As Object
+Dim iCQty           As Long
+Dim iWQty           As Long
+
+Dim sSQL    As String
+
+Dim sMsg    As String
+
+Dim sBizType As String
+
+Dim bLotSelect  As Boolean
+Dim iRowIndex As Integer
+Dim vLotID    As Variant
+Dim vProdNo   As Variant
+Dim vStepName As Variant
+Dim vWqty     As Variant
+Dim vCqty     As Variant
+Dim vLotOwner As Variant
+Dim vSpeed    As Variant
+Dim vRoute    As Variant
+
+Dim iSelectedLot As Integer
+'----
+' Init
+'----
+    sProcID = "cmdOk_Click"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+    Screen.MousePointer = vbHourglass
+    Set colCompIds = New FwStrings
+'----
+' Condition Checking
+'----
+    If Len(Me.cboPrintServer.Text) = 0 Then
+        Call UtShowMsgBox("Please select Printer Server!")
+        GoTo ExitHandler
+    End If
+    If bPrintPass Then
+        If Len(Trim(Me.txtPrintQty.Text)) = 0 Then
+            Call UtShowMsgBox("請輸入列印份數!")
+            GoTo ExitHandler
+        End If
+        If Val(Me.txtPrintQty.Text) = "0" Then
+            Call UtShowMsgBox("列印份數不能為零!")
+            GoTo ExitHandler
+        End If
+    Else
+        If Len(Trim(Me.txtPrintFailQty.Text)) = 0 Then
+            Call UtShowMsgBox("請輸入列印份數/Fail Sheet!")
+            GoTo ExitHandler
+        End If
+        If Val(Me.txtPrintFailQty.Text) = "0" Then
+            Call UtShowMsgBox("列印份數/Fail Sheet不能為零!")
+            GoTo ExitHandler
+        End If
+    End If
+    If (moFwWIP Is Nothing) Then
+        Call RaiseError(glERR_INVALIDOBJECT, _
+                        FormatErrorText(gsETX_INVALIDOBJECT, "FwWIP"))
+    End If
     
-    'gsLABEL_FT_BIN_CARD_LABEL added by Jack on 2011/04/18 for JC201100104.
-    'gsLABEL_FT_LOT_INFO Added by Jack on 2016/06/03 for 2016 MES Phase-5 Project (FT eRunCard Paperless Phase-2 Project)
-    'Modify by Sam on 20180814 for BE工業 3.5 BE MES Phase 24 -- CP Auto Dispatch,ADD cp_small_label
-    'Modify by Sam on 20201203 for Project CP 測前併批 ,新增cp virtual label
-    'Modify by Ernest on 20210315 for Project CP 測前併批 ,新增cp virtual label 新增AY
-    If (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_WS_SMALL_LABEL) Or _
-       (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_SMALL_LABEL) Or _
-        (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_LOT_LABEL) Or _
-        (Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_MERGE) Or _
-       (Me.cboStage.Text = gsSTAGE_AY And Me.cboLabelSpec.Text = modPrint.gsLABEL_WS_SMALL_LABEL) Or _
-       (Me.cboStage.Text = gsSTAGE_AY And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_LOT_LABEL) Or _
-        (Me.cboStage.Text = gsSTAGE_AY And Me.cboLabelSpec.Text = modPrint.gsLABEL_CP_VIRTUAL_MERGE) Or _
-       (Me.cboStage.Text = gsSTAGE_FT And Me.cboLabelSpec.Text = modPrint.gsLABEL_FT_BIN_CARD_LABEL) Or _
-       (Me.cboStage.Text = gsSTAGE_FT And Me.cboLabelSpec.Text = modPrint.gsLABEL_FT_LOT_INFO) Or _
-       (Me.cboStage.Text = gsSTAGE_FT And Me.cboLabelSpec.Text = modPrint.gsLABEL_FT_SMALL_LABEL) Then
-       If Col = miSPDLOTLIST_LOT_ID Then
+    iSelectedLot = 0
+    If (msLabelSpec = "") And (Me.cboLabelSpec.Text = modPrint.gsLABEL_FT_BIN_CARD_LABEL) Then
+        bLotSelect = False 'Check lot selection or not
+        With spdLotList
+              .Col = mispdLotList_CHECK
+              For iIndex = 1 To .MaxRows
+                  .Row = iIndex
+                  If .Value = 1 Then
+                      iSelectedLot = iSelectedLot + 1
+                      bLotSelect = True
+                  End If
+              Next
+        End With
+        If bLotSelect = False Then
+            Call UtShowMsgBox("Please Select Lot(s)!!")
+            GoTo ExitHandler
+        ElseIf iSelectedLot > 1 Then '一次只能列印一筆.
+            Call UtShowMsgBox("Only can print one Lot(s) once!!")
+            GoTo ExitHandler
+        End If
+    Else '原本的單筆check rule.
+        Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(miIndex).Text))
+        If oLot Is Nothing Then
+            Call UtShowMsgBox("The Lot is not exist!")
+            GoTo ExitHandler
+        End If
+    End If
+                
+    If Me.cboLabelSpec.Text = "" Then
+        UtShowMsgBox "Please select one label type"
+        GoTo ExitHandler
+    End If
+    
+'----
+' Action
+'----
+    'Get System Time
+    sSysTime = GetSystemTime(moAppLog, moFwWIP, moFwWF, moCwMbx)
+    
+    dteNow = ConvertToDate(sSysTime, moAppLog)
+      
+    Dim iIdx As Integer, iPrintTimes As Integer
+    Dim sPrintQty As String
+    
+    If bPrintPass Then
+        iPrintTimes = Val(Me.txtPrintQty.Text)
+    Else
+        iPrintTimes = Val(Me.txtPrintFailQty.Text)
+    End If
+    
+    bIsPartial = False
+    
+    For iIndex = 1 To iPrintTimes
+        Dim sIPN      As String
+        Dim sStepName As String
+        Dim sStepID As String
+        
+        Dim sCustomer As String
+        Dim sCsum As String
+        Dim sGreen As String
+        Dim sGPType As String
+        Dim sCargradeFlag As String
+        
+        sCustomer = ""
+        sCsum = ""
+        sGreen = ""
+        sIPN = ""
+        sGPType = ""
+        'msLabelSpec added by Jack on 2010/04/12 for JC201000060.
+        '有值 : 由frmAdltProd執行此程式, 只能單筆列印, 只可列印RENESAS_SHIPPING Label.(程式碼照舊)
+        '無值: 由F1執行此程式, "WS_SMALL_LABEL"/"FT_SMALL_LABEL"都能多筆列印.
+        'StepID added by Jack on 2011/04/25 requested by Daniel.
+        If msLabelSpec <> "" Then
+            sSQL = "select a." & gsCAT_TLATT_IPN & ", " & _
+                          "a." & gsCAT_TLATT_STEPNAME & ", " & _
+                          "a." & gsCAT_TLATT_STEPID & " " & _
+                     "from " & gsCAT_TBL_LOT_ATTRIBUTE & " a " & _
+                    "where a." & gsCAT_TLATT_LOTID & " = '" & Trim(Me.txtLotId(miIndex).Text) & "'"
+            
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            If Not colRS Is Nothing Then
+                If colRS.Count > 0 Then
+                    sIPN = colRS.Item(1).Item(1)
+                    sStepName = colRS.Item(1).Item(2)
+                    sStepID = colRS.Item(1).Item(3)
+                End If
+            End If
+            
+            Set colRS = Nothing
+            
+            Call modPrint.Prt_FT_FT_BIN_CARD_LABEL(Trim(Me.txtLotId(miIndex).Text), _
+                                                Trim(sIPN), _
+                                                Trim(sStepName), _
+                                                Trim(sStepID), _
+                                                Me.cboPrintServer.Text, bPrintPass, _
+                                                moCwMbx, moAppLog, sCargradeFlag)
+        Else
             With Me.spdLotList
-                .Col = miSPDLOTLIST_LOT_ID
-                .Row = Row
-                'Add by Sam start on 20201203 for Project CP 測前併批
-                Select Case cboLabelSpec.Text
-                    Case gsLABEL_CP_VIRTUAL_LOT_LABEL, gsLABEL_CP_VIRTUAL_MERGE
-                        'Add by Dexter on 20220809 for CP 併批測試 Phase II-第二階段需求 Key值取消IPN條件 <Start>
-                        sSQL = "select substr(tla." & gsCAT_TLATT_IPN & ", 0, 4) as IPN, sum(tla." & gsCAT_TLATT_WAFERQTY & ") as wqty,sum(tla." & gsCAT_TLATT_CHIPQTY & ") as cqty " & _
-                               " from (select distinct " & gsCAT_TVMG_VIRTUALLOTID & " ," & gsCAT_TVMG_LOTID & " " & _
-                               "       from " & gsCAT_TBL_VIRTUAL_MERGE & " where " & gsCAT_TVMG_DELETEFLAG & "= 'N'  " & _
-                               "        and " & gsCAT_TVMG_VIRTUALLOTID & " ='" & .Text & "' ) a " & _
-                               " , " & gsCAT_TBL_LOT_ATTRIBUTE & " tla " & _
-                               " where a." & gsCAT_TVMG_LOTID & " = tla." & gsCAT_TLATT_LOTID & " " & _
-                               " group by substr(tla." & gsCAT_TLATT_IPN & ", 0, 4) "
-                        'Add by Dexter on 20220809 for CP 併批測試 Phase II-第二階段需求 Key值取消IPN條件 <End>
+                For iRowIndex = 1 To .MaxRows
+                    .Col = mispdLotList_CHECK
+                    .Row = iRowIndex
+                    If .Text = 1 Then '打勾才要列印.
+                        .GetText miSPDLOTLIST_LOT_ID, iRowIndex, vLotID
+                        .GetText miSPDLOTLIST_PROD_NO, iRowIndex, vProdNo
+                        .GetText mispdLotList_STEP, iRowIndex, vStepName
+                        .GetText mispdLotList_WQTY, iRowIndex, vWqty
+                        .GetText mispdLotList_CQTY, iRowIndex, vCqty
+                        .GetText miSPDLOTLIST_LOT_OWNER, iRowIndex, vLotOwner
+                        .GetText miSPDLOTLIST_SPEED, iRowIndex, vSpeed
+                        .GetText mispdLotList_ROUTE, iRowIndex, vRoute
+                                
+                        'StepID added by Jack on 2011/04/25 requested by Daniel.
+                        sSQL = "select a." & gsCAT_TLATT_IPN & ", " & _
+                                      "a." & gsCAT_TLATT_STEPNAME & ", " & _
+                                      "a." & gsCAT_TLATT_STEPID & " " & _
+                                 "from " & gsCAT_TBL_LOT_ATTRIBUTE & " a " & _
+                                "where a." & gsCAT_TLATT_LOTID & " = '" & Trim(vLotID) & "'"
                         Set colRS = moProRawSql.QueryDatabase(sSQL)
-                        If colRS.Count = 0 Then
-                            UtShowMsgBox ("The Virtual Lot [" & .Text & "] is not exist!")
-                            Call .SetText(mispdLotList_CHECK, Row, 0) '取消勾消.
-                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, "")
-                            Call .SetText(mispdLotList_WQTY, Row, "")
-                            Call .SetText(mispdLotList_CQTY, Row, "")
-                        Else
-                            Call .SetText(mispdLotList_CHECK, Row, 1) '勾選.
-                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, colRS.Item(1).Item(gsCAT_TLATT_IPN))
-                            Call .SetText(mispdLotList_WQTY, Row, colRS.Item(1).Item("wqty"))
-                            Call .SetText(mispdLotList_CQTY, Row, colRS.Item(1).Item("cqty"))
+                        If Not colRS Is Nothing Then
+                            If colRS.Count > 0 Then
+                                sIPN = colRS.Item(1).Item(1)
+                                sStepName = colRS.Item(1).Item(2)
+                                sStepID = colRS.Item(1).Item(3)
+                            End If
                         End If
-                    Case Else
-                'Add by Sam End on 20201203 for Project CP 測前併批
-                        Set oLot = moFwWIP.LotById(Trim(.Text))
-                        If oLot Is Nothing Then
-                            UtShowMsgBox ("The Lot [" & .Text & "] is not exist!")
-                            Call .SetText(mispdLotList_CHECK, Row, 0) '取消勾消.
-                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, "")
-                            Call .SetText(mispdLotList_WQTY, Row, "")
-                            Call .SetText(mispdLotList_CQTY, Row, "")
-                            Call .SetText(miSPDLOTLIST_LOT_OWNER, Row, "")
-                            Call .SetText(miSPDLOTLIST_SPEED, Row, "")
-                            Call .SetText(mispdLotList_ROUTE, Row, "") '
-                            Call .SetText(mispdLotList_STEP, Row, "") 'added by Jack on 2011/04/18 for JC201100104.
-                        Else
-                            Call .SetText(mispdLotList_CHECK, Row, 1) '勾選.
-                            Call .SetText(miSPDLOTLIST_PROD_NO, Row, oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value)
-                            Call .SetText(mispdLotList_WQTY, Row, oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value)
-                            Call .SetText(mispdLotList_CQTY, Row, oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value)
-                            Call .SetText(miSPDLOTLIST_LOT_OWNER, Row, oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_LOT_OWNER).Value)
-                            Call .SetText(miSPDLOTLIST_SPEED, Row, GetSpeed(oLot.CustomAttributes(gsLOT_CUSTOMATTR_IPN), moProRawSql, moAppLog))
-                            Call .SetText(mispdLotList_ROUTE, Row, oLot.PlanId)
-                            Call .SetText(mispdLotList_STEP, Row, oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_STEPNAME).Value) 'added by Jack on 2011/04/18 for JC201100104.
-                        End If
-                End Select
-                Call .SetCellBorder(0, 0, .MaxCols, .MaxRows, 15, -1, CellBorderStyleSolid)
-                Call ResizeSpdColumn(Me.spdLotList, moAppLog)
+                        Set colRS = Nothing
+                                               
+                        Call modPrint.Prt_FT_FT_BIN_CARD_LABEL(Trim(vLotID), _
+                                                            Trim(sIPN), _
+                                                            Trim(sStepName), _
+                                                            Trim(sStepID), _
+                                                            Me.cboPrintServer.Text, bPrintPass, _
+                                                            moCwMbx, moAppLog, sCargradeFlag)
+                End If
+                Next
             End With
         End If
-        
+    Next iIndex
+'----
+' Done
+'----
+            
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    Screen.MousePointer = vbDefault
+    ' Cleaning up
+    miResult = vbOK
+    
+'列印FT BIN CARD Label必需經由Cancel關閉Form.
+'    'add by Sam start on 20080910 for ReqNo:M200807057
+'    If msLabelSpec <> "" Then
+'        Me.Hide
+'    End If
+'    'add by Sam end on 20080910 for ReqNo:M200807057
+    
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+           Case glERR_INVALIDOBJECT
+               ' Retry code goes here...
+           Case Else
+                 typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+        End Select
+        '---- Start of Select Case Block ----
+        Screen.MousePointer = vbDefault
+        cmdOK.Enabled = True
+        miResult = vbCancel
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
     End If
 End Sub
