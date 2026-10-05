@@ -408,12 +408,18 @@
 
                     try {
                         const response = await mesfetch("/api/print/print-label/etest-merge-info", { LotId: this.form.labelData.trim() });
-
+                        
                         if (response.Success && response.Data) {
                             this.form.totalQty = response.Data.TotalQty || '';
+                            
+                            // 💡 修正核心：將 C# 的 PascalCase (大寫開頭) 屬性對應到 Vue 的 camelCase (小寫開頭) 屬性
+                            let lotsFromApi = response.Data.ChildLots || [];
+                            this.etestList = lotsFromApi.map(item => ({
+                                childLotId: item.ChildLotId || item.childLotId || '',
+                                qty: item.Qty || item.qty || ''
+                            }));
 
                             // 更新表格，補齊到至少 5 列以維持畫面美觀
-                            this.etestList = response.Data.ChildLots || [];
                             while (this.etestList.length < 5) {
                                 this.etestList.push({ childLotId: '', qty: '' });
                             }
