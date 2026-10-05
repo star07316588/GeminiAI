@@ -1,176 +1,286 @@
+Private Sub txtLotId_KeyPress(Index As Integer, KeyAscii As Integer)
+On Error GoTo ExitHandler:
+Dim sProcID As String
+Dim typErrInfo As tErrInfo
+Dim oLot       As FwLot
+Dim sPartNo    As String
 
-            // ---------------------------------------------------------
-            // [對應 VB6 雙層列印迴圈]
-            // ---------------------------------------------------------
-            // 外迴圈：控制列印份數 (對應 VB6: For iIndex = 1 To Val(Me.txtPrintQty.Text))
-            for (int copyIndex = 1; copyIndex <= req.PrintQty; copyIndex++)
-            {
-                // 內迴圈：控制裝箱數 (對應 VB6: For iIdx = 1 To iPrintTimes)
-                for (int boxIndex = 1; boxIndex <= innerPrintTimes; boxIndex++)
-                {
-                    bool isPartial = false;
-                    string printQtyForLabel = req.BoxQty.ToString();
+Dim sSQL    As String
+Dim colRS   As Collection
+Dim oItem   As Object
 
-                    // 尾數箱判斷 (對應 VB6 的 bIsPartial 邏輯)
-                    if (isBoxMode && boxIndex == innerPrintTimes && int.TryParse(req.CQty, out int totalCQty))
-                    {
-                        int remainder = totalCQty % req.BoxQty;
-                        if (remainder > 0)
-                        {
-                            isPartial = true;
-                            printQtyForLabel = remainder.ToString();
-                        }
-                    }
+Dim i       As Integer
+Dim sIPN    As String
+Dim sCQty   As String
+Dim iReel   As Integer
 
-                    // 呼叫加工廠：取得 ZPL 字串 (對應 VB6 大量的 Call modPrint.Prt_...)
-                    string generatedZpl = await GenerateZplForLabelAsync(req, isPartial, printQtyForLabel, timeStampYMD);
+'----
+' Init
+'----
+    sProcID = "txtLotId_KeyPress"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
 
-                    // 呼叫送貨員：發送並寫入 Log
-                    if (!string.IsNullOrEmpty(generatedZpl))
-                    {
-                        await SendToPrinterAndLogAsync(req.PrinterServer, generatedZpl, req);
-                    }
-                }
-            }
+'----
+' Condition Checking
+'----
+    If KeyAscii <> 13 Then
+        GoTo ExitHandler
+    End If
+    
+    txtLotId(Index).Locked = True
+    txtLotId(Index).BackColor = &H80000000
+'----
+' Action
+'----
+    
+    Select Case Index
+        Case 0
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtQty(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+        Case 1
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
+            sPartNo = modCustom.RetrieveEPNbyIPN(moAppLog, _
+                                                moFwWIP, _
+                                                moFwWF, _
+                                                moCwMbx, _
+                                                oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value)
+            Me.txtPartNo(Index).Text = sPartNo
+        
+        Case 2
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
+        Case 3
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
+            Me.txtLotOwner(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_LOT_OWNER).Value
+            Me.txtSpeed(Index).Text = GetSpeed(oLot.CustomAttributes(gsLOT_CUSTOMATTR_IPN), moProRawSql, moAppLog)
+        Case 4
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
+            Me.txtLotOwner(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_LOT_OWNER).Value
+            Me.txtRouteId(Index).Text = oLot.PlanId
+            'added by Jack on 2011/04/19 for JC201100104 <Start>
+            Me.txtStepName(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_STEPNAME).Value
+            'added by Jack on 2011/04/19 for JC201100104 <End>
+        Case 5
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
+        Case 6
+            sSQL = "select A.WIPID         as PARENTLOTID," & vbNewLine & _
+                    "      D.ORIGINALVALUE as PARENTLOTQTY," & vbNewLine & _
+                    "      B.VALDATA       as CHILDLOTID," & vbNewLine & _
+                    "      E.ORIGINALVALUE as CHILDLOTQTY" & vbNewLine
+            sSQL = sSQL & _
+                    "  from FWMERGE A," & vbNewLine & _
+                    "      FWMERGE_PN2M B," & vbNewLine & _
+                    "      FWWIPHISTORY C," & vbNewLine & _
+                    "      (select D1.ORIGINALVALUE, D2.GROUPHISTKEY" & vbNewLine & _
+                    "         from FWWIPTRANSACTION D1, FWWIPHISTORY D2" & vbNewLine & _
+                    "        where D1.WIPID = '" & Me.txtLotId(6).Text & "'" & vbNewLine & _
+                    "          and D1.ACTIVITY = 'ModifyAttribute'" & vbNewLine & _
+                    "          and D1.ATTRIBUTE = 'ChipQty'" & vbNewLine & _
+                    "          and D1.SYSID = D2.WIPTXN) D," & vbNewLine & _
+                    "      (select E1.ORIGINALVALUE, E2.GROUPHISTKEY, E1.WIPID" & vbNewLine & _
+                    "         from FWWIPTRANSACTION E1, FWWIPHISTORY E2" & vbNewLine & _
+                    "        where E1.ACTIVITY = 'ModifyAttribute'" & vbNewLine & _
+                    "          and E1.ATTRIBUTE = 'ChipQty'" & vbNewLine & _
+                    "          and E1.SYSID = E2.WIPTXN) E" & vbNewLine
+            sSQL = sSQL & _
+                    " where MERGESTEPID between '51201' and '51299'" & vbNewLine & _
+                    "   and A.WIPID = '" & Me.txtLotId(6).Text & "'" & vbNewLine & _
+                    "   and A.SYSID = B.FROMID" & vbNewLine & _
+                    "   and B.LINKNAME = 'childLotCollection'" & vbNewLine & _
+                    "   and A.SYSID = C.WIPTXN" & vbNewLine & _
+                    "   and C.GROUPHISTKEY = D.GROUPHISTKEY" & vbNewLine & _
+                    "   and E.WIPID = B.VALDATA" & vbNewLine & _
+                    "   and C.GROUPHISTKEY = E.GROUPHISTKEY"
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            If colRS.Count > 0 Then
+                Me.txtCqty(6).Text = colRS.Item(1).Item("PARENTLOTQTY")
+                With Me.spdChildLot
+                    .MaxRows = 0
+                    For Each oItem In colRS
+                        .MaxRows = .MaxRows + 1
+                        .SetText 1, .MaxRows, oItem("CHILDLOTID")
+                        .SetText 2, .MaxRows, oItem("CHILDLOTQTY")
+                    Next oItem
+                End With
+            End If
+        Case 7 'add by Nelson on 2008/06/03 for ReqNo:M200806003
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
+            sPartNo = modCustom.RetrieveEPNbyIPN(moAppLog, _
+                                                moFwWIP, _
+                                                moFwWF, _
+                                                moCwMbx, _
+                                                oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value)
+            Me.txtPartNo(Index).Text = sPartNo
+        'Added by Jack on 2016/06/03 for 2016 MES Phase-5 Project (FT eRunCard Paperless Phase-2 Project) <Start>
+        Case 8
+            Me.txtLPI_CarrierType = ""
+            Me.txtLPI_BoxingSpecNO = ""
+            Me.txtLPI_Brand = ""
+            Me.txtLPI_PinCount = ""
+            Me.txtLPI_PackageCode = ""
+            Me.txtLPI_LabelSpecNo = ""
+            
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot '" & Trim(Me.txtLotId(Index).Text) & "' is not exist!")
+                Me.txtLotId(Index).Text = ""
+                txtLotId(Index).Locked = False
+                txtLotId(Index).BackColor = &H80000005
+                GoTo ExitHandler
+            End If
+            
+            'IPN added by Jack on 2016/07/04.
+            sSQL = "select a." & gsCAT_TIM_CARRIER_TYPE & ", a." & gsCAT_TIM_BOXING_SPEC_NO & ", " _
+                       & " a." & gsCAT_TIM_BRAND & ", a." & gsCAT_TIM_PIN_COUNT & ", " _
+                       & " a." & gsCAT_TIM_PACKAGE_CODE & ", c." & gsCAT_TCUM_LABELSPECNO & ", " _
+                       & " a." & gsCAT_TIM_IPN
+            sSQL = sSQL _
+                       & " from " _
+                       & gsCAT_TBL_IPN_MASTER & " a, " & gsCAT_TBL_PRM_BE_SPEC & " b, " _
+                       & gsCAT_TBL_CUSTOMER_MASTER & " c, " & gsCAT_TBL_LOT_ATTRIBUTE & " d "
+            'defaults='Y' added by Jack on 2016/07/04
+            sSQL = sSQL _
+                       & " where d." & gsCAT_TLATT_LOTID & " = '" & oLot.Id & "' " _
+                       & "   and d." & gsCAT_TLATT_IPN & " = a." & gsCAT_TIM_IPN & " " _
+                       & "   and d." & gsCAT_TLATT_IPN & " = b." & gsCAT_TPBS_IPN & "(+) " _
+                       & "   and b." & gsCAT_TPBS_CUSTOMER_NO & " = c." & gsCAT_TCUM_CUSTOMERNO & "(+) " _
+                       & "   and b." & gsCAT_TPBS_DEFAULTS & "= 'Y' "
+                       
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            If colRS.Count > 0 Then
+                Me.txtLPI_CarrierType = colRS.Item(1).Item(gsCAT_TIM_CARRIER_TYPE)
+                Me.txtLPI_BoxingSpecNO = colRS.Item(1).Item(gsCAT_TIM_BOXING_SPEC_NO)
+                Me.txtLPI_Brand = colRS.Item(1).Item(gsCAT_TIM_BRAND)
+                Me.txtLPI_PinCount = colRS.Item(1).Item(gsCAT_TIM_PIN_COUNT)
+                Me.txtLPI_PackageCode = colRS.Item(1).Item(gsCAT_TIM_PACKAGE_CODE)
+                Me.txtLPI_LabelSpecNo = colRS.Item(1).Item(gsCAT_TCUM_LABELSPECNO)
+                Me.txtLPI_IPN = colRS.Item(1).Item(gsCAT_TIM_IPN) 'IPN added by Jack on 2016/07/04.
+            Else
+                '為了因應工程品不follow PROD 的情況, 所以Rule  改成...
+                '若IPN不存在, 且User 用的是auto  mode , 則顯示message
+                '因工程品後段"是否follow PROD" 的欄位, 並沒有傳至MES, 所以產線印出Label, 還是會比對委測單, 以確保品質.
+                'IPN 不存在, 或Tbl_prm_backend_spec.defaults<>'Y' ,  請以Manual 列印
+                Call UtShowMsgBox("IPN 不存在 或Tbl_prm_backend_spec.defaults<>'Y', " & vbNewLine & _
+                                  "請以Manual mode 列印" & vbNewLine & vbNewLine & _
+                                  "IPN is not exist or Tbl_prm_backend_spec.defaults<>'Y'" & vbNewLine & _
+                                  "please use Manual mode Print Label ")
+                GoTo ExitHandler
+            End If
+        'Added by Jack on 2016/06/03 for 2016 MES Phase-5 Project (FT eRunCard Paperless Phase-2 Project) <End>
+        'Add gsLABEL_FT_TR_LABEL by HouYu for 202000413 on 20220422
+        Case 9
+            sSQL = "SELECT * FROM " & gsCAT_TBL_LOT_ATTRIBUTE & _
+                    " WHERE " & gsCAT_TLATT_LOTID & " = '" & Me.txtLotId(Index).Text & "'"
+            
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            If colRS.Count > 0 Then
+                sIPN = colRS.Item(1).Item(gsCAT_TLATT_IPN)
+                sCQty = colRS.Item(1).Item(gsCAT_TLATT_CHIPQTY)
+            End If
+            
+            sSQL = "SELECT TLA." & gsCAT_TLATT_LOTID & "," & _
+                          "TLA." & gsCAT_TIM_IPN & "," & _
+                          "TIM." & gsCAT_TIM_IPN & "," & _
+                          "TIM." & gsCAT_TIM_PRODBODY & "," & _
+                          "TIM." & gsCAT_TIM_PIN_COUNT & "," & _
+                          "TIM." & gsCAT_TIM_PACKAGE_CODE & "," & _
+                          "TIM." & gsCAT_TIM_BODY_SIZE & "" & _
+                     " FROM " & gsCAT_TBL_LOT_ATTRIBUTE & " TLA, " & gsCAT_TBL_IPN_MASTER & " TIM" & _
+                    " WHERE TLA." & gsCAT_TLATT_IPN & " = TIM." & gsCAT_TIM_IPN & "(+)" & _
+                      "AND TLA." & gsCAT_TLATT_LOTID & " = '" & Me.txtLotId(Index).Text & "'"
+            
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            
+            If colRS.Count > 0 Then
+                If colRS.Item(1).Item(3) <> "" Then
+                    Me.txt_FT_TR_IPN.Text = colRS.Item(1).Item(gsCAT_TIM_PRODBODY) & "-" & colRS.Item(1).Item(gsCAT_TIM_PIN_COUNT) & colRS.Item(1).Item(gsCAT_TIM_PACKAGE_CODE) & " " & colRS.Item(1).Item(gsCAT_TIM_BODY_SIZE)
+                Else
+                    Me.txt_FT_TR_IPN.Text = colRS.Item(1).Item(2)
+                End If
+            End If
+            
+            sSQL = "SELECT " & gsCAT_TPBS_CARRIER_QTY & _
+                    " FROM " & gsCAT_TBL_PRM_BE_SPEC & _
+                    " WHERE " & gsCAT_TPBS_IPN & "='" & sIPN & _
+                    "' AND " & gsCAT_TPBS_DEFAULTS & " ='Y'"
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            If colRS.Count > 0 Then
+                Me.txt_FT_TR_QtyReel.Text = colRS.Item(1).Item(gsCAT_TPBS_CARRIER_QTY)
+            End If
+        'Add gsLABEL_FT_TR_LABEL by HouYu for 202000413 on 20220422
+    End Select
+'----
+' Done
+'----
 
-　　　　// =========================================================================
-        // 2. 加工廠：GenerateZplForLabelAsync (包含巨大的 Switch Case)
-        //    只負責查資料 + 置換 ZPL 模板，最後「回傳字串」
-        // =========================================================================
-        private async Task<string> GenerateZplForLabelAsync(PrintLabelRequest req, bool isPartial, string printQtyForLabel, string timeStampYMD)
-        {
-            switch (req.LabelFormat)
-            {
-                case "TO_SUBTR_NORMAL":
-                    return ZplTemplates.FT_To_SubTR_Normal
-                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{ProdNo}", req.IPN)
-                        .Replace("{Qty}", printQtyForLabel)
-                        .Replace("{Packer}", req.UserId);
-
-                case "TO_SUBFT_NORMAL":
-                    return ZplTemplates.FT_To_SubFT_Normal
-                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{ProdNo}", req.IPN)
-                        .Replace("{Qty}", printQtyForLabel)
-                        .Replace("{Packer}", req.UserId);
-
-                case "TO_SUBMK_NORMAL":
-                    return ZplTemplates.FT_To_SubMK_Normal
-                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{ProdNo}", req.IPN)
-                        .Replace("{Qty}", printQtyForLabel)
-                        .Replace("{Packer}", req.UserId);
-
-                case "TO_SUBTR_ENG_SAMPLE":
-                    return ZplTemplates.FT_To_SubTR_Eng_Sample
-                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{ProdNo}", req.IPN)
-                        .Replace("{Qty}", printQtyForLabel)
-                        .Replace("{Packer}", req.UserId);
-
-                case "TO_SUBFT_ENG_SAMPLE":
-                    return ZplTemplates.FT_To_SubFT_Eng_Sample
-                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{ProdNo}", req.IPN)
-                        .Replace("{Qty}", printQtyForLabel)
-                        .Replace("{Packer}", req.UserId);
-
-                case "TO_SUBMK_ENG_SAMPLE":
-                    return ZplTemplates.FT_To_SubMK_Eng_Sample
-                        .Replace("{PartialBlock}", isPartial ? ZplTemplates.PartialBlock : "")
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{ProdNo}", req.IPN)
-                        .Replace("{Qty}", printQtyForLabel)
-                        .Replace("{Packer}", req.UserId);
-
-                case "WS_TO_SFG":
-                    string partNo = "XXX"; // 實務上替換為查表邏輯
-                    return ZplTemplates.WS_WS_To_SFG
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{ProdNo}", req.IPN)
-                        .Replace("{WQty}", req.WQty)
-                        .Replace("{Qty}", req.CQty)
-                        .Replace("{PartNo}", partNo);
-
-                case "FT_TR_LABEL":
-                    return ZplTemplates.FT_TR_LABEL
-                        .Replace("{LotId}", req.LotId)
-                        .Replace("{IPN}", req.IPN)
-                        .Replace("{QtyReel}", printQtyForLabel)
-                        .Replace("{EqID}", req.SearchData) // 對應原 VB6 的 EqID
-                        .Replace("{ReelId}", req.WaferId); // 對應原 VB6 的 ReelID
-
-                case "FT_BOX_COUNTING":
-                    // 💡 將原本直接 return ZplTemplates... 的寫法改為呼叫加工廠
-                    generatedZpl = await Generate_FT_BOX_COUNTING_ZplAsync(req, printQtyForLabel);
-                    break;
-
-                case "WS_ENG_LOC_LABEL":
-                    var engLocData = await _printLabelRepo.GetEngLocMasterDataAsync(req.LotId) ?? new EngLocMasterData();
-                    return ZplTemplates.WS_ENG_LOC_LABEL
-                        .Replace("{LotNo}", req.LotId)
-                        .Replace("{WQty}", engLocData.WQty ?? "")
-                        .Replace("{OwnerId}", engLocData.OwnerId ?? "")
-                        .Replace("{OwnerDep}", engLocData.OwnerDep ?? "");
-
-                // 💡 更新這裡：將 FT_BIN_CARD_LABEL 指向專屬的加工廠方法
-                case "FT_BIN_CARD_LABEL":
-                case "FT_BIN_CARD":
-                    return await Generate_FT_BIN_CARD_ZplAsync(req, timeStampYMD);
-
-                case "WS_SMALL_LABEL":
-                case "CP_SMALL_LABEL":
-                    // 由於此邏輯龐大，抽成獨立 private 方法，回傳字串
-                    return await Generate_WS_CP_SMALL_LABEL_ZplAsync(req);
-
-                case "CP_VIRTUAL_LOT_LABEL":
-                    return await Generate_CP_VIRTUAL_ZplAsync(req, false);
-
-                case "CP_VIRTUAL_MERGE":
-                    return await Generate_CP_VIRTUAL_ZplAsync(req, true);
-
-                case "FT_SMALL_LABEL":
-                    return await Generate_FT_SMALL_LABEL_ZplAsync(req);
-
-                case "FT_Label_PACK_INFO":
-                    return await Generate_FT_Label_PACK_INFO_ZplAsync(req);
-
-                case "WS_SUMMARY":
-                    return await Generate_WS_SUMMARY_ZplAsync(req, timeStampYMD);
-
-                case "WS_DGRADE_SUMMARY":
-                    return await Generate_WS_DGRADE_SUMMARY_ZplAsync(req, timeStampYMD);
-
-                case "WS_MULTILOT_TO_SFG":
-                case "WSMCD_TO_SFG":
-                    return await Generate_WSMCD_ZplAsync(req, timeStampYMD);
-
-                default:
-                    throw new ArgumentException($"不支援的標籤格式: {req.LabelFormat}");
-            }
-        }
-
-        // =========================================================================
-        // 🔹 加工廠：產生 FT_BOX_COUNTING
-        // =========================================================================
-        private async Task<string> Generate_FT_BOX_COUNTING_ZplAsync(PrintLabelRequest req, string printQtyForLabel)
-        {
-            // 由於 Box Counting 畫面只要求輸入 LotNo，我們必須自動幫它查出 IPN
-            string ipn = req.IPN;
-            if (string.IsNullOrEmpty(ipn))
-            {
-                var lotAttr = await _printLabelRepo.GetLotAttributeAsync(req.LotId);
-                ipn = lotAttr?.Ipn ?? "";
-            }
-
-            return ZplTemplates.FT_BOX_COUNTING_LABEL
-                .Replace("{LotId}", req.LotId)
-                .Replace("{IPN}", ipn)
-                .Replace("{PrintCount}", printQtyForLabel);
-        }
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Sub
