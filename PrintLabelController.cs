@@ -233,5 +233,31 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = "批號查詢發生例外錯誤" });
             }
         }
+        // =========================================================================
+        // 依據 LotId 取得 ETEST_MERGE 的子批號與總數
+        // =========================================================================
+        [HttpPost, Route("etest-merge-info"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetEtestMergeInfo([FromBody] LotInfoRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.LotId)) 
+            {
+                return BadRequest("請提供批號");
+            }
+            try
+            {
+                // 呼叫 Service 查詢 (底層調用 Repository 實作)
+                var result = await _printLabelService.GetEtestMergeDataAsync(request.LotId.Trim());
+                if (result == null || result.ChildLots.Count == 0)
+                {
+                    return Ok(new { Success = false, Message = $"查無此批號的 ETest Merge 資訊" });
+                }
+                return Ok(new { Success = true, Message = "", Data = result });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error(this, ex.Message, ex);
+                return Ok(new { Success = false, Message = "查詢發生例外錯誤" });
+            }
+        }
     }
 }
