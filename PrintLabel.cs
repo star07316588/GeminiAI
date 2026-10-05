@@ -1645,29 +1645,64 @@ namespace MES.Net.Infrastructure.Repository.Print
             return await _dbConnection.QueryFirstOrDefaultAsync<LotAttributeData>(sql, new { p_LotId = lotId });
         }
 
+        // =========================================================================
+        // 取得 ETEST_MERGE 的子批號與總數 (完美對應 VB6 Case 6)
+        // =========================================================================
         public async Task<EtestMergeResponse> GetEtestMergeDataAsync(string lotId)
         {
             var response = new EtestMergeResponse();
 
-            // 💡 請替換成貴廠實際儲存子母批號關聯的 Table (如 TBL_MERGE_HISTORY)
+            // 💡 完整還原 VB6 Case 6 的 SQL 語句
             string sql = @"
                 SELECT 
-                    CHILD_LOTID AS ChildLotId, 
-                    CHILD_QTY AS Qty 
-                FROM TBL_ETEST_MERGE_HISTORY 
-                WHERE PARENT_LOTID = :p_LotId AND DELETE_FLAG = 'N'
-                ORDER BY CHILD_LOTID";
+                    A.WIPID AS PARENTLOTID,
+                    D.ORIGINALVALUE AS PARENTLOTQTY,
+                    B.VALDATA AS CHILDLOTID,
+                    E.ORIGINALVALUE AS CHILDLOTQTY
+                FROM FWMERGE A
+                INNER JOIN FWMERGE_PN2M B ON A.SYSID = B.FROMID AND B.LINKNAME = 'childLotCollection'
+                INNER JOIN FWWIPHISTORY C ON A.SYSID = C.WIPTXN
+                INNER JOIN (
+                    SELECT D1.ORIGINALVALUE, D2.GROUPHISTKEY
+                    FROM FWWIPTRANSACTION D1
+                    INNER JOIN FWWIPHISTORY D2 ON D1.SYSID = D2.WIPTXN
+                    WHERE D1.WIPID = :p_LotId
+                      AND D1.ACTIVITY = 'ModifyAttribute'
+                      AND D1.ATTRIBUTE = 'ChipQty'
+                ) D ON C.GROUPHISTKEY = D.GROUPHISTKEY
+                INNER JOIN (
+                    SELECT E1.ORIGINALVALUE, E2.GROUPHISTKEY, E1.WIPID
+                    FROM FWWIPTRANSACTION E1
+                    INNER JOIN FWWIPHISTORY E2 ON E1.SYSID = E2.WIPTXN
+                    WHERE E1.ACTIVITY = 'ModifyAttribute'
+                      AND E1.ATTRIBUTE = 'ChipQty'
+                ) E ON E.WIPID = B.VALDATA AND C.GROUPHISTKEY = E.GROUPHISTKEY
+                WHERE A.WIPID = :p_LotId
+                  AND MERGESTEPID BETWEEN '51201' AND '51299'";
 
-            var children = await _dbConnection.QueryAsync<EtestChildLot>(sql, new { p_LotId = lotId });
-            response.ChildLots = children.AsList();
+            // 執行查詢 (此 SQL 的回傳欄位名稱為 CHILDLOTID 與 CHILDLOTQTY)
+            var queryResult = await _dbConnection.QueryAsync(sql, new { p_LotId = lotId });
 
-            // 計算總數
-            int total = 0;
-            foreach(var child in response.ChildLots)
+            if (queryResult != null && queryResult.Any())
             {
-                if (int.TryParse(child.Qty, out int q)) total += q;
+                // 1. 取得母批總數量 (所有列的 PARENTLOTQTY 都一樣，取第一筆即可)
+                response.TotalQty = queryResult.First().PARENTLOTQTY?.ToString() ?? "0";
+
+                // 2. 組裝子批號清單
+                foreach (var row in queryResult)
+                {
+                    response.ChildLots.Add(new EtestChildLot
+                    {
+                        ChildLotId = row.CHILDLOTID?.ToString() ?? "",
+                        Qty = row.CHILDLOTQTY?.ToString() ?? "0"
+                    });
+                }
             }
-            response.TotalQty = total.ToString();
+            else
+            {
+                // 查無資料
+                response.TotalQty = "0";
+            }
 
             return response;
         }
