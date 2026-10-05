@@ -54,6 +54,17 @@ namespace MES.Net.Shared.DTOs.Print
         public string Step { get; set; }
     }
 
+    public class EtestMergeResponse
+    {
+        public string TotalQty { get; set; }
+        public List<EtestChildLot> ChildLots { get; set; } = new List<EtestChildLot>();
+    }
+
+    public class EtestChildLot
+    {
+        public string ChildLotId { get; set; }
+        public string Qty { get; set; }
+    }
     
     public class PrintLabelRequest
     {
