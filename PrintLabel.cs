@@ -1644,6 +1644,33 @@ namespace MES.Net.Infrastructure.Repository.Print
     
             return await _dbConnection.QueryFirstOrDefaultAsync<LotAttributeData>(sql, new { p_LotId = lotId });
         }
+
+        public async Task<EtestMergeResponse> GetEtestMergeDataAsync(string lotId)
+        {
+            var response = new EtestMergeResponse();
+
+            // 💡 請替換成貴廠實際儲存子母批號關聯的 Table (如 TBL_MERGE_HISTORY)
+            string sql = @"
+                SELECT 
+                    CHILD_LOTID AS ChildLotId, 
+                    CHILD_QTY AS Qty 
+                FROM TBL_ETEST_MERGE_HISTORY 
+                WHERE PARENT_LOTID = :p_LotId AND DELETE_FLAG = 'N'
+                ORDER BY CHILD_LOTID";
+
+            var children = await _dbConnection.QueryAsync<EtestChildLot>(sql, new { p_LotId = lotId });
+            response.ChildLots = children.AsList();
+
+            // 計算總數
+            int total = 0;
+            foreach(var child in response.ChildLots)
+            {
+                if (int.TryParse(child.Qty, out int q)) total += q;
+            }
+            response.TotalQty = total.ToString();
+
+            return response;
+        }
     }
 }
 
@@ -3684,7 +3711,10 @@ namespace MES.Net.Application.Services.Print
                 case "CP_SMALL_LABEL":
                     // 由於此邏輯龐大，抽成獨立 private 方法，回傳字串
                     return await Generate_WS_CP_SMALL_LABEL_ZplAsync(req);
-
+                case "FT_ETEST_MERGE_LABEL":
+                case "FT_ETEST_MERGE":
+                    return await Generate_FT_ETEST_MERGE_ZplAsync(req, timeStampYMD);
+                    
                 case "CP_VIRTUAL_LOT_LABEL":
                     return await Generate_CP_VIRTUAL_ZplAsync(req, false);
 
@@ -3710,6 +3740,38 @@ namespace MES.Net.Application.Services.Print
                 default:
                     throw new ArgumentException($"不支援的標籤格式: {req.LabelFormat}");
             }
+        }
+
+        // =========================================================================
+        // 🔹 加工廠：產生 FT_ETEST_MERGE_LABEL
+        // =========================================================================
+        private async Task<string> Generate_FT_ETEST_MERGE_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            // 列印時重新獲取子批號清單，以確保資料準確
+            var mergeData = await _repo.GetEtestMergeDataAsync(req.LotId);
+            
+            // 基礎 ZPL (根據您之前轉換的 ZplTemplates 調整)
+            string zpl = ZplTemplates.FT_ETEST_MERGE_LABEL
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{TotalQty}", mergeData?.TotalQty ?? "");
+
+            // 依序替換 5 個子批號的位置 (假設 ZPL 模板裡寫了 {ChildLot1}, {ChildQty1}...)
+            for (int i = 0; i < 5; i++)
+            {
+                string cLot = "";
+                string cQty = "";
+                
+                if (mergeData != null && i < mergeData.ChildLots.Count)
+                {
+                    cLot = mergeData.ChildLots[i].ChildLotId;
+                    cQty = mergeData.ChildLots[i].Qty;
+                }
+
+                zpl = zpl.Replace($"{{ChildLot{i + 1}}}", cLot)
+                         .Replace($"{{ChildQty{i + 1}}}", cQty);
+            }
+
+            return zpl;
         }
 
         // =========================================================================
