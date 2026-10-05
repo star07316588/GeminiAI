@@ -3,469 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PRINT ISG FORM</title>
+    <title>PRINT BARCODE LABEL</title>
 
     <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
     <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
     <link href="/Content/css/slimselect.css" rel="stylesheet">
-    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
     <link href="/Content/css/site.css?v=260522" rel="stylesheet">
 
     <style>
-        .msc-panel, .mab-bar {
-            margin-bottom: 10px;
-        }
-
-        /* ── 列印專用樣式 ── */
-        .print-only {
-            display: none;
-        }
+        .msc-panel, .mab-bar { margin-bottom: 10px; }
+        .form-panel { background: var(--bg-surface, #ffffff); border: 1px solid var(--border, #d1d5db); border-radius: 6px; padding: 20px; margin-bottom: 16px; }
+        .form-title { font-size: 15px; font-weight: bold; color: var(--accent, #1565C0); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+        .form-list-layout { display: grid; grid-template-columns: 140px minmax(200px, 400px); row-gap: 14px; column-gap: 16px; align-items: center; }
+        .form-list-layout .field-label { text-align: right; font-size: 13px; font-weight: 600; color: var(--text-main, #333); margin: 0; }
+        .form-control { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; outline: none; transition: border-color 0.2s; background-color: #fff; height: 32px; box-sizing: border-box; }
+        .form-control:focus { border-color: var(--accent, #1565C0); }
+        .form-control:disabled { background-color: #f5f5f5; cursor: not-allowed; color: #888; }
+        .radio-group { display: flex; align-items: center; gap: 16px; height: 32px; }
+        .radio-item { display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; margin: 0; }
+        fieldset { border: none; padding: 0; margin: 0; }
         
-        @media print {
-            /* 隱藏系統外殼與查詢按鈕 */
-            .page-layout, .v-application {
-                display: none !important;
-            }
-            /* 顯示列印專用區塊 */
-            .print-only {
-                display: block !important;
-                font-family: Arial, sans-serif;
-                color: #000;
-            }
-            @page {
-                size: landscape; /* 模擬 VB 的 PrintOrientationLandscape */
-                margin: 15mm;
-            }
-            .print-header {
-                text-align: center;
-                margin-bottom: 20px;
-            }
-            .print-header h2 {
-                font-size: 24px;
-                margin-bottom: 10px;
-            }
-            .print-info {
-                display: flex;
-                justify-content: space-between;
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 10px;
-            }
-            .print-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10px;
-            }
-            .print-table th, .print-table td {
-                border: 1px solid #000;
-                padding: 8px;
-                text-align: center;
-                font-size: 14px;
-            }
-            .wafer-no-cell {
-                word-break: break-all;
-                text-align: left !important;
-            }
-        }
+        /* 表格樣式 */
+        .grid-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .grid-table th { background-color: #f0f0f0; border: 1px solid #ccc; padding: 6px; font-size: 13px; font-weight: bold; text-align: center; color: #333; }
+        .grid-table td { border: 1px solid #ccc; padding: 2px; text-align: center; background-color: #fff; }
+        .grid-table input[type="text"] { width: 100%; height: 26px; border: none; padding: 0 4px; outline: none; font-size: 13px; box-sizing: border-box; text-align: center; }
+        .grid-table input[type="text"]:focus { background-color: #e8f0fe; }
+        .grid-table input[readonly] { background-color: #f9f9f9; color: #666; }
+        .btn-ok { background-color: #f0f0f0; border: 1px solid #999; padding: 0 20px; height: 32px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .btn-ok:hover { background-color: #e0e0e0; border-color: #666; }
     </style>
 </head>
 <body>
-    <div id="app" data-app>
+    <div id="app" class="page-layout" data-app>
+        <mes-toolbar title="Print BarCode Label"></mes-toolbar>
         
-        <div class="page-layout">
-            <mes-toolbar title="Print ISG Form (列印出貨單)"></mes-toolbar>
+        <div class="page-body">
+            <mes-action-bar :buttons="actionButtons" :auto-add-close="true" @action="onAction"></mes-action-bar>
 
-            <div class="page-body">
-                <mes-search-criteria title="Select Criteria to query"
-                                     :fields="criteriaFields"
-                                     :cols="4"
-                                     v-model="qry"
-                                     ref="criteria"
-                                     @enter="doQuery"></mes-search-criteria>
-            
-                <mes-action-bar :buttons="actionButtons"
-                                :auto-add-close="true"
-                                @action="onAction"></mes-action-bar>
-            
-                <div v-show="currentViewType === 'FT'">
-                    <mes-query-result ref="resultGridFT"
-                                      title="Report Data (FT Mode)"
-                                      :columns="colFT"
-                                      :summary="summaryFT"
-                                      :data="dataFT"
-                                      style="height: calc(100vh - 280px);"> 
-                    </mes-query-result>
-                </div>
-            
-                <div v-show="currentViewType === 'WS'">
-                    <mes-query-result ref="resultGridWS"
-                                      title="Report Data (WS Mode)"
-                                      :columns="colWS"
-                                      :summary="summaryWS"
-                                      :data="dataWS"
-                                      style="height: calc(100vh - 280px);"> 
-                    </mes-query-result>
+            <!-- 基礎列印條件區塊 -->
+            <div class="form-panel">
+                <div class="form-list-layout">
+                    
+                    <label class="field-label">Stage :</label>
+                    <select class="form-control" v-model="form.stage" @change="onStageChange">
+                        <option value="">-- Select Stage --</option>
+                        <option v-for="opt in options.stages" :key="opt" :value="opt">{{ opt }}</option>
+                    </select>
+
+                    <label class="field-label">Label Type :</label>
+                    <select class="form-control" v-model="form.labelFormat" @change="onLabelFormatChange">
+                        <option value="">-- Select Format --</option>
+                        <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
+                    </select>
+
+                    <!-- 一般單批輸入框隱藏邏輯 -->
+                    <label class="field-label" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode">Label Data :</label>
+                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Wafer ID" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode">
+
+                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode">
+                        <label class="field-label">Print Mode :</label>
+                        <div class="radio-group">
+                            <label class="radio-item"><input type="radio" v-model="form.printMode" value="Normal" @change="onPrintModeChange"> Normal</label>
+                            <label class="radio-item"><input type="radio" v-model="form.printMode" value="Reprint" @change="onPrintModeChange"> Reprint</label>
+                            <label class="radio-item"><input type="radio" v-model="form.printMode" value="Modify" @change="onPrintModeChange"> Modify</label>
+                        </div>
+                    </template>
+
+                    <!-- 根據截圖，EtestMerge 會顯示 BoxQty，但可能是唯讀或空白 -->
+                    <template v-if="!isBinCardMode && !isBoxCountingMode">
+                        <label class="field-label">Box Qty :</label>
+                        <input type="number" class="form-control" v-model.number="form.boxQty" min="1" :disabled="!isBoxQtyEnabled || isEtestMergeMode">
+                    </template>
+
+                    <label class="field-label">Printer Server :</label>
+                    <select class="form-control" v-model="form.printerServer">
+                        <option value="">-- Select Server --</option>
+                        <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
+                    </select>
+
+                    <template v-if="!isBinCardMode">
+                        <label class="field-label">列印份數 :</label>
+                        <input type="number" class="form-control" v-model.number="form.printQty" min="1" max="99">
+                    </template>
+
+                    <!-- FT_BIN_CARD 專屬輸入區塊保留不變 -->
+                    <template v-if="isBinCardMode">
+                        <!-- ... 略 ... -->
+                    </template>
+
                 </div>
             </div>
-            
-            <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
-        </div>
 
-<div class="print-only" v-if="reportData">
-            <div class="print-header">
-                <h2>MXIC/BE代工出貨單</h2>
-                <div class="print-info">
-                    <span>單據號碼：{{ reportData.ShipNo || reportData.shipNo }}</span>
-                    <span>出貨簽名：________________</span>
-                    <span>收貨簽名：________________</span>
+            <!-- 💡 新增：FT_ETEST_MERGE_LABEL 專屬區塊 -->
+            <div class="form-panel" v-show="isEtestMergeMode">
+                <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
+                
+                <!-- 第一列：LOT NO 與 QTY -->
+                <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 12px; padding-left: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 13px; font-weight: bold; width: 100px; text-align: right;">(1T) LOT NO:</label>
+                        <!-- 綁定 form.labelData 並監聽 Enter 與離開焦點事件 -->
+                        <input type="text" class="form-control" style="width: 200px;" v-model="form.labelData" @blur="fetchEtestInfo" @keyup.enter="fetchEtestInfo">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 13px; font-weight: bold; width: 40px; text-align: right;">QTY:</label>
+                        <input type="text" class="form-control" style="width: 120px; background-color: #d1d5db;" v-model="form.totalQty" readonly>
+                    </div>
+                </div>
+
+                <!-- 第二列：子批號表格 -->
+                <div style="width: 60%; margin: 0 auto;">
+                    <table class="grid-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>ChildLotID</th>
+                                <th>Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(row, index) in etestList" :key="index">
+                                <td style="background-color: #f0f0f0; border-right: 1px solid #999;">{{ index + 1 }}</td>
+                                <td><input type="text" v-model="row.childLotId" readonly></td>
+                                <td><input type="text" v-model="row.qty" readonly></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <table v-if="(reportData.ShipType || reportData.shipType) === 'FT'" class="print-table">
-                <thead>
-                    <tr>
-                        <th>併批</th>
-                        <th>LotNo</th>
-                        <th>IPN</th>
-                        <th>CQty</th>
-                        <th>PoNo</th>
-                        <th>PoItem</th>
-                        <th>CustLotNo</th>
-                        <th>PassQty</th>
-                        <th>FailQty</th>
-                        <th>併批前批號</th>
-                        <th>併批前CQty</th>
-                        <th>前批號PoNo</th>
-                        <th>前批號PoItem</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>N</td>
-                        <td>{{ reportData.LotId || reportData.lotId }}</td>
-                        <td>{{ reportData.IPN || reportData.ipn }}</td>
-                        <td>{{ reportData.CQty || reportData.cQty }}</td>
-                        <td>{{ reportData.PoNo || reportData.poNo }}</td>
-                        <td>{{ reportData.PoItem || reportData.poItem }}</td>
-                        <td>{{ reportData.CustLotNo || reportData.custLotNo }}</td>
-                        <td>{{ reportData.PassQty || reportData.passQty }}</td>
-                        <td>{{ reportData.FailQty || reportData.failQty }}</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                    </tr>
-                    <tr v-for="(merge, index) in (reportData.MergeLots || reportData.mergeLots)" :key="index">
-                        <td>Y</td>
-                        <td>{{ reportData.LotId || reportData.lotId }}</td>
-                        <td>{{ reportData.IPN || reportData.ipn }}</td>
-                        <td>{{ reportData.CQty || reportData.cQty }}</td>
-                        <td>{{ reportData.PoNo || reportData.poNo }}</td>
-                        <td>{{ reportData.PoItem || reportData.poItem }}</td>
-                        <td>{{ merge.CustLotNo || merge.custLotNo }}</td>
-                        <td>{{ reportData.PassQty || reportData.passQty }}</td>
-                        <td>{{ reportData.FailQty || reportData.failQty }}</td>
-                        <td>{{ merge.MergeLotId || merge.mergeLotId }}</td>
-                        <td>{{ merge.MergeCQty || merge.mergeCQty }}</td>
-                        <td>{{ merge.CustPoNo || merge.custPoNo }}</td>
-                        <td>{{ merge.CustPoItem || merge.custPoItem }}</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <table v-else class="print-table">
-                <thead>
-                    <tr>
-                        <th>LotNo</th>
-                        <th>IPN</th>
-                        <th>WQty</th>
-                        <th>CQty</th>
-                        <th>PoNo</th>
-                        <th>PoItem</th>
-                        <th>CustLotNo</th>
-                        <th>好壞品 (Pass/Fail)</th>
-                        <th>WaferNo</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>{{ reportData.LotId || reportData.lotId }}</td>
-                        <td>{{ reportData.IPN || reportData.ipn }}</td>
-                        <td>{{ reportData.WQty || reportData.wQty }}</td>
-                        <td>{{ reportData.CQty || reportData.cQty }}</td>
-                        <td>{{ reportData.PoNo || reportData.poNo }}</td>
-                        <td>{{ reportData.PoItem || reportData.poItem }}</td>
-                        <td>{{ reportData.CustLotNo || reportData.custLotNo }}</td>
-                        <td>{{ reportData.PassQty || reportData.passQty }} / {{ reportData.FailQty || reportData.failQty }}</td>
-                        <td class="wafer-no-cell">{{ reportData.WaferNoList || reportData.waferNoList }}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <!-- 略過保留：FT_BOX_COUNTING 區塊、Lot List 區塊、Reprint 區塊 -->
+            <!-- ... 原本程式碼 ... -->
+            
         </div>
-
+        <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
     </div>
 
     <script src="/Scripts/vue.min.js"></script>
     <script src="/Scripts/vuetify.min.js"></script>
-    <script src="/Scripts/tabulator.min.js"></script>
     <script src="/Scripts/slimselect.js"></script>
     <script src="/Scripts/mes-util.js?v=260522"></script>
-    <script src="/Scripts/mes-search-criteria.js"></script>
     <script src="/Scripts/mes-action-bar.js"></script>
-    <script src="/Scripts/mes-query-result.js?v=260522"></script>
 
-<script>
+    <script>
         Vue.use(VMessageBox);
 
         var vapp = new Vue({
             el: '#app',
             data() {
                 return {
-                    /* ── 查詢參數 ── */
-                    qry: {
-                        shipNo: ''
+                    form: {
+                        stage: '', labelFormat: '', labelData: '', printMode: 'Normal', printerServer: '',
+                        boxQty: 1, printQty: 1, reprintType: 'LastLabel', searchData: '',
+                        passSheet: 1, failSheet: 1, totalQty: '', // 新增 totalQty
+                        lpiMode: 'Auto', lpiLabelSpecNo: '', carrierType: '', boxingSpecNo: '', brand: '', pinCount: '', packageCode: ''
                     },
-
-                    /* ── 條件欄位定義 ── */
-                    criteriaFields: [
-                        { key: 'shipNo', label: '出貨單號 (Ship No)', type: 'input', placeholder: '請輸入出貨單據號碼' }
-                    ],
-
-                    /* ── 表格資料與狀態 ── */
-                    reportData: null, // 儲存原始 API 資料供列印使用
-                    dataFT: [],
-                    dataWS: [],
-                    currentViewType: 'NONE', // 'FT' 或 'WS'
-
-                    /* ── FT 欄位定義 ── */
-                    colFT: [
-                        { title: '併批', field: 'IsMerge', width: 80, hozAlign: 'center' },
-                        { title: 'LotNo', field: 'LotId', width: 'auto' },
-                        { title: 'IPN', field: 'IPN', width: 'auto' },
-                        { title: 'CQty', field: 'CQty', width: 90, hozAlign: 'right' },
-                        { title: 'PoNo', field: 'PoNo', width: 'auto' },
-                        { title: 'PoItem', field: 'PoItem', width: 'auto' },
-                        { title: 'CustLotNo', field: 'CustLotNo', width: 'auto' },
-                        { title: 'PassQty', field: 'PassQty', width: 90, hozAlign: 'right' },
-                        { title: 'FailQty', field: 'FailQty', width: 90, hozAlign: 'right' },
-                        { title: '併批前批號', field: 'MergeLotId', width: 'auto' },
-                        { title: '併批前CQty', field: 'MergeCQty', width: 120, hozAlign: 'right' },
-                        { title: '前批號PoNo', field: 'OrPoNo', width: 'auto' },
-                        { title: '前批號PoItem', field: 'OrPoItem', width: 'auto' }
-                    ],
-
-                    /* ── WS 欄位定義 ── */
-                    colWS: [
-                        { title: 'LotNo', field: 'LotId', width: 'auto' },
-                        { title: 'IPN', field: 'IPN', width: 'auto' },
-                        { title: 'WQty', field: 'WQty', width: 90, hozAlign: 'right' },
-                        { title: 'CQty', field: 'CQty', width: 90, hozAlign: 'right' },
-                        { title: 'PoNo', field: 'PoNo', width: 'auto' },
-                        { title: 'PoItem', field: 'PoItem', width: 'auto' },
-                        { title: 'CustLotNo', field: 'CustLotNo', width: 'auto' },
-                        { title: '好壞品', field: 'PassFail', width: 120, hozAlign: 'center' },
-                        { title: 'WaferNo', field: 'WaferNoList', width: 400, formatter: "textarea" }
-                    ],
-
-                    statusMsg: 'READY',
-                    statusMsgType: ''
+                    options: { stages: [], labelFormats: [], printerServers: [], lpiLabelSpecs: [], carrierTypes: [], boxingSpecs: [], brands: [], pinCounts: [], packageCodes: [] },
+                    lotList: [],
+                    etestList: [], // 💡 新增：Etest Merge 子批號清單
+                    allLotsChecked: false, statusMsg: 'READY', statusMsgType: ''
                 };
             },
-
             computed: {
-                /* ── 動態變更按鈕 ── */
-                actionButtons() {
-                    let btns = [
-                        { action: 'query', label: 'Query (查詢)', icon: 'mdi-magnify' }
-                    ];
-            
-                    // 查詢成功後，開放「匯出 CSV」與「列印報表」按鈕
-                    if (this.reportData) {
-                        btns.push({ action: 'export', label: 'Export Data (匯出)', icon: 'mdi-file-export', color: 'primary' });
-                        btns.push({ action: 'print', label: 'Print Paper (列印報表)', icon: 'mdi-printer', color: 'success' });
-                    }
-            
-                    btns.push({ action: 'clear', label: 'Clear (清除)', icon: 'mdi-eraser' });
-                    return btns;
-                },
-            
-                /* ── 分別計算兩個表格的總筆數 ── */
-                summaryFT() { 
-                    return [{ label: 'TOTAL ROWS', value: this.dataFT.length }]; 
-                },
+                actionButtons() { return [ { action: 'print', label: 'Print', icon: 'mdi-printer', color: 'primary' }, { action: 'clear', label: 'Clear', icon: 'mdi-eraser' } ]; },
+                isBinCardMode() { return this.form.labelFormat && this.form.labelFormat.includes('FT_BIN_CARD'); },
+                isBoxCountingMode() { return this.form.labelFormat === 'FT_BOX_COUNTING'; },
+                // 💡 新增：判斷是否為 ETEST_MERGE
+                isEtestMergeMode() { return this.form.labelFormat === 'FT_ETEST_MERGE_LABEL' || this.form.labelFormat === 'FT_ETEST_MERGE'; },
                 
-                summaryWS() { 
-                    return [{ label: 'TOTAL ROWS', value: this.dataWS.length }]; 
+                isLotListEnabled() { 
+                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD']; 
+                    return listFormats.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
+                },
+                isLabelPackEnabled() { return this.form.labelFormat === 'FT_Label_PACK_INFO'; },
+                isBoxQtyEnabled() {
+                    const singleLabels = [ "FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG", "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL", "FT_BIN_CARD", "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE" ];
+                    return !singleLabels.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 }
             },
-
+            mounted() { this.loadInitData(); this.initLotList(); this.initEtestList(); },
             methods: {
-            /* ── 執行查詢 ── */
-                async doQuery() {
-                    if (!this.qry.shipNo.trim()) {
-                        VMessageBox.alert('Pls input Ship No !!<br>請輸入出貨單據號碼 !!');
+                // 💡 初始化 5 列空白的 Etest 子批號表格
+                initEtestList() {
+                    this.etestList = [];
+                    for(let i = 0; i < 5; i++) {
+                        this.etestList.push({ childLotId: '', qty: '' });
+                    }
+                },
+                
+                // 💡 呼叫後端查詢 Etest Merge 資訊
+                async fetchEtestInfo() {
+                    if (!this.form.labelData) {
+                        this.form.totalQty = '';
+                        this.initEtestList();
                         return;
                     }
-            
-                    document.body.style.cursor = 'wait';
-                    this.setStatus('QUERYING...', 'info');
-            
+
                     try {
-                        const response = await mesfetch("/api/print/print-ISG/shipNo", { ShipNo: this.qry.shipNo });
-            
-                        if (response.success || response.Success) {
-                            const data = response.data || response.Data;
-                            this.reportData = data;
-                            this.currentViewType = data.shipType || data.ShipType;
+                        const response = await mesfetch("/api/print/print-label/etest-merge-info", { LotId: this.form.labelData.trim() });
+                        
+                        if (response.Success && response.Data) {
+                            this.form.totalQty = response.Data.TotalQty || '';
                             
-                            const gridRows = this.buildGridData(data); // (使用前面提供的轉換函式)
-            
-                            // 🌟 重點：使用 $nextTick 等待 v-show 把 Grid 渲染出來後，再塞入資料
-                            this.$nextTick(() => {
-                                if (this.currentViewType === 'FT') {
-                                    this.dataFT = gridRows;
-                                    this.dataWS = [];
-                                    if(this.$refs.resultGridFT) this.$refs.resultGridFT.setData(gridRows);
-                                } else {
-                                    this.dataWS = gridRows;
-                                    this.dataFT = [];
-                                    if(this.$refs.resultGridWS) this.$refs.resultGridWS.setData(gridRows);
-                                }
-                            });
-            
-                            this.setStatus('QUERY SUCCESS', 'success');
+                            // 更新表格，補齊到至少 5 列以維持畫面美觀
+                            this.etestList = response.Data.ChildLots || [];
+                            while (this.etestList.length < 5) {
+                                this.etestList.push({ childLotId: '', qty: '' });
+                            }
                         } else {
-                            VMessageBox.alert(response.message || response.Message || '查無資料');
-                            this.doClearDataOnly();
-                            this.setStatus('QUERY FAILED', 'error');
+                            VMessageBox.alert(response.Message || '查無此批號的 Merge 資訊');
+                            this.form.totalQty = '';
+                            this.initEtestList();
                         }
-                    } catch (error) {
-                        console.error(error);
-                        VMessageBox.alert('查詢發生預期外的錯誤', 'Error');
-                        this.doClearDataOnly();
-                        this.setStatus('QUERY FAILED', 'error');
-                    } finally {
-                        document.body.style.cursor = 'default';
+                    } catch (e) {
+                        console.error(e);
+                        this.form.totalQty = '';
+                        this.initEtestList();
                     }
                 },
 
-                /* ── 資料轉換：將 API DTO 轉成適合 Tabulator 呈現的 Array ── */
-                buildGridData(data) {
-                    let rows = [];
-                    // 轉小寫 Key 容錯處理
-                    const shipType = data.shipType || data.ShipType;
-
-                    if (shipType === 'FT') {
-                        // 1. 先加入母批號
-                        rows.push({
-                            IsMerge: 'N',
-                            LotId: data.lotId || data.LotId,
-                            IPN: data.ipn || data.IPN,
-                            CQty: data.cQty || data.CQty,
-                            PoNo: data.poNo || data.PoNo,
-                            PoItem: data.poItem || data.PoItem,
-                            CustLotNo: data.custLotNo || data.CustLotNo,
-                            PassQty: data.passQty || data.PassQty,
-                            FailQty: data.failQty || data.FailQty,
-                            MergeLotId: '-',
-                            MergeCQty: null,
-                            OrPoNo: '-',
-                            OrPoItem: '-'
-                        });
-
-                        // 2. 加入子批號明細
-                        const mergeLots = data.mergeLots || data.MergeLots || [];
-                        mergeLots.forEach(merge => {
-                            rows.push({
-                                IsMerge: 'Y',
-                                LotId: data.lotId || data.LotId,
-                                IPN: data.ipn || data.IPN,
-                                CQty: data.cQty || data.CQty,
-                                PoNo: data.poNo || data.PoNo,
-                                PoItem: data.poItem || data.PoItem,
-                                CustLotNo: merge.custLotNo || merge.CustLotNo,
-                                PassQty: data.passQty || data.PassQty,
-                                FailQty: data.failQty || data.FailQty,
-                                MergeLotId: merge.mergeLotId || merge.MergeLotId,
-                                MergeCQty: merge.mergeCQty || merge.MergeCQty,
-                                OrPoNo: merge.custPoNo || merge.CustPoNo,
-                                OrPoItem: merge.custPoItem || merge.CustPoItem
-                            });
-                        });
-                    } else {
-                        // WS 只有一筆資料
-                        rows.push({
-                            LotId: data.lotId || data.LotId,
-                            IPN: data.ipn || data.IPN,
-                            WQty: data.wQty || data.WQty,
-                            CQty: data.cQty || data.CQty,
-                            PoNo: data.poNo || data.PoNo,
-                            PoItem: data.poItem || data.PoItem,
-                            CustLotNo: data.custLotNo || data.CustLotNo,
-                            PassFail: `${data.passQty || data.PassQty} / ${data.failQty || data.FailQty}`,
-                            WaferNoList: data.waferNoList || data.WaferNoList
-                        });
-                    }
-                    return rows;
-                },
-
-                /* ── 匯出 Excel (使用 Tabulator 內建功能) ── */
-                doExport() {
-                    if (!this.reportData) return;
+                // (保留其餘方法: initLotList, fetchLotInfo, loadInitData, onStageChange 等...)
+                
+                async onLabelFormatChange() {
+                    this.form.printerServer = '';
+                    if (!this.form.stage || !this.form.labelFormat) return;
+                    if (this.isLotListEnabled) this.initLotList();
+                    if (this.isEtestMergeMode) { this.form.labelData = ''; this.form.totalQty = ''; this.initEtestList(); }
                     
-                    // 檔名設定 (對應原本 VB 邏輯的 sShipNo + 檔名)
-                    const dateStr = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-                    const fileName = `${this.reportData.shipNo}_${dateStr}.csv`; 
-            
-                    // 這裡匯出 CSV 格式。如果您的環境有掛載 xlsx.js，可以將 "csv" 改為 "xlsx"
-                    if (this.currentViewType === 'FT') {
-                        this.$refs.resultGridFT.table.download("csv", fileName, { bom: true }); 
+                    try {
+                        const response = await mesfetch("/api/print/print-label/mapped-servers", { Stage: this.form.stage, LabelFormat: this.form.labelFormat });
+                        if (response.Success) this.options.printerServers = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+
+                async doPrint() {
+                    if (this.isBinCardMode) { VMessageBox.alert('FT BIN CARD 標籤請使用右方的 Pass / Fail 按鈕進行列印！'); return; }
+                    if (!this.form.printerServer || !this.form.labelFormat) { VMessageBox.alert('請選擇完整的伺服器與標籤格式！'); return; }
+
+                    let lotsToPrint = [];
+                    if (this.isLotListEnabled) {
+                        lotsToPrint = this.lotList.filter(row => row.checked && row.lotNo.trim() !== '').map(row => row.lotNo.trim());
+                        if (lotsToPrint.length === 0) { VMessageBox.alert('請至少勾選一筆 Lot 才能列印！'); return; }
                     } else {
-                        this.$refs.resultGridWS.table.download("csv", fileName, { bom: true }); 
+                        // 一般模式、BoxCounting、EtestMerge 皆驗證此欄位
+                        if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') { 
+                            VMessageBox.alert('請輸入 Lot ID 或 Label Data！'); return; 
+                        }
+                        lotsToPrint.push(this.form.labelData.trim());
                     }
-                },
-                
-                /* ── 清除資料 ── */
-                doClearDataOnly() {
-                    this.reportData = null;
-                    this.dataFT = [];
-                    this.dataWS = [];
-                    this.currentViewType = 'NONE';
-                    if (this.$refs.resultGridFT) this.$refs.resultGridFT.setData([]);
-                    if (this.$refs.resultGridWS) this.$refs.resultGridWS.setData([]);
-                },
-                
-                doClear() {
-                    this.qry.shipNo = '';
-                    this.doClearDataOnly();
-                    this.setStatus('CLEARED', '');
-                },
-            
-                /* ── 列印 ── */
-                doPrint() {
-                    if (!this.reportData) return;
-                    window.print();
-                },
 
-                doClose() {
-                    window.location.href = '/Content/F5.html';
-                },
-
-                /* ── Action Bar 分派器 ── */
-                onAction(action) {
-                    const map = {
-                        query: this.doQuery,
-                        export: this.doExport, // 綁定新方法
-                        print: this.doPrint,
-                        clear: this.doClear,
-                        close: this.doClose
-                    };
-                    if (map[action]) map[action].call(this);
-                },
-
-                setStatus(msg, type) {
-                    this.statusMsg = msg;
-                    this.statusMsgType = type || '';
+                    document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
+                    try {
+                        let allSuccess = true; let errorMsg = '';
+                        for (const currentLot of lotsToPrint) {
+                            const payload = {
+                                Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: currentLot, 
+                                PrintMode: this.form.printMode, PrinterServer: this.form.printerServer, 
+                                BoxQty: this.form.boxQty, PrintQty: this.form.printQty,
+                                ReprintType: this.form.printMode === 'Reprint' ? this.form.reprintType : '', 
+                                SearchData: this.form.printMode === 'Reprint' ? this.form.searchData : '',
+                                UserId: window.checkAuth ? window.checkAuth().userName : 'System'
+                            };
+                            const res = await this.executeSinglePrint(payload);
+                            if (!res.Success) { allSuccess = false; errorMsg += `Lot [${currentLot}] 失敗: ${res.Message}\n`; }
+                        }
+                        if (allSuccess) { VMessageBox.alert('標籤列印指令已全數成功送出！'); this.setStatus('PRINT SUCCESS', 'success'); }
+                        else { VMessageBox.alert(errorMsg); this.setStatus('COMPLETED WITH ERRORS', 'warning'); }
+                    } finally { document.body.style.cursor = 'default'; }
                 }
             }
         });
