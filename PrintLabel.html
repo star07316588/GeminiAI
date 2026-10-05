@@ -11,40 +11,163 @@
     <link href="/Content/css/site.css?v=260522" rel="stylesheet">
 
     <style>
-        .msc-panel, .mab-bar { margin-bottom: 10px; }
-        .form-panel { background: var(--bg-surface, #ffffff); border: 1px solid var(--border, #d1d5db); border-radius: 6px; padding: 20px; margin-bottom: 16px; }
-        .form-title { font-size: 15px; font-weight: bold; color: var(--accent, #1565C0); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
-        .form-list-layout { display: grid; grid-template-columns: 140px minmax(200px, 400px); row-gap: 14px; column-gap: 16px; align-items: center; }
-        .form-list-layout .field-label { text-align: right; font-size: 13px; font-weight: 600; color: var(--text-main, #333); margin: 0; }
-        .form-control { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; outline: none; transition: border-color 0.2s; background-color: #fff; height: 32px; box-sizing: border-box; }
-        .form-control:focus { border-color: var(--accent, #1565C0); }
-        .form-control:disabled { background-color: #f5f5f5; cursor: not-allowed; color: #888; }
-        .radio-group { display: flex; align-items: center; gap: 16px; height: 32px; }
-        .radio-item { display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; margin: 0; }
-        fieldset { border: none; padding: 0; margin: 0; }
-        
+        .msc-panel, .mab-bar {
+            margin-bottom: 10px;
+        }
+
+        .form-panel {
+            background: var(--bg-surface, #ffffff);
+            border: 1px solid var(--border, #d1d5db);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .form-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: var(--accent, #1565C0);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 6px;
+        }
+
+        .form-list-layout {
+            display: grid;
+            grid-template-columns: 140px minmax(200px, 400px);
+            row-gap: 14px;
+            column-gap: 16px;
+            align-items: center;
+        }
+
+            .form-list-layout .field-label {
+                text-align: right;
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--text-main, #333);
+                margin: 0;
+            }
+
+        .form-control {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+            background-color: #fff;
+            height: 32px;
+            box-sizing: border-box;
+        }
+
+            .form-control:focus {
+                border-color: var(--accent, #1565C0);
+            }
+
+            .form-control:disabled {
+                background-color: #f5f5f5;
+                cursor: not-allowed;
+                color: #888;
+            }
+
+        .radio-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            height: 32px;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        fieldset {
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
+
         /* 表格樣式 */
-        .grid-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .grid-table th { background-color: #f0f0f0; border: 1px solid #ccc; padding: 6px; font-size: 13px; font-weight: bold; text-align: center; color: #333; }
-        .grid-table td { border: 1px solid #ccc; padding: 2px; text-align: center; background-color: #fff; }
-        .grid-table input[type="text"] { width: 100%; height: 26px; border: none; padding: 0 4px; outline: none; font-size: 13px; box-sizing: border-box; text-align: center; }
-        .grid-table input[type="text"]:focus { background-color: #e8f0fe; }
-        .grid-table input[readonly] { background-color: #f9f9f9; color: #666; }
-        .btn-ok { background-color: #f0f0f0; border: 1px solid #999; padding: 0 20px; height: 32px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
-        .btn-ok:hover { background-color: #e0e0e0; border-color: #666; }
+        .grid-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+            .grid-table th {
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                padding: 6px;
+                font-size: 13px;
+                font-weight: bold;
+                text-align: center;
+                color: #333;
+            }
+
+            .grid-table td {
+                border: 1px solid #ccc;
+                padding: 2px;
+                text-align: center;
+                background-color: #fff;
+            }
+
+            .grid-table input[type="text"] {
+                width: 100%;
+                height: 26px;
+                border: none;
+                padding: 0 4px;
+                outline: none;
+                font-size: 13px;
+                box-sizing: border-box;
+                text-align: center;
+            }
+
+                .grid-table input[type="text"]:focus {
+                    background-color: #e8f0fe;
+                }
+
+            .grid-table input[readonly] {
+                background-color: #f9f9f9;
+                color: #666;
+            }
+
+        .btn-ok {
+            background-color: #f0f0f0;
+            border: 1px solid #999;
+            padding: 0 20px;
+            height: 32px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+            .btn-ok:hover {
+                background-color: #e0e0e0;
+                border-color: #666;
+            }
     </style>
 </head>
 <body>
     <div id="app" class="page-layout" data-app>
         <mes-toolbar title="Print BarCode Label"></mes-toolbar>
-        
+
         <div class="page-body">
             <mes-action-bar :buttons="actionButtons" :auto-add-close="true" @action="onAction"></mes-action-bar>
 
             <!-- 基礎列印條件區塊 -->
             <div class="form-panel">
                 <div class="form-list-layout">
-                    
+
                     <label class="field-label">Stage :</label>
                     <select class="form-control" v-model="form.stage" @change="onStageChange">
                         <option value="">-- Select Stage --</option>
@@ -87,18 +210,37 @@
                         <input type="number" class="form-control" v-model.number="form.printQty" min="1" max="99">
                     </template>
 
-                    <!-- FT_BIN_CARD 專屬輸入區塊保留不變 -->
                     <template v-if="isBinCardMode">
-                        <!-- ... 略 ... -->
+                        <label class="field-label">Pass Sheet :</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" class="form-control" v-model.number="form.passSheet" min="1">
+                            <button type="button" class="btn-ok" @click="doPrintBinCard(true)">OK</button>
+                        </div>
+
+                        <label class="field-label">Fail Sheet :</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" class="form-control" v-model.number="form.failSheet" min="1">
+                            <button type="button" class="btn-ok" @click="doPrintBinCard(false)">OK</button>
+                        </div>
                     </template>
 
+                </div>
+            </div>
+
+            <!-- 💡 新增：FT_BOX_COUNTING 專屬 Label Form 區塊 -->
+            <div class="form-panel" v-show="isBoxCountingMode">
+                <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
+                <div class="form-list-layout">
+                    <label class="field-label">LOT NO :</label>
+                    <!-- 我們沿用 form.labelData 來綁定這個框，這樣送 API 時不需改 code -->
+                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 LOT NO">
                 </div>
             </div>
 
             <!-- 💡 新增：FT_ETEST_MERGE_LABEL 專屬區塊 -->
             <div class="form-panel" v-show="isEtestMergeMode">
                 <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
-                
+
                 <!-- 第一列：LOT NO 與 QTY -->
                 <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 12px; padding-left: 20px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -133,9 +275,73 @@
                 </div>
             </div>
 
-            <!-- 略過保留：FT_BOX_COUNTING 區塊、Lot List 區塊、Reprint 區塊 -->
-            <!-- ... 原本程式碼 ... -->
-            
+            <!-- 動態 Lot List 區塊 -->
+            <div class="form-panel" v-show="isLotListEnabled">
+                <!-- 略過保留原本 Lot List HTML 內容 -->
+                <div class="form-title"><i class="mdi mdi-table"></i> Lot List</div>
+                <div style="overflow-x: auto; max-height: 300px; overflow-y: auto;">
+                    <table class="grid-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">No.</th>
+                                <th style="width: 40px;"><input type="checkbox" @change="toggleAllLots" v-model="allLotsChecked"></th>
+                                <th style="width: 150px;">Lot NO</th>
+                                <th style="width: 150px;">Product NO</th>
+                                <th style="width: 80px;" v-show="!isBinCardMode">Wafer Qty</th>
+                                <th style="width: 80px;">Chip Qty</th>
+                                <th style="width: 100px;">Lot Owner</th>
+                                <th style="width: 100px;" v-show="!isBinCardMode">Speed</th>
+                                <th style="width: 100px;" v-show="isBinCardMode">Route</th>
+                                <th style="width: 100px;" v-show="isBinCardMode">Step</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(row, index) in lotList" :key="index">
+                                <td>{{ index + 1 }}</td>
+                                <td><input type="checkbox" v-model="row.checked"></td>
+                                <td>
+                                    <input type="text" ref="lotInputs" v-model="row.lotNo"
+                                           @blur="fetchLotInfo(row)" @keyup.enter="handleEnter(row, index)"
+                                           @keydown.down.prevent="handleDown(index)" @keydown.up.prevent="handleUp(index)">
+                                </td>
+                                <td><input type="text" v-model="row.productNo" readonly></td>
+                                <td v-show="!isBinCardMode"><input type="text" v-model="row.waferQty" readonly></td>
+                                <td><input type="text" v-model="row.chipQty" readonly></td>
+                                <td><input type="text" v-model="row.lotOwner" readonly></td>
+                                <td v-show="!isBinCardMode"><input type="text" v-model="row.speed" readonly></td>
+                                <td v-show="isBinCardMode"><input type="text" v-model="row.route" readonly></td>
+                                <td v-show="isBinCardMode"><input type="text" v-model="row.step" readonly></td>
+                                <td>
+                                    <button type="button" @click="removeRow(index)" title="刪除此列" style="border: none; background: transparent; cursor: pointer; color: #d32f2f; font-weight: bold;">✖</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td :colspan="isBinCardMode ? 8 : 9" style="text-align: left; padding: 4px;">
+                                    <button type="button" @click="addNewRow" style="border: 1px dashed #ccc; background: #f9f9f9; padding: 4px 12px; cursor: pointer; color: #1565C0; font-size: 13px; width: 100%;">
+                                        ➕ 點擊或按 [ ↓ ] 向下新增一列
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reprint 補印專用區塊 -->
+            <div class="form-panel" v-show="form.printMode === 'Reprint' && !isBinCardMode && !isBoxCountingMode">
+                <div class="form-title"><i class="mdi mdi-refresh"></i> Reprint Info.</div>
+                <div class="form-list-layout">
+                    <label class="field-label">Search Type :</label>
+                    <div class="radio-group">
+                        <label class="radio-item"><input type="radio" v-model="form.reprintType" value="LastLabel"> Print Last Label</label>
+                        <label class="radio-item"><input type="radio" v-model="form.reprintType" value="SearchData"> Search by Data</label>
+                    </div>
+                    <label class="field-label">Search Data :</label>
+                    <input type="text" class="form-control" v-model="form.searchData" placeholder="輸入搜尋條件" :disabled="form.reprintType !== 'SearchData'">
+                </div>
+            </div>
+
         </div>
         <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
     </div>
@@ -166,19 +372,19 @@
                 };
             },
             computed: {
-                actionButtons() { return [ { action: 'print', label: 'Print', icon: 'mdi-printer', color: 'primary' }, { action: 'clear', label: 'Clear', icon: 'mdi-eraser' } ]; },
+                actionButtons() { return [{ action: 'print', label: 'Print', icon: 'mdi-printer', color: 'primary' }, { action: 'clear', label: 'Clear', icon: 'mdi-eraser' }]; },
                 isBinCardMode() { return this.form.labelFormat && this.form.labelFormat.includes('FT_BIN_CARD'); },
                 isBoxCountingMode() { return this.form.labelFormat === 'FT_BOX_COUNTING'; },
                 // 💡 新增：判斷是否為 ETEST_MERGE
                 isEtestMergeMode() { return this.form.labelFormat === 'FT_ETEST_MERGE_LABEL' || this.form.labelFormat === 'FT_ETEST_MERGE'; },
-                
-                isLotListEnabled() { 
-                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD']; 
+
+                isLotListEnabled() {
+                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD'];
                     return listFormats.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 },
                 isLabelPackEnabled() { return this.form.labelFormat === 'FT_Label_PACK_INFO'; },
                 isBoxQtyEnabled() {
-                    const singleLabels = [ "FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG", "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL", "FT_BIN_CARD", "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE" ];
+                    const singleLabels = ["FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG", "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL", "FT_BIN_CARD", "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE"];
                     return !singleLabels.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 }
             },
@@ -187,11 +393,11 @@
                 // 💡 初始化 5 列空白的 Etest 子批號表格
                 initEtestList() {
                     this.etestList = [];
-                    for(let i = 0; i < 5; i++) {
+                    for (let i = 0; i < 5; i++) {
                         this.etestList.push({ childLotId: '', qty: '' });
                     }
                 },
-                
+
                 // 💡 呼叫後端查詢 Etest Merge 資訊
                 async fetchEtestInfo() {
                     if (!this.form.labelData) {
@@ -202,10 +408,10 @@
 
                     try {
                         const response = await mesfetch("/api/print/print-label/etest-merge-info", { LotId: this.form.labelData.trim() });
-                        
+
                         if (response.Success && response.Data) {
                             this.form.totalQty = response.Data.TotalQty || '';
-                            
+
                             // 更新表格，補齊到至少 5 列以維持畫面美觀
                             this.etestList = response.Data.ChildLots || [];
                             while (this.etestList.length < 5) {
@@ -222,19 +428,93 @@
                         this.initEtestList();
                     }
                 },
+                initLotList() {
+                    this.lotList = [];
+                    for (let i = 0; i < 10; i++) {
+                        this.lotList.push({ checked: false, lotNo: '', productNo: '', waferQty: '', chipQty: '', lotOwner: '', speed: '', route: '', step: '' });
+                    }
+                },
+                toggleAllLots() { this.lotList.forEach(row => { row.checked = this.allLotsChecked; }); },
+                addNewRow() { this.lotList.push({ checked: false, lotNo: '', productNo: '', waferQty: '', chipQty: '', lotOwner: '', speed: '', route: '', step: '' }); },
+                removeRow(index) { this.lotList.splice(index, 1); if (this.lotList.length === 0) this.addNewRow(); },
+                handleDown(index) {
+                    if (index === this.lotList.length - 1) this.addNewRow();
+                    this.$nextTick(() => { if (this.$refs.lotInputs && this.$refs.lotInputs[index + 1]) this.$refs.lotInputs[index + 1].focus(); });
+                },
+                handleUp(index) { if (index > 0 && this.$refs.lotInputs && this.$refs.lotInputs[index - 1]) this.$refs.lotInputs[index - 1].focus(); },
+                handleEnter(row, index) { this.fetchLotInfo(row); this.handleDown(index); },
 
-                // (保留其餘方法: initLotList, fetchLotInfo, loadInitData, onStageChange 等...)
-                
+                async fetchLotInfo(row) {
+                    if (!row.lotNo) {
+                        row.productNo = ''; row.waferQty = ''; row.chipQty = ''; row.lotOwner = ''; row.speed = ''; row.route = ''; row.step = ''; row.checked = false;
+                        return;
+                    }
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lot-info", { LotId: row.lotNo, LabelFormat: this.form.labelFormat });
+                        if (response.Success && response.Data) {
+                            row.productNo = response.Data.ProductNo || ''; row.waferQty = response.Data.WaferQty || ''; row.chipQty = response.Data.ChipQty || '';
+                            row.lotOwner = response.Data.LotOwner || ''; row.speed = response.Data.Speed || ''; row.route = response.Data.Route || ''; row.step = response.Data.Step || '';
+                            row.checked = true;
+                        } else {
+                            VMessageBox.alert(response.Message || '查無此批號'); row.checked = false;
+                        }
+                    } catch (e) { console.error(e); row.checked = false; }
+                },
+
+                async loadInitData() {
+                    try {
+                        const response = await mesfetch("/api/print/print-label/init", {});
+                        if (response.Success && response.Data) {
+                            this.options.stages = response.Data.Stages || [];
+                            this.options.labelFormats = response.Data.LabelFormats || [];
+                            this.options.printerServers = response.Data.PrinterServers || [];
+                        }
+                    } catch (error) { console.error(error); }
+                },
+                async onStageChange() {
+                    this.form.labelFormat = ''; this.options.labelFormats = []; this.form.printerServer = '';
+                    if (!this.form.stage) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/label-formats", { Stage: this.form.stage });
+                        if (response.Success) this.options.labelFormats = response.Data;
+                    } catch (error) { console.error(error); }
+                },
                 async onLabelFormatChange() {
                     this.form.printerServer = '';
                     if (!this.form.stage || !this.form.labelFormat) return;
                     if (this.isLotListEnabled) this.initLotList();
                     if (this.isEtestMergeMode) { this.form.labelData = ''; this.form.totalQty = ''; this.initEtestList(); }
-                    
+
                     try {
                         const response = await mesfetch("/api/print/print-label/mapped-servers", { Stage: this.form.stage, LabelFormat: this.form.labelFormat });
                         if (response.Success) this.options.printerServers = response.Data;
                     } catch (error) { console.error(error); }
+                },
+                onPrintModeChange() { if (this.form.printMode !== 'Reprint') this.form.searchData = ''; },
+
+                async doPrintBinCard(isPass) {
+                    if (!this.form.printerServer) { VMessageBox.alert('Please select Printer Server!'); return; }
+                    let targetQty = isPass ? this.form.passSheet : this.form.failSheet;
+                    if (!targetQty) { VMessageBox.alert(isPass ? "請輸入列印份數!" : "請輸入列印份數/Fail Sheet!"); return; }
+                    if (targetQty <= 0) { VMessageBox.alert(isPass ? "列印份數不能為零!" : "列印份數/Fail Sheet不能為零!"); return; }
+
+                    const lotsToPrint = this.lotList.filter(row => row.checked && row.lotNo.trim() !== '');
+                    if (lotsToPrint.length === 0) { VMessageBox.alert('Please Select Lot(s)!!'); return; }
+                    if (lotsToPrint.length > 1) { VMessageBox.alert('Only can print one Lot(s) once!!'); return; }
+
+                    const targetLot = lotsToPrint[0].lotNo.trim();
+                    document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
+
+                    const payload = {
+                        Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: targetLot,
+                        PrintMode: 'Normal', PrinterServer: this.form.printerServer, PrintQty: targetQty,
+                        IsPass: isPass, UserId: window.checkAuth ? window.checkAuth().userName : 'System'
+                    };
+
+                    const res = await this.executeSinglePrint(payload);
+                    if (res.Success) { VMessageBox.alert('標籤列印指令已成功送出！'); this.setStatus('PRINT SUCCESS', 'success'); }
+                    else { VMessageBox.alert(`列印失敗: ${res.Message}`); this.setStatus('PRINT FAILED', 'error'); }
+                    document.body.style.cursor = 'default';
                 },
 
                 async doPrint() {
@@ -247,8 +527,8 @@
                         if (lotsToPrint.length === 0) { VMessageBox.alert('請至少勾選一筆 Lot 才能列印！'); return; }
                     } else {
                         // 一般模式、BoxCounting、EtestMerge 皆驗證此欄位
-                        if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') { 
-                            VMessageBox.alert('請輸入 Lot ID 或 Label Data！'); return; 
+                        if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') {
+                            VMessageBox.alert('請輸入 Lot ID 或 Label Data！'); return;
                         }
                         lotsToPrint.push(this.form.labelData.trim());
                     }
@@ -258,10 +538,10 @@
                         let allSuccess = true; let errorMsg = '';
                         for (const currentLot of lotsToPrint) {
                             const payload = {
-                                Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: currentLot, 
-                                PrintMode: this.form.printMode, PrinterServer: this.form.printerServer, 
+                                Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: currentLot,
+                                PrintMode: this.form.printMode, PrinterServer: this.form.printerServer,
                                 BoxQty: this.form.boxQty, PrintQty: this.form.printQty,
-                                ReprintType: this.form.printMode === 'Reprint' ? this.form.reprintType : '', 
+                                ReprintType: this.form.printMode === 'Reprint' ? this.form.reprintType : '',
                                 SearchData: this.form.printMode === 'Reprint' ? this.form.searchData : '',
                                 UserId: window.checkAuth ? window.checkAuth().userName : 'System'
                             };
@@ -271,7 +551,33 @@
                         if (allSuccess) { VMessageBox.alert('標籤列印指令已全數成功送出！'); this.setStatus('PRINT SUCCESS', 'success'); }
                         else { VMessageBox.alert(errorMsg); this.setStatus('COMPLETED WITH ERRORS', 'warning'); }
                     } finally { document.body.style.cursor = 'default'; }
-                }
+                },
+
+                async executeSinglePrint(payload) {
+                    try {
+                        const response = await mesfetch("/api/print/print-label/print", payload);
+                        if (!response.Success && response.Message && response.Message.includes("REQUIRE_ORIGINAL_LOT")) {
+                            return await new Promise((resolve) => {
+                                VMessageBox.prompt(`Lot ${payload.LotId} 無母批資訊，請輸入原始批號：`, '補入資訊', { confirmButtonText: '確定', cancelButtonText: '取消' })
+                                    .then(async (result) => {
+                                        if (result && result.value) { payload.OriLotID = result.value.trim(); resolve(await this.executeSinglePrint(payload)); }
+                                        else { resolve({ Success: false, Message: '使用者取消補入' }); }
+                                    }).catch(() => { resolve({ Success: false, Message: '使用者取消' }); });
+                            });
+                        }
+                        return response;
+                    } catch (error) { console.error(error); return { Success: false, Message: '系統發生非預期錯誤' }; }
+                },
+
+                doClear() {
+                    this.form.stage = ''; this.form.labelFormat = ''; this.form.labelData = ''; this.form.printMode = 'Normal';
+                    this.form.printerServer = ''; this.form.boxQty = 1; this.form.printQty = 1; this.form.searchData = '';
+                    this.form.passSheet = 1; this.form.failSheet = 1;
+                    this.initLotList(); this.setStatus('CLEARED', '');
+                },
+                doClose() { window.location.href = '/Content/F5.html'; },
+                onAction(action) { const map = { print: this.doPrint, clear: this.doClear, close: this.doClose }; if (map[action]) map[action].call(this); },
+                setStatus(msg, type) { this.statusMsg = msg; this.statusMsgType = type || ''; }
             }
         });
     </script>
