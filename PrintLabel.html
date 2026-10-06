@@ -11,163 +11,39 @@
     <link href="/Content/css/site.css?v=260522" rel="stylesheet">
 
     <style>
-        .msc-panel, .mab-bar {
-            margin-bottom: 10px;
-        }
-
-        .form-panel {
-            background: var(--bg-surface, #ffffff);
-            border: 1px solid var(--border, #d1d5db);
-            border-radius: 6px;
-            padding: 20px;
-            margin-bottom: 16px;
-        }
-
-        .form-title {
-            font-size: 15px;
-            font-weight: bold;
-            color: var(--accent, #1565C0);
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 6px;
-        }
-
-        .form-list-layout {
-            display: grid;
-            grid-template-columns: 140px minmax(200px, 400px);
-            row-gap: 14px;
-            column-gap: 16px;
-            align-items: center;
-        }
-
-            .form-list-layout .field-label {
-                text-align: right;
-                font-size: 13px;
-                font-weight: 600;
-                color: var(--text-main, #333);
-                margin: 0;
-            }
-
-        .form-control {
-            width: 100%;
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 13px;
-            outline: none;
-            transition: border-color 0.2s;
-            background-color: #fff;
-            height: 32px;
-            box-sizing: border-box;
-        }
-
-            .form-control:focus {
-                border-color: var(--accent, #1565C0);
-            }
-
-            .form-control:disabled {
-                background-color: #f5f5f5;
-                cursor: not-allowed;
-                color: #888;
-            }
-
-        .radio-group {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            height: 32px;
-        }
-
-        .radio-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 13px;
-            cursor: pointer;
-            margin: 0;
-        }
-
-        fieldset {
-            border: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        /* 表格樣式 */
-        .grid-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-            .grid-table th {
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
-                padding: 6px;
-                font-size: 13px;
-                font-weight: bold;
-                text-align: center;
-                color: #333;
-            }
-
-            .grid-table td {
-                border: 1px solid #ccc;
-                padding: 2px;
-                text-align: center;
-                background-color: #fff;
-            }
-
-            .grid-table input[type="text"] {
-                width: 100%;
-                height: 26px;
-                border: none;
-                padding: 0 4px;
-                outline: none;
-                font-size: 13px;
-                box-sizing: border-box;
-                text-align: center;
-            }
-
-                .grid-table input[type="text"]:focus {
-                    background-color: #e8f0fe;
-                }
-
-            .grid-table input[readonly] {
-                background-color: #f9f9f9;
-                color: #666;
-            }
-
-        .btn-ok {
-            background-color: #f0f0f0;
-            border: 1px solid #999;
-            padding: 0 20px;
-            height: 32px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-
-            .btn-ok:hover {
-                background-color: #e0e0e0;
-                border-color: #666;
-            }
+        .msc-panel, .mab-bar { margin-bottom: 10px; }
+        .form-panel { background: var(--bg-surface, #ffffff); border: 1px solid var(--border, #d1d5db); border-radius: 6px; padding: 20px; margin-bottom: 16px; }
+        .form-title { font-size: 15px; font-weight: bold; color: var(--accent, #1565C0); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+        .form-list-layout { display: grid; grid-template-columns: 140px minmax(200px, 400px); row-gap: 14px; column-gap: 16px; align-items: center; }
+        .form-list-layout .field-label { text-align: right; font-size: 13px; font-weight: 600; color: var(--text-main, #333); margin: 0; }
+        .form-control { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; outline: none; transition: border-color 0.2s; background-color: #fff; height: 32px; box-sizing: border-box; }
+        .form-control:focus { border-color: var(--accent, #1565C0); }
+        .form-control:disabled { background-color: #f5f5f5; cursor: not-allowed; color: #888; }
+        .radio-group { display: flex; align-items: center; gap: 16px; height: 32px; }
+        .radio-item { display: flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; margin: 0; }
+        fieldset { border: none; padding: 0; margin: 0; }
+        
+        .grid-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .grid-table th { background-color: #f0f0f0; border: 1px solid #ccc; padding: 6px; font-size: 13px; font-weight: bold; text-align: center; color: #333; }
+        .grid-table td { border: 1px solid #ccc; padding: 2px; text-align: center; background-color: #fff; }
+        .grid-table input[type="text"] { width: 100%; height: 26px; border: none; padding: 0 4px; outline: none; font-size: 13px; box-sizing: border-box; text-align: center; }
+        .grid-table input[type="text"]:focus { background-color: #e8f0fe; }
+        .grid-table input[readonly] { background-color: #f9f9f9; color: #666; }
+        .btn-ok { background-color: #f0f0f0; border: 1px solid #999; padding: 0 20px; height: 32px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .btn-ok:hover { background-color: #e0e0e0; border-color: #666; }
     </style>
 </head>
 <body>
     <div id="app" class="page-layout" data-app>
         <mes-toolbar title="Print BarCode Label"></mes-toolbar>
-
+        
         <div class="page-body">
             <mes-action-bar :buttons="actionButtons" :auto-add-close="true" @action="onAction"></mes-action-bar>
 
             <!-- 基礎列印條件區塊 -->
             <div class="form-panel">
                 <div class="form-list-layout">
-
+                    
                     <label class="field-label">Stage :</label>
                     <select class="form-control" v-model="form.stage" @change="onStageChange">
                         <option value="">-- Select Stage --</option>
@@ -180,11 +56,12 @@
                         <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
-                    <!-- 一般單批輸入框隱藏邏輯 -->
+                    <!-- 一般單批輸入框隱藏邏輯 (包含 FT_LOT_INFO 時也隱藏) -->
                     <label class="field-label" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode">Label Data :</label>
                     <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Wafer ID" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode">
 
-                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode">
+                    <!-- 💡 新增防護：FT_LOT_INFO 隱藏 Print Mode -->
+                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode && !isFtLotInfoMode">
                         <label class="field-label">Print Mode :</label>
                         <div class="radio-group">
                             <label class="radio-item"><input type="radio" v-model="form.printMode" value="Normal" @change="onPrintModeChange"> Normal</label>
@@ -193,23 +70,24 @@
                         </div>
                     </template>
 
-                    <!-- 根據截圖，EtestMerge 會顯示 BoxQty，但可能是唯讀或空白 -->
-                    <template v-if="!isBinCardMode && !isBoxCountingMode">
-                        <label class="field-label">Box Qty :</label>
-                        <input type="number" class="form-control" v-model.number="form.boxQty" min="1" :disabled="!isBoxQtyEnabled || isEtestMergeMode">
-                    </template>
-
                     <label class="field-label">Printer Server :</label>
                     <select class="form-control" v-model="form.printerServer">
                         <option value="">-- Select Server --</option>
                         <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
+                    <!-- 💡 新增防護：FT_LOT_INFO 隱藏 Box Qty -->
+                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode">
+                        <label class="field-label">Box Qty :</label>
+                        <input type="number" class="form-control" v-model.number="form.boxQty" min="1" :disabled="!isBoxQtyEnabled || isEtestMergeMode">
+                    </template>
+
                     <template v-if="!isBinCardMode">
                         <label class="field-label">列印份數 :</label>
                         <input type="number" class="form-control" v-model.number="form.printQty" min="1" max="99">
                     </template>
 
+                    <!-- FT_BIN_CARD 專屬輸入區塊 -->
                     <template v-if="isBinCardMode">
                         <label class="field-label">Pass Sheet :</label>
                         <div style="display: flex; gap: 8px;">
@@ -227,25 +105,21 @@
                 </div>
             </div>
 
-            <!-- 💡 新增：FT_BOX_COUNTING 專屬 Label Form 區塊 -->
+            <!-- FT_BOX_COUNTING 專屬區塊 -->
             <div class="form-panel" v-show="isBoxCountingMode">
                 <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
                 <div class="form-list-layout">
                     <label class="field-label">LOT NO :</label>
-                    <!-- 我們沿用 form.labelData 來綁定這個框，這樣送 API 時不需改 code -->
                     <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 LOT NO">
                 </div>
             </div>
 
-            <!-- 💡 新增：FT_ETEST_MERGE_LABEL 專屬區塊 -->
+            <!-- FT_ETEST_MERGE_LABEL 專屬區塊 -->
             <div class="form-panel" v-show="isEtestMergeMode">
                 <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
-
-                <!-- 第一列：LOT NO 與 QTY -->
                 <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 12px; padding-left: 20px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label style="font-size: 13px; font-weight: bold; width: 100px; text-align: right;">(1T) LOT NO:</label>
-                        <!-- 綁定 form.labelData 並監聽 Enter 與離開焦點事件 -->
                         <input type="text" class="form-control" style="width: 200px;" v-model="form.labelData" @blur="fetchEtestInfo" @keyup.enter="fetchEtestInfo">
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -253,15 +127,11 @@
                         <input type="text" class="form-control" style="width: 120px; background-color: #d1d5db;" v-model="form.totalQty" readonly>
                     </div>
                 </div>
-
-                <!-- 第二列：子批號表格 -->
                 <div style="width: 60%; margin: 0 auto;">
                     <table class="grid-table">
                         <thead>
                             <tr>
-                                <th style="width: 40px;"></th>
-                                <th>ChildLotID</th>
-                                <th>Qty</th>
+                                <th style="width: 40px;"></th><th>ChildLotID</th><th>Qty</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -277,7 +147,6 @@
 
             <!-- 動態 Lot List 區塊 -->
             <div class="form-panel" v-show="isLotListEnabled">
-                <!-- 略過保留原本 Lot List HTML 內容 -->
                 <div class="form-title"><i class="mdi mdi-table"></i> Lot List</div>
                 <div style="overflow-x: auto; max-height: 300px; overflow-y: auto;">
                     <table class="grid-table">
@@ -287,12 +156,19 @@
                                 <th style="width: 40px;"><input type="checkbox" @change="toggleAllLots" v-model="allLotsChecked"></th>
                                 <th style="width: 150px;">Lot NO</th>
                                 <th style="width: 150px;">Product NO</th>
-                                <th style="width: 80px;" v-show="!isBinCardMode">Wafer Qty</th>
+                                
+                                <!-- 💡 欄位顯示邏輯更新：FT_LOT_INFO 與 BIN_CARD 皆隱藏 WaferQty 與 Speed -->
+                                <th style="width: 80px;" v-show="!isBinCardMode && !isFtLotInfoMode">Wafer Qty</th>
                                 <th style="width: 80px;">Chip Qty</th>
                                 <th style="width: 100px;">Lot Owner</th>
-                                <th style="width: 100px;" v-show="!isBinCardMode">Speed</th>
-                                <th style="width: 100px;" v-show="isBinCardMode">Route</th>
+                                <th style="width: 100px;" v-show="!isBinCardMode && !isFtLotInfoMode">Speed</th>
+                                
+                                <!-- 💡 Route 在 FT_BIN_CARD 與 FT_LOT_INFO 都要顯示 -->
+                                <th style="width: 100px;" v-show="isBinCardMode || isFtLotInfoMode">Route</th>
+                                
+                                <!-- 💡 Step 只有 FT_BIN_CARD 要顯示 -->
                                 <th style="width: 100px;" v-show="isBinCardMode">Step</th>
+                                
                                 <th style="width: 40px;"></th>
                             </tr>
                         </thead>
@@ -306,18 +182,23 @@
                                            @keydown.down.prevent="handleDown(index)" @keydown.up.prevent="handleUp(index)">
                                 </td>
                                 <td><input type="text" v-model="row.productNo" readonly></td>
-                                <td v-show="!isBinCardMode"><input type="text" v-model="row.waferQty" readonly></td>
+                                
+                                <!-- 💡 對應的 td 顯示隱藏條件 -->
+                                <td v-show="!isBinCardMode && !isFtLotInfoMode"><input type="text" v-model="row.waferQty" readonly></td>
                                 <td><input type="text" v-model="row.chipQty" readonly></td>
                                 <td><input type="text" v-model="row.lotOwner" readonly></td>
-                                <td v-show="!isBinCardMode"><input type="text" v-model="row.speed" readonly></td>
-                                <td v-show="isBinCardMode"><input type="text" v-model="row.route" readonly></td>
+                                <td v-show="!isBinCardMode && !isFtLotInfoMode"><input type="text" v-model="row.speed" readonly></td>
+                                
+                                <td v-show="isBinCardMode || isFtLotInfoMode"><input type="text" v-model="row.route" readonly></td>
                                 <td v-show="isBinCardMode"><input type="text" v-model="row.step" readonly></td>
+                                
                                 <td>
                                     <button type="button" @click="removeRow(index)" title="刪除此列" style="border: none; background: transparent; cursor: pointer; color: #d32f2f; font-weight: bold;">✖</button>
                                 </td>
                             </tr>
                             <tr>
-                                <td :colspan="isBinCardMode ? 8 : 9" style="text-align: left; padding: 4px;">
+                                <!-- 根據不同模式，調整底部的 colspan 寬度，以保持樣式完美 -->
+                                <td :colspan="(isBinCardMode || isFtLotInfoMode) ? 8 : 9" style="text-align: left; padding: 4px;">
                                     <button type="button" @click="addNewRow" style="border: 1px dashed #ccc; background: #f9f9f9; padding: 4px 12px; cursor: pointer; color: #1565C0; font-size: 13px; width: 100%;">
                                         ➕ 點擊或按 [ ↓ ] 向下新增一列
                                     </button>
@@ -328,8 +209,8 @@
                 </div>
             </div>
 
-            <!-- Reprint 補印專用區塊 -->
-            <div class="form-panel" v-show="form.printMode === 'Reprint' && !isBinCardMode && !isBoxCountingMode">
+            <!-- Reprint 補印專用區塊 (FT_LOT_INFO 照理說不會用到，加上防護) -->
+            <div class="form-panel" v-show="form.printMode === 'Reprint' && !isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode">
                 <div class="form-title"><i class="mdi mdi-refresh"></i> Reprint Info.</div>
                 <div class="form-list-layout">
                     <label class="field-label">Search Type :</label>
@@ -362,12 +243,12 @@
                     form: {
                         stage: '', labelFormat: '', labelData: '', printMode: 'Normal', printerServer: '',
                         boxQty: 1, printQty: 1, reprintType: 'LastLabel', searchData: '',
-                        passSheet: 1, failSheet: 1, totalQty: '', // 新增 totalQty
+                        passSheet: 1, failSheet: 1, totalQty: '',
                         lpiMode: 'Auto', lpiLabelSpecNo: '', carrierType: '', boxingSpecNo: '', brand: '', pinCount: '', packageCode: ''
                     },
                     options: { stages: [], labelFormats: [], printerServers: [], lpiLabelSpecs: [], carrierTypes: [], boxingSpecs: [], brands: [], pinCounts: [], packageCodes: [] },
                     lotList: [],
-                    etestList: [], // 💡 新增：Etest Merge 子批號清單
+                    etestList: [],
                     allLotsChecked: false, statusMsg: 'READY', statusMsgType: ''
                 };
             },
@@ -375,11 +256,14 @@
                 actionButtons() { return [{ action: 'print', label: 'Print', icon: 'mdi-printer', color: 'primary' }, { action: 'clear', label: 'Clear', icon: 'mdi-eraser' }]; },
                 isBinCardMode() { return this.form.labelFormat && this.form.labelFormat.includes('FT_BIN_CARD'); },
                 isBoxCountingMode() { return this.form.labelFormat === 'FT_BOX_COUNTING'; },
-                // 💡 新增：判斷是否為 ETEST_MERGE
                 isEtestMergeMode() { return this.form.labelFormat === 'FT_ETEST_MERGE_LABEL' || this.form.labelFormat === 'FT_ETEST_MERGE'; },
+                
+                // 💡 新增：FT_LOT_INFO 判斷旗標
+                isFtLotInfoMode() { return this.form.labelFormat === 'FT_LOT_INFO'; },
 
+                // 💡 將 FT_LOT_INFO 加入需要顯示 Lot List 的陣列中
                 isLotListEnabled() {
-                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD'];
+                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD', 'FT_LOT_INFO'];
                     return listFormats.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 },
                 isLabelPackEnabled() { return this.form.labelFormat === 'FT_Label_PACK_INFO'; },
@@ -390,49 +274,27 @@
             },
             mounted() { this.loadInitData(); this.initLotList(); this.initEtestList(); },
             methods: {
-                // 💡 初始化 5 列空白的 Etest 子批號表格
                 initEtestList() {
                     this.etestList = [];
-                    for (let i = 0; i < 5; i++) {
-                        this.etestList.push({ childLotId: '', qty: '' });
-                    }
+                    for (let i = 0; i < 5; i++) { this.etestList.push({ childLotId: '', qty: '' }); }
                 },
-
-                // 💡 呼叫後端查詢 Etest Merge 資訊
                 async fetchEtestInfo() {
-                    if (!this.form.labelData) {
-                        this.form.totalQty = '';
-                        this.initEtestList();
-                        return;
-                    }
-
+                    if (!this.form.labelData) { this.form.totalQty = ''; this.initEtestList(); return; }
                     try {
                         const response = await mesfetch("/api/print/print-label/etest-merge-info", { LotId: this.form.labelData.trim() });
-                        
                         if (response.Success && response.Data) {
                             this.form.totalQty = response.Data.TotalQty || '';
-                            
-                            // 💡 修正核心：將 C# 的 PascalCase (大寫開頭) 屬性對應到 Vue 的 camelCase (小寫開頭) 屬性
                             let lotsFromApi = response.Data.ChildLots || [];
                             this.etestList = lotsFromApi.map(item => ({
                                 childLotId: item.ChildLotId || item.childLotId || '',
                                 qty: item.Qty || item.qty || ''
                             }));
-
-                            // 更新表格，補齊到至少 5 列以維持畫面美觀
-                            while (this.etestList.length < 5) {
-                                this.etestList.push({ childLotId: '', qty: '' });
-                            }
+                            while (this.etestList.length < 5) { this.etestList.push({ childLotId: '', qty: '' }); }
                         } else {
                             VMessageBox.alert(response.Message || '查無此批號的 Merge 資訊');
-                            this.form.totalQty = '';
-                            this.initEtestList();
+                            this.form.totalQty = ''; this.initEtestList();
                         }
-                    } catch (e) {
-                        console.error(e);
-                        this.form.totalQty = '';
-                        this.initEtestList();
-                    }
+                    } catch (e) { console.error(e); this.form.totalQty = ''; this.initEtestList(); }
                 },
                 initLotList() {
                     this.lotList = [];
