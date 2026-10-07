@@ -1,18 +1,199 @@
-        // LPI-1: 取得 Label Spec
-        [HttpPost, Route("lpi-label-specs"), AuthorizeToken]
-        public async Task<IHttpActionResult> GetLpiLabelSpecs([FromBody] dynamic req = null)
-        // LPI-2: 取得 CarrierType
-        [HttpPost, Route("lpi-carrier-types"), AuthorizeToken]
-        public async Task<IHttpActionResult> GetLpiCarrierTypes([FromBody] DropdownRequest request)
-        // LPI-3: 取得 BoxingSpecNo
-        [HttpPost, Route("lpi-boxing-specs"), AuthorizeToken]
-        public async Task<IHttpActionResult> GetLpiBoxingSpecs([FromBody] DropdownRequest request)
-        // LPI-4: 取得 Brand
-        [HttpPost, Route("lpi-brands"), AuthorizeToken]
-        public async Task<IHttpActionResult> GetLpiBrands([FromBody] DropdownRequest request)
-        // LPI-5: 取得 PinCount
-        [HttpPost, Route("lpi-pin-counts"), AuthorizeToken]
-        public async Task<IHttpActionResult> GetLpiPinCounts([FromBody] DropdownRequest request)
-        // LPI-6: 取得 PackageCode
-        [HttpPost, Route("package-codes"), AuthorizeToken]
-        public async Task<IHttpActionResult> GetPackageCodes([FromBody] DropdownRequest request)
+Private Sub txtLotId_KeyPress(Index As Integer, KeyAscii As Integer)
+On Error GoTo ExitHandler:
+Dim sProcID As String
+Dim typErrInfo As tErrInfo
+Dim oLot       As FwLot
+Dim sPartNo    As String
+
+Dim sSQL    As String
+Dim colRS   As Collection
+Dim oItem   As Object
+
+Dim i       As Integer
+Dim sIPN    As String
+Dim sCQty   As String
+Dim iReel   As Integer
+
+'----
+' Init
+'----
+    sProcID = "txtLotId_KeyPress"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+
+'----
+' Condition Checking
+'----
+    If KeyAscii <> 13 Then
+        GoTo ExitHandler
+    End If
+    
+    txtLotId(Index).Locked = True
+    txtLotId(Index).BackColor = &H80000000
+'----
+' Action
+'----
+    
+    Select Case Index
+        'Case 0 ~ 8 省略
+        Case 9
+            sSQL = "SELECT * FROM " & gsCAT_TBL_LOT_ATTRIBUTE & _
+                    " WHERE " & gsCAT_TLATT_LOTID & " = '" & Me.txtLotId(Index).Text & "'"
+            
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            If colRS.Count > 0 Then
+                sIPN = colRS.Item(1).Item(gsCAT_TLATT_IPN)
+                sCQty = colRS.Item(1).Item(gsCAT_TLATT_CHIPQTY)
+            End If
+            
+            sSQL = "SELECT TLA." & gsCAT_TLATT_LOTID & "," & _
+                          "TLA." & gsCAT_TIM_IPN & "," & _
+                          "TIM." & gsCAT_TIM_IPN & "," & _
+                          "TIM." & gsCAT_TIM_PRODBODY & "," & _
+                          "TIM." & gsCAT_TIM_PIN_COUNT & "," & _
+                          "TIM." & gsCAT_TIM_PACKAGE_CODE & "," & _
+                          "TIM." & gsCAT_TIM_BODY_SIZE & "" & _
+                     " FROM " & gsCAT_TBL_LOT_ATTRIBUTE & " TLA, " & gsCAT_TBL_IPN_MASTER & " TIM" & _
+                    " WHERE TLA." & gsCAT_TLATT_IPN & " = TIM." & gsCAT_TIM_IPN & "(+)" & _
+                      "AND TLA." & gsCAT_TLATT_LOTID & " = '" & Me.txtLotId(Index).Text & "'"
+            
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            
+            If colRS.Count > 0 Then
+                If colRS.Item(1).Item(3) <> "" Then
+                    Me.txt_FT_TR_IPN.Text = colRS.Item(1).Item(gsCAT_TIM_PRODBODY) & "-" & colRS.Item(1).Item(gsCAT_TIM_PIN_COUNT) & colRS.Item(1).Item(gsCAT_TIM_PACKAGE_CODE) & " " & colRS.Item(1).Item(gsCAT_TIM_BODY_SIZE)
+                Else
+                    Me.txt_FT_TR_IPN.Text = colRS.Item(1).Item(2)
+                End If
+            End If
+            
+            sSQL = "SELECT " & gsCAT_TPBS_CARRIER_QTY & _
+                    " FROM " & gsCAT_TBL_PRM_BE_SPEC & _
+                    " WHERE " & gsCAT_TPBS_IPN & "='" & sIPN & _
+                    "' AND " & gsCAT_TPBS_DEFAULTS & " ='Y'"
+            Set colRS = moProRawSql.QueryDatabase(sSQL)
+            If colRS.Count > 0 Then
+                Me.txt_FT_TR_QtyReel.Text = colRS.Item(1).Item(gsCAT_TPBS_CARRIER_QTY)
+            End If
+        'Add gsLABEL_FT_TR_LABEL by HouYu for 202000413 on 20220422
+    End Select
+'----
+' Done
+'----
+
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Sub
+
+Private Sub txt_FT_TR_QtyReel_Change()
+On Error GoTo ExitHandler:
+Dim sProcID As String
+Dim typErrInfo As tErrInfo
+Dim oLot       As FwLot
+Dim sPartNo    As String
+
+Dim sSQL    As String
+Dim colRS   As Collection
+Dim oItem   As Object
+
+Dim i       As Integer
+Dim sIPN    As String
+Dim sCQty   As String
+Dim iReel   As Integer
+
+'----
+' Init
+'----
+    sProcID = "txt_FT_TR_QtyReel_KeyPress"
+    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
+
+'----
+' Condition Checking
+'----
+    If Me.txt_FT_TR_QtyReel.Text = "" Then
+        GoTo ExitHandler
+    End If
+    If Not IsNumeric(Me.txt_FT_TR_QtyReel.Text) Then
+        Me.txt_FT_TR_QtyReel.Text = ""
+        GoTo ExitHandler
+    End If
+'----
+' Action
+'----
+    sSQL = "SELECT * FROM " & gsCAT_TBL_LOT_ATTRIBUTE & _
+            " WHERE " & gsCAT_TLATT_LOTID & " = '" & Me.txtLotId(miIndex).Text & "'"
+    
+    Set colRS = moProRawSql.QueryDatabase(sSQL)
+    If colRS.Count > 0 Then
+        sCQty = colRS.Item(1).Item(gsCAT_TLATT_CHIPQTY)
+    End If
+    
+    Me.cbo_FT_TR_ReelId.Clear
+    
+    If Me.txt_FT_TR_QtyReel.Text = 0 Then
+        Call UtShowMsgBox("Reel ID list can't be zero!")
+        GoTo ExitHandler
+    Else
+        iReel = Fix(sCQty / Me.txt_FT_TR_QtyReel.Text)
+    End If
+    
+    If iReel > 0 Then
+        Me.cbo_FT_TR_ReelId.AddItem "All"
+        For i = 1 To iReel
+            Me.cbo_FT_TR_ReelId.AddItem i
+        Next i
+    Else
+        Call UtShowMsgBox("QtyReel(" & Me.txt_FT_TR_QtyReel.Text & ") can not be large than CQty(" & sCQty & ")!")
+        Me.txt_FT_TR_QtyReel.Text = ""
+        GoTo ExitHandler
+    End If
+'----
+' Done
+'----
+
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
+    ' <Your cleaning up codes goes here...>
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+            End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , moAppLog, True)
+    End If
+End Sub
