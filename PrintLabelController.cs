@@ -259,5 +259,24 @@ namespace MES.Net.Web.Controllers.Print
                 return Ok(new { Success = false, Message = "查詢發生例外錯誤" });
             }
         }
+        // =========================================================================
+        // 依據 LotId 取得 FT_TR_LABEL 的專屬資訊與 Reel ID 清單
+        // =========================================================================
+        [HttpPost, Route("tr-label-info"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetTrLabelInfo([FromBody] TrLabelInfoRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.LotId)) return BadRequest("請提供批號");
+            try
+            {
+                var result = await _printLabelService.GetTrLabelInfoAsync(request);
+                if (result == null) return Ok(new { Success = false, Message = "查無此批號的詳細資訊" });
+                return Ok(new { Success = true, Message = "", Data = result });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error(this, ex.Message, ex);
+                return Ok(new { Success = false, Message = ex.Message });
+            }
+        }
     }
 }
