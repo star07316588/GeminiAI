@@ -1,6 +1,18 @@
-        Task<IEnumerable<string>> GetLpiLabelSpecsAsync();
-        Task<IEnumerable<string>> GetLpiCarrierTypesAsync(string labelSpecNo);
-        Task<IEnumerable<string>> GetLpiBoxingSpecsAsync(DropdownRequest request);
-        Task<IEnumerable<string>> GetLpiBrandsAsync(DropdownRequest request);
-        Task<IEnumerable<string>> GetLpiPinCountsAsync(DropdownRequest request);
-        Task<IEnumerable<string>> GetPackageCodesAsync(DropdownRequest request);
+        // LPI-1: 取得 Label Spec
+        [HttpPost, Route("lpi-label-specs"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLpiLabelSpecs([FromBody] dynamic req = null)
+        // LPI-2: 取得 CarrierType
+        [HttpPost, Route("lpi-carrier-types"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLpiCarrierTypes([FromBody] DropdownRequest request)
+        // LPI-3: 取得 BoxingSpecNo
+        [HttpPost, Route("lpi-boxing-specs"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLpiBoxingSpecs([FromBody] DropdownRequest request)
+        // LPI-4: 取得 Brand
+        [HttpPost, Route("lpi-brands"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLpiBrands([FromBody] DropdownRequest request)
+        // LPI-5: 取得 PinCount
+        [HttpPost, Route("lpi-pin-counts"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetLpiPinCounts([FromBody] DropdownRequest request)
+        // LPI-6: 取得 PackageCode
+        [HttpPost, Route("package-codes"), AuthorizeToken]
+        public async Task<IHttpActionResult> GetPackageCodes([FromBody] DropdownRequest request)
