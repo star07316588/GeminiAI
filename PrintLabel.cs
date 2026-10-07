@@ -1706,6 +1706,82 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return response;
         }
+        public async Task<TrLabelInfoResponse> GetTrLabelInfoAsync(TrLabelInfoRequest request)
+        {
+            var response = new TrLabelInfoResponse();
+            string lotId = request.LotId.Trim();
+
+            // 1. 查詢 Lot 屬性 (對應 VB6 第一次查詢)
+            string sqlLot = $@"
+                SELECT IPN, CHIPQTY 
+                FROM {gsCAT_TBL_LOT_ATTRIBUTE} 
+                WHERE LOTID = :p_LotId";
+            var lotAttr = await _dbConnection.QueryFirstOrDefaultAsync<dynamic>(sqlLot, new { p_LotId = lotId });
+            
+            if (lotAttr == null) return null;
+            
+            string sIpn = lotAttr.IPN;
+            if (!int.TryParse(lotAttr.CHIPQTY?.ToString(), out int chipQty)) chipQty = 0;
+            response.ChipQty = chipQty;
+
+            // 2. 組合 IPN 顯示字串 (對應 VB6 第二次查詢 IPN_MASTER)
+            string sqlIpnMaster = $@"
+                SELECT TIM.PRODBODY, TIM.PIN_COUNT, TIM.PACKAGE_CODE, TIM.BODY_SIZE
+                FROM {gsCAT_TBL_LOT_ATTRIBUTE} TLA
+                LEFT JOIN {gsCAT_TBL_IPN_MASTER} TIM ON TLA.IPN = TIM.IPN
+                WHERE TLA.LOTID = :p_LotId";
+            var ipnMaster = await _dbConnection.QueryFirstOrDefaultAsync<dynamic>(sqlIpnMaster, new { p_LotId = lotId });
+
+            if (ipnMaster != null && !string.IsNullOrEmpty(ipnMaster.PRODBODY))
+            {
+                response.Ipn = $"{ipnMaster.PRODBODY}-{ipnMaster.PIN_COUNT}{ipnMaster.PACKAGE_CODE} {ipnMaster.BODY_SIZE}";
+            }
+            else
+            {
+                response.Ipn = sIpn;
+            }
+
+            // 3. 取得預設包裝數量 (對應 VB6 第三次查詢 PRM_BE_SPEC)
+            int targetQtyReel = 0;
+            if (request.OverrideQtyReel.HasValue && request.OverrideQtyReel.Value > 0)
+            {
+                targetQtyReel = request.OverrideQtyReel.Value;
+            }
+            else
+            {
+                string sqlBeSpec = $@"
+                    SELECT CARRIER_QTY 
+                    FROM {gsCAT_TBL_PRM_BE_SPEC} 
+                    WHERE IPN = :p_Ipn AND DEFAULTS = 'Y'";
+                var carrierQty = await _dbConnection.QueryFirstOrDefaultAsync<int?>(sqlBeSpec, new { p_Ipn = sIpn });
+                targetQtyReel = carrierQty ?? 0;
+            }
+
+            response.QtyReel = targetQtyReel;
+
+            // 4. 計算 Reel IDs (對應 VB6 txt_FT_TR_QtyReel_Change 邏輯)
+            if (targetQtyReel <= 0)
+            {
+                throw new Exception("Reel ID list can't be zero! (Qty/Reel 不能為零)");
+            }
+            if (targetQtyReel > chipQty)
+            {
+                throw new Exception($"QtyReel({targetQtyReel}) can not be large than CQty({chipQty})!");
+            }
+
+            int totalReels = chipQty / targetQtyReel; // 相當於 VB6 的 Fix()
+            
+            if (totalReels > 0)
+            {
+                response.ReelIds.Add("All");
+                for (int i = 1; i <= totalReels; i++)
+                {
+                    response.ReelIds.Add(i.ToString());
+                }
+            }
+
+            return response;
+        }
     }
 }
 
