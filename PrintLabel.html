@@ -31,6 +31,12 @@
         .grid-table input[readonly] { background-color: #f9f9f9; color: #666; }
         .btn-ok { background-color: #f0f0f0; border: 1px solid #999; padding: 0 20px; height: 32px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
         .btn-ok:hover { background-color: #e0e0e0; border-color: #666; }
+
+        /* 💡 新增：仿製 VB6 頁籤 (Tabs) 樣式 */
+        .tabs-header { display: flex; border-bottom: 1px solid #ccc; }
+        .tab-btn { padding: 6px 36px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-bottom: none; margin-right: 4px; border-radius: 4px 4px 0 0; font-size: 13px; color: #333; margin-bottom: -1px; }
+        .tab-btn.active { background: #fff; font-weight: bold; border-bottom: 1px solid #fff; }
+        .tab-content { border: 1px solid #ccc; padding: 20px; border-radius: 0 4px 4px 4px; background: #f9f9f9; }
     </style>
 </head>
 <body>
@@ -56,12 +62,11 @@
                         <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
-                    <!-- 一般單批輸入框隱藏邏輯 (包含 FT_LOT_INFO 時也隱藏) -->
-                    <label class="field-label" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode">Label Data :</label>
-                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Wafer ID" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode">
+                    <!-- 一般單批輸入框隱藏邏輯 (包含 LabelPack 也要隱藏) -->
+                    <label class="field-label" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled">Label Data :</label>
+                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Wafer ID" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled">
 
-                    <!-- 💡 新增防護：FT_LOT_INFO 隱藏 Print Mode -->
-                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode && !isFtLotInfoMode">
+                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode && !isFtLotInfoMode && !isLabelPackEnabled">
                         <label class="field-label">Print Mode :</label>
                         <div class="radio-group">
                             <label class="radio-item"><input type="radio" v-model="form.printMode" value="Normal" @change="onPrintModeChange"> Normal</label>
@@ -76,8 +81,7 @@
                         <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
-                    <!-- 💡 新增防護：FT_LOT_INFO 隱藏 Box Qty -->
-                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode">
+                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode && !isLabelPackEnabled">
                         <label class="field-label">Box Qty :</label>
                         <input type="number" class="form-control" v-model.number="form.boxQty" min="1" :disabled="!isBoxQtyEnabled || isEtestMergeMode">
                     </template>
@@ -105,7 +109,68 @@
                 </div>
             </div>
 
-            <!-- FT_BOX_COUNTING 專屬區塊 -->
+            <!-- 💡 新增：FT_Label_PACK_INFO 專屬頁籤區塊 -->
+            <div class="form-panel" v-show="isLabelPackEnabled">
+                <div class="form-title"><i class="mdi mdi-package-variant"></i> Label Pack Info.</div>
+                
+                <!-- 頁籤標題列 -->
+                <div class="tabs-header">
+                    <div class="tab-btn" :class="{ active: form.lpiMode === 'Auto' }" @click="setLpiMode('Auto')">Auto</div>
+                    <div class="tab-btn" :class="{ active: form.lpiMode === 'Manual' }" @click="setLpiMode('Manual')">Manual</div>
+                </div>
+
+                <!-- 頁籤內容區 -->
+                <div class="tab-content">
+                    
+                    <!-- Auto 模式內容 -->
+                    <div class="form-list-layout" v-show="form.lpiMode === 'Auto'">
+                        <label class="field-label">LOT NO :</label>
+                        <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 LOT NO">
+                    </div>
+
+                    <!-- Manual 模式內容 (六層連動) -->
+                    <div class="form-list-layout" v-show="form.lpiMode === 'Manual'">
+                        <label class="field-label">Label Spec NO :</label>
+                        <select class="form-control" v-model="form.lpiLabelSpecNo" @change="onLpiLabelSpecChange">
+                            <option value="">-- Select Label Spec --</option>
+                            <option v-for="opt in options.lpiLabelSpecs" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+
+                        <label class="field-label">Carrier Type :</label>
+                        <select class="form-control" v-model="form.carrierType" @change="onCarrierTypeChange" :disabled="!form.lpiLabelSpecNo">
+                            <option value="">-- Select Carrier Type --</option>
+                            <option v-for="opt in options.carrierTypes" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+
+                        <label class="field-label">Boxing Spec NO :</label>
+                        <select class="form-control" v-model="form.boxingSpecNo" @change="onBoxingSpecChange" :disabled="!form.carrierType">
+                            <option value="">-- Select Boxing Spec --</option>
+                            <option v-for="opt in options.boxingSpecs" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+
+                        <label class="field-label">Brand :</label>
+                        <select class="form-control" v-model="form.brand" @change="onBrandChange" :disabled="!form.boxingSpecNo">
+                            <option value="">-- Select Brand --</option>
+                            <option v-for="opt in options.brands" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+
+                        <label class="field-label">Pin Count :</label>
+                        <select class="form-control" v-model="form.pinCount" @change="onPinCountChange" :disabled="!form.brand">
+                            <option value="">-- Select Pin Count --</option>
+                            <option v-for="opt in options.pinCounts" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+
+                        <label class="field-label">Package Code :</label>
+                        <select class="form-control" v-model="form.packageCode" :disabled="!form.pinCount">
+                            <option value="">-- Select Package Code --</option>
+                            <option v-for="opt in options.packageCodes" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- (省略保留其他區塊以節省篇幅：FT_BOX_COUNTING、FT_ETEST_MERGE、Lot List、Reprint) -->
             <div class="form-panel" v-show="isBoxCountingMode">
                 <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
                 <div class="form-list-layout">
@@ -114,7 +179,6 @@
                 </div>
             </div>
 
-            <!-- FT_ETEST_MERGE_LABEL 專屬區塊 -->
             <div class="form-panel" v-show="isEtestMergeMode">
                 <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
                 <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 12px; padding-left: 20px;">
@@ -145,7 +209,6 @@
                 </div>
             </div>
 
-            <!-- 動態 Lot List 區塊 -->
             <div class="form-panel" v-show="isLotListEnabled">
                 <div class="form-title"><i class="mdi mdi-table"></i> Lot List</div>
                 <div style="overflow-x: auto; max-height: 300px; overflow-y: auto;">
@@ -156,19 +219,12 @@
                                 <th style="width: 40px;"><input type="checkbox" @change="toggleAllLots" v-model="allLotsChecked"></th>
                                 <th style="width: 150px;">Lot NO</th>
                                 <th style="width: 150px;">Product NO</th>
-                                
-                                <!-- 💡 欄位顯示邏輯更新：FT_LOT_INFO 與 BIN_CARD 皆隱藏 WaferQty 與 Speed -->
                                 <th style="width: 80px;" v-show="!isBinCardMode && !isFtLotInfoMode">Wafer Qty</th>
                                 <th style="width: 80px;">Chip Qty</th>
                                 <th style="width: 100px;">Lot Owner</th>
                                 <th style="width: 100px;" v-show="!isBinCardMode && !isFtLotInfoMode">Speed</th>
-                                
-                                <!-- 💡 Route 在 FT_BIN_CARD 與 FT_LOT_INFO 都要顯示 -->
                                 <th style="width: 100px;" v-show="isBinCardMode || isFtLotInfoMode">Route</th>
-                                
-                                <!-- 💡 Step 只有 FT_BIN_CARD 要顯示 -->
                                 <th style="width: 100px;" v-show="isBinCardMode">Step</th>
-                                
                                 <th style="width: 40px;"></th>
                             </tr>
                         </thead>
@@ -182,22 +238,15 @@
                                            @keydown.down.prevent="handleDown(index)" @keydown.up.prevent="handleUp(index)">
                                 </td>
                                 <td><input type="text" v-model="row.productNo" readonly></td>
-                                
-                                <!-- 💡 對應的 td 顯示隱藏條件 -->
                                 <td v-show="!isBinCardMode && !isFtLotInfoMode"><input type="text" v-model="row.waferQty" readonly></td>
                                 <td><input type="text" v-model="row.chipQty" readonly></td>
                                 <td><input type="text" v-model="row.lotOwner" readonly></td>
                                 <td v-show="!isBinCardMode && !isFtLotInfoMode"><input type="text" v-model="row.speed" readonly></td>
-                                
                                 <td v-show="isBinCardMode || isFtLotInfoMode"><input type="text" v-model="row.route" readonly></td>
                                 <td v-show="isBinCardMode"><input type="text" v-model="row.step" readonly></td>
-                                
-                                <td>
-                                    <button type="button" @click="removeRow(index)" title="刪除此列" style="border: none; background: transparent; cursor: pointer; color: #d32f2f; font-weight: bold;">✖</button>
-                                </td>
+                                <td><button type="button" @click="removeRow(index)" title="刪除此列" style="border: none; background: transparent; cursor: pointer; color: #d32f2f; font-weight: bold;">✖</button></td>
                             </tr>
                             <tr>
-                                <!-- 根據不同模式，調整底部的 colspan 寬度，以保持樣式完美 -->
                                 <td :colspan="(isBinCardMode || isFtLotInfoMode) ? 8 : 9" style="text-align: left; padding: 4px;">
                                     <button type="button" @click="addNewRow" style="border: 1px dashed #ccc; background: #f9f9f9; padding: 4px 12px; cursor: pointer; color: #1565C0; font-size: 13px; width: 100%;">
                                         ➕ 點擊或按 [ ↓ ] 向下新增一列
@@ -209,8 +258,7 @@
                 </div>
             </div>
 
-            <!-- Reprint 補印專用區塊 (FT_LOT_INFO 照理說不會用到，加上防護) -->
-            <div class="form-panel" v-show="form.printMode === 'Reprint' && !isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode">
+            <div class="form-panel" v-show="form.printMode === 'Reprint' && !isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode && !isLabelPackEnabled">
                 <div class="form-title"><i class="mdi mdi-refresh"></i> Reprint Info.</div>
                 <div class="form-list-layout">
                     <label class="field-label">Search Type :</label>
@@ -257,16 +305,14 @@
                 isBinCardMode() { return this.form.labelFormat && this.form.labelFormat.includes('FT_BIN_CARD'); },
                 isBoxCountingMode() { return this.form.labelFormat === 'FT_BOX_COUNTING'; },
                 isEtestMergeMode() { return this.form.labelFormat === 'FT_ETEST_MERGE_LABEL' || this.form.labelFormat === 'FT_ETEST_MERGE'; },
-                
-                // 💡 新增：FT_LOT_INFO 判斷旗標
                 isFtLotInfoMode() { return this.form.labelFormat === 'FT_LOT_INFO'; },
+                // 💡 新增：LabelPack 旗標
+                isLabelPackEnabled() { return this.form.labelFormat === 'FT_Label_PACK_INFO'; },
 
-                // 💡 將 FT_LOT_INFO 加入需要顯示 Lot List 的陣列中
                 isLotListEnabled() {
                     const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD', 'FT_LOT_INFO'];
                     return listFormats.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 },
-                isLabelPackEnabled() { return this.form.labelFormat === 'FT_Label_PACK_INFO'; },
                 isBoxQtyEnabled() {
                     const singleLabels = ["FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG", "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL", "FT_BIN_CARD", "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE"];
                     return !singleLabels.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
@@ -274,10 +320,71 @@
             },
             mounted() { this.loadInitData(); this.initLotList(); this.initEtestList(); },
             methods: {
-                initEtestList() {
-                    this.etestList = [];
-                    for (let i = 0; i < 5; i++) { this.etestList.push({ childLotId: '', qty: '' }); }
+                // 💡 LPI 頁籤切換邏輯
+                setLpiMode(mode) {
+                    this.form.lpiMode = mode;
+                    if (mode === 'Auto') {
+                        this.clearLpiDropdowns(0);
+                    } else {
+                        this.form.labelData = ''; // 切到 Manual 時清空 LOT NO
+                        if (this.options.lpiLabelSpecs.length === 0) {
+                            this.loadLpiLabelSpecs();
+                        }
+                    }
                 },
+                
+                // 💡 LPI 六層下拉連動邏輯
+                async loadLpiLabelSpecs() {
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lpi-label-specs", {});
+                        if (response.Success) this.options.lpiLabelSpecs = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+                async onLpiLabelSpecChange() {
+                    this.clearLpiDropdowns(1); if (!this.form.lpiLabelSpecNo) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lpi-carrier-types", { LabelSpecNo: this.form.lpiLabelSpecNo });
+                        if (response.Success) this.options.carrierTypes = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+                async onCarrierTypeChange() {
+                    this.clearLpiDropdowns(2); if (!this.form.carrierType) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lpi-boxing-specs", { CarrierType: this.form.carrierType });
+                        if (response.Success) this.options.boxingSpecs = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+                async onBoxingSpecChange() {
+                    this.clearLpiDropdowns(3); if (!this.form.boxingSpecNo) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lpi-brands", { CarrierType: this.form.carrierType, BoxingSpecNo: this.form.boxingSpecNo });
+                        if (response.Success) this.options.brands = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+                async onBrandChange() {
+                    this.clearLpiDropdowns(4); if (!this.form.brand) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/lpi-pin-counts", { CarrierType: this.form.carrierType, BoxingSpecNo: this.form.boxingSpecNo, Brand: this.form.brand });
+                        if (response.Success) this.options.pinCounts = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+                async onPinCountChange() {
+                    this.clearLpiDropdowns(5); if (!this.form.pinCount) return;
+                    try {
+                        const response = await mesfetch("/api/print/print-label/package-codes", { CarrierType: this.form.carrierType, BoxingSpecNo: this.form.boxingSpecNo, Brand: this.form.brand, PinCount: this.form.pinCount });
+                        if (response.Success) this.options.packageCodes = response.Data;
+                    } catch (error) { console.error(error); }
+                },
+                clearLpiDropdowns(level) {
+                    if (level <= 1) { this.form.carrierType = ''; this.options.carrierTypes = []; }
+                    if (level <= 2) { this.form.boxingSpecNo = ''; this.options.boxingSpecs = []; }
+                    if (level <= 3) { this.form.brand = ''; this.options.brands = []; }
+                    if (level <= 4) { this.form.pinCount = ''; this.options.pinCounts = []; }
+                    if (level <= 5) { this.form.packageCode = ''; this.options.packageCodes = []; }
+                },
+
+                // (保留原本的 loadInitData, fetchLotInfo, fetchEtestInfo 等方法，此處省略以保持專注於 LPI 更新)
+                initEtestList() { this.etestList = []; for (let i = 0; i < 5; i++) { this.etestList.push({ childLotId: '', qty: '' }); } },
                 async fetchEtestInfo() {
                     if (!this.form.labelData) { this.form.totalQty = ''; this.initEtestList(); return; }
                     try {
@@ -350,8 +457,11 @@
                 async onLabelFormatChange() {
                     this.form.printerServer = '';
                     if (!this.form.stage || !this.form.labelFormat) return;
+                    
                     if (this.isLotListEnabled) this.initLotList();
                     if (this.isEtestMergeMode) { this.form.labelData = ''; this.form.totalQty = ''; this.initEtestList(); }
+                    // 💡 切換至 LPI 時自動重置
+                    if (this.isLabelPackEnabled) { this.setLpiMode('Auto'); this.form.labelData = ''; }
 
                     try {
                         const response = await mesfetch("/api/print/print-label/mapped-servers", { Stage: this.form.stage, LabelFormat: this.form.labelFormat });
@@ -390,15 +500,29 @@
                     if (!this.form.printerServer || !this.form.labelFormat) { VMessageBox.alert('請選擇完整的伺服器與標籤格式！'); return; }
 
                     let lotsToPrint = [];
-                    if (this.isLotListEnabled) {
+                    
+                    // 💡 LPI 手動模式防呆：沒有 LotId，但必須選擇完所有參數
+                    if (this.isLabelPackEnabled && this.form.lpiMode === 'Manual') {
+                        if (!this.form.lpiLabelSpecNo || !this.form.packageCode) {
+                            VMessageBox.alert('請選擇完整的 Label Pack 手動參數！'); return;
+                        }
+                        lotsToPrint.push(''); // 手動模式不帶 LotId
+                    } 
+                    else if (this.isLotListEnabled) {
                         lotsToPrint = this.lotList.filter(row => row.checked && row.lotNo.trim() !== '').map(row => row.lotNo.trim());
                         if (lotsToPrint.length === 0) { VMessageBox.alert('請至少勾選一筆 Lot 才能列印！'); return; }
-                    } else {
-                        // 一般模式、BoxCounting、EtestMerge 皆驗證此欄位
+                    } 
+                    else {
                         if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') {
-                            VMessageBox.alert('請輸入 Lot ID 或 Label Data！'); return;
+                            VMessageBox.alert('請輸入 LOT NO 或 Label Data！'); return;
                         }
                         lotsToPrint.push(this.form.labelData.trim());
+                    }
+
+                    // 決定傳入後端的 PrintMode (讓後端知道 LPI 是走 Auto 還是 Manual)
+                    let finalPrintMode = this.form.printMode;
+                    if (this.isLabelPackEnabled) {
+                        finalPrintMode = this.form.lpiMode; // 'Auto' 或 'Manual'
                     }
 
                     document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
@@ -407,10 +531,16 @@
                         for (const currentLot of lotsToPrint) {
                             const payload = {
                                 Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: currentLot,
-                                PrintMode: this.form.printMode, PrinterServer: this.form.printerServer,
+                                PrintMode: finalPrintMode, PrinterServer: this.form.printerServer,
                                 BoxQty: this.form.boxQty, PrintQty: this.form.printQty,
                                 ReprintType: this.form.printMode === 'Reprint' ? this.form.reprintType : '',
                                 SearchData: this.form.printMode === 'Reprint' ? this.form.searchData : '',
+                                
+                                // 💡 LPI 專屬參數
+                                LabelSpecNo: this.form.lpiLabelSpecNo, CarrierType: this.form.carrierType, 
+                                BoxingSpecNo: this.form.boxingSpecNo, Brand: this.form.brand, 
+                                PinCount: this.form.pinCount, PackageCode: this.form.packageCode,
+                                
                                 UserId: window.checkAuth ? window.checkAuth().userName : 'System'
                             };
                             const res = await this.executeSinglePrint(payload);
@@ -441,7 +571,10 @@
                     this.form.stage = ''; this.form.labelFormat = ''; this.form.labelData = ''; this.form.printMode = 'Normal';
                     this.form.printerServer = ''; this.form.boxQty = 1; this.form.printQty = 1; this.form.searchData = '';
                     this.form.passSheet = 1; this.form.failSheet = 1;
-                    this.initLotList(); this.setStatus('CLEARED', '');
+                    this.form.totalQty = '';
+                    this.initLotList(); this.initEtestList(); 
+                    this.setLpiMode('Auto');
+                    this.setStatus('CLEARED', '');
                 },
                 doClose() { window.location.href = '/Content/F5.html'; },
                 onAction(action) { const map = { print: this.doPrint, clear: this.doClear, close: this.doClose }; if (map[action]) map[action].call(this); },
