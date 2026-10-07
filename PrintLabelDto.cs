@@ -65,6 +65,21 @@ namespace MES.Net.Shared.DTOs.Print
         public string ChildLotId { get; set; }
         public string Qty { get; set; }
     }
+
+    public class TrLabelInfoRequest
+    {
+        public string LotId { get; set; }
+        // 若前端有手動更改 Qty/Reel，可傳入此參數重新計算
+        public int? OverrideQtyReel { get; set; } 
+    }
+
+    public class TrLabelInfoResponse
+    {
+        public string Ipn { get; set; }
+        public int QtyReel { get; set; }
+        public int ChipQty { get; set; }
+        public List<string> ReelIds { get; set; } = new List<string>();
+    }
     
     public class PrintLabelRequest
     {
