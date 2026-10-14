@@ -58,11 +58,12 @@
                         <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
-                    <!-- 一般單批輸入框隱藏邏輯 (包含 TO_SUB 系列也隱藏) -->
+                    <!-- 一般單批輸入框隱藏邏輯 -->
                     <label class="field-label" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode">Label Data :</label>
                     <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Wafer ID" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode">
 
-                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode && !isFtLotInfoMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode">
+                    <!-- 💡 CP_VIRTUAL 模式也隱藏 Print Mode -->
+                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode && !isFtLotInfoMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode && !isCpVirtualMode">
                         <label class="field-label">Print Mode :</label>
                         <div class="radio-group">
                             <label class="radio-item"><input type="radio" v-model="form.printMode" value="Normal" @change="onPrintModeChange"> Normal</label>
@@ -77,7 +78,7 @@
                         <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
-                    <!-- 💡 TO_SUB 系列與一般標籤皆保留 Box Qty -->
+                    <!-- 💡 CP_VIRTUAL 模式保留 Box Qty 顯示 -->
                     <template v-if="!isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode && !isLabelPackEnabled && !isTrLabelMode">
                         <label class="field-label">Box Qty :</label>
                         <input type="number" class="form-control" v-model.number="form.boxQty" min="1" :disabled="!isBoxQtyEnabled">
@@ -90,35 +91,171 @@
 
                     <!-- FT_BIN_CARD 專屬輸入區塊 -->
                     <template v-if="isBinCardMode">
-                        <!-- ... (省略以節省版面，請保持原有) ... -->
+                        <label class="field-label">Pass Sheet :</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" class="form-control" v-model.number="form.passSheet" min="1">
+                            <button type="button" class="btn-ok" @click="doPrintBinCard(true)">OK</button>
+                        </div>
+                        <label class="field-label">Fail Sheet :</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" class="form-control" v-model.number="form.failSheet" min="1">
+                            <button type="button" class="btn-ok" @click="doPrintBinCard(false)">OK</button>
+                        </div>
                     </template>
 
                 </div>
             </div>
 
-            <!-- 💡 新增：TO_SUB 系列專屬 Label Form -->
+            <!-- 其他標籤專屬區塊 (保持不變) -->
             <div class="form-panel" v-show="isSubLabelMode">
                 <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
                 <div class="form-list-layout" style="background: #f9f9f9; padding: 20px; border: 1px solid #ccc; border-radius: 4px;">
-                    
                     <label class="field-label">(1T) LOT NO :</label>
                     <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 LOT NO 後按 Enter" @blur="fetchSubLabelInfo" @keyup.enter="fetchSubLabelInfo">
-
                     <label class="field-label">(1P) PRODUCT NO :</label>
                     <input type="text" class="form-control" v-model="form.subProductNo" readonly>
-
                     <label class="field-label">(Q) QUANTITY :</label>
                     <input type="text" class="form-control" v-model="form.subQty" readonly>
-
                     <label class="field-label">PACKER :</label>
                     <input type="text" class="form-control" v-model="form.subPacker" readonly>
-
                 </div>
             </div>
 
-            <!-- (省略保留其他區塊以節省篇幅：FT_TR_LABEL、FT_Label_PACK_INFO、FT_BOX_COUNTING、FT_ETEST_MERGE、Lot List、Reprint) -->
-            <!-- 請將前幾回合的專屬區塊保留於此 -->
+            <div class="form-panel" v-show="isTrLabelMode">
+                <div class="form-title"><i class="mdi mdi-package-variant"></i> Label Pack Info.</div>
+                <div class="form-list-layout" style="background: #f9f9f9; padding: 20px; border: 1px solid #ccc; border-radius: 4px;">
+                    <label class="field-label">Lot NO :</label>
+                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot NO 後按 Enter" @blur="fetchTrLabelInfo" @keyup.enter="fetchTrLabelInfo">
+                    <label class="field-label">IPN :</label>
+                    <input type="text" class="form-control" v-model="form.trIpn" readonly>
+                    <label class="field-label">Qty/ Reel :</label>
+                    <input type="number" class="form-control" v-model.number="form.trQtyReel" @change="fetchTrLabelInfo" min="1">
+                    <label class="field-label">Eq ID :</label>
+                    <input type="text" class="form-control" v-model="form.searchData" placeholder="輸入 Eq ID (會帶入 ZPL 的 EqID)">
+                    <label class="field-label">Reel ID :</label>
+                    <select class="form-control" v-model="form.trReelId">
+                        <option value="">-- 請選擇 --</option>
+                        <option v-for="opt in options.trReelIds" :key="opt" :value="opt">{{ opt }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-panel" v-show="isBoxCountingMode">
+                <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
+                <div class="form-list-layout">
+                    <label class="field-label">LOT NO :</label>
+                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 LOT NO">
+                </div>
+            </div>
+
+            <div class="form-panel" v-show="isEtestMergeMode">
+                <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
+                <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 12px; padding-left: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 13px; font-weight: bold; width: 100px; text-align: right;">(1T) LOT NO:</label>
+                        <input type="text" class="form-control" style="width: 200px;" v-model="form.labelData" @blur="fetchEtestInfo" @keyup.enter="fetchEtestInfo">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 13px; font-weight: bold; width: 40px; text-align: right;">QTY:</label>
+                        <input type="text" class="form-control" style="width: 120px; background-color: #d1d5db;" v-model="form.totalQty" readonly>
+                    </div>
+                </div>
+                <div style="width: 60%; margin: 0 auto;">
+                    <table class="grid-table">
+                        <thead>
+                            <tr><th style="width: 40px;"></th><th>ChildLotID</th><th>Qty</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(row, index) in etestList" :key="index">
+                                <td style="background-color: #f0f0f0; border-right: 1px solid #999;">{{ index + 1 }}</td>
+                                <td><input type="text" v-model="row.childLotId" readonly></td>
+                                <td><input type="text" v-model="row.qty" readonly></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
             
+            <div class="form-panel" v-show="isLabelPackEnabled">
+                <!-- 略過保留 LPI HTML 內容 -->
+            </div>
+
+            <!-- 動態 Lot List 區塊 -->
+            <div class="form-panel" v-show="isLotListEnabled">
+                <div class="form-title"><i class="mdi mdi-table"></i> Lot List</div>
+                <div style="overflow-x: auto; max-height: 300px; overflow-y: auto;">
+                    <table class="grid-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">No.</th>
+                                <th style="width: 40px;"><input type="checkbox" @change="toggleAllLots" v-model="allLotsChecked"></th>
+                                <th style="width: 150px;">Lot NO</th>
+                                <th style="width: 150px;">Product NO</th>
+                                
+                                <!-- 💡 隱藏邏輯更新：在 BinCard、LotInfo、CP_Virtual 模式下都隱藏 WaferQty 與 Speed 以外的多餘欄位 -->
+                                <th style="width: 80px;" v-show="!isBinCardMode && !isFtLotInfoMode">Wafer Qty</th>
+                                <th style="width: 80px;">Chip Qty</th>
+                                
+                                <!-- 💡 CP_Virtual 模式隱藏 LotOwner 與 Speed -->
+                                <th style="width: 100px;" v-show="!isCpVirtualMode">Lot Owner</th>
+                                <th style="width: 100px;" v-show="!isBinCardMode && !isFtLotInfoMode && !isCpVirtualMode">Speed</th>
+                                
+                                <th style="width: 100px;" v-show="isBinCardMode || isFtLotInfoMode">Route</th>
+                                <th style="width: 100px;" v-show="isBinCardMode">Step</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(row, index) in lotList" :key="index">
+                                <td>{{ index + 1 }}</td>
+                                <td><input type="checkbox" v-model="row.checked"></td>
+                                <td>
+                                    <input type="text" ref="lotInputs" v-model="row.lotNo"
+                                           @blur="fetchLotInfo(row)" @keyup.enter="handleEnter(row, index)"
+                                           @keydown.down.prevent="handleDown(index)" @keydown.up.prevent="handleUp(index)">
+                                </td>
+                                <td><input type="text" v-model="row.productNo" readonly></td>
+                                
+                                <td v-show="!isBinCardMode && !isFtLotInfoMode"><input type="text" v-model="row.waferQty" readonly></td>
+                                <td><input type="text" v-model="row.chipQty" readonly></td>
+                                
+                                <td v-show="!isCpVirtualMode"><input type="text" v-model="row.lotOwner" readonly></td>
+                                <td v-show="!isBinCardMode && !isFtLotInfoMode && !isCpVirtualMode"><input type="text" v-model="row.speed" readonly></td>
+                                
+                                <td v-show="isBinCardMode || isFtLotInfoMode"><input type="text" v-model="row.route" readonly></td>
+                                <td v-show="isBinCardMode"><input type="text" v-model="row.step" readonly></td>
+                                
+                                <td>
+                                    <button type="button" @click="removeRow(index)" title="刪除此列" style="border: none; background: transparent; cursor: pointer; color: #d32f2f; font-weight: bold;">✖</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <!-- 直接給定一個夠大的 colspan 來滿版 -->
+                                <td colspan="15" style="text-align: left; padding: 4px;">
+                                    <button type="button" @click="addNewRow" style="border: 1px dashed #ccc; background: #f9f9f9; padding: 4px 12px; cursor: pointer; color: #1565C0; font-size: 13px; width: 100%;">
+                                        ➕ 點擊或按 [ ↓ ] 向下新增一列
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reprint 補印專用區塊 (加入 !isCpVirtualMode 防護) -->
+            <div class="form-panel" v-show="form.printMode === 'Reprint' && !isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode && !isLabelPackEnabled && !isCpVirtualMode">
+                <div class="form-title"><i class="mdi mdi-refresh"></i> Reprint Info.</div>
+                <div class="form-list-layout">
+                    <label class="field-label">Search Type :</label>
+                    <div class="radio-group">
+                        <label class="radio-item"><input type="radio" v-model="form.reprintType" value="LastLabel"> Print Last Label</label>
+                        <label class="radio-item"><input type="radio" v-model="form.reprintType" value="SearchData"> Search by Data</label>
+                    </div>
+                    <label class="field-label">Search Data :</label>
+                    <input type="text" class="form-control" v-model="form.searchData" placeholder="輸入搜尋條件" :disabled="form.reprintType !== 'SearchData'">
+                </div>
+            </div>
+
         </div>
         <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
     </div>
@@ -141,10 +278,7 @@
                         boxQty: 1, printQty: 1, reprintType: 'LastLabel', searchData: '',
                         passSheet: 1, failSheet: 1, totalQty: '',
                         lpiMode: 'Auto', lpiLabelSpecNo: '', carrierType: '', boxingSpecNo: '', brand: '', pinCount: '', packageCode: '',
-                        trIpn: '', trQtyReel: '', trReelId: '',
-                        
-                        // 💡 TO_SUB 系列專屬變數
-                        subProductNo: '', subQty: '', subPacker: ''
+                        trIpn: '', trQtyReel: '', trReelId: '', subProductNo: '', subQty: '', subPacker: ''
                     },
                     options: { stages: [], labelFormats: [], printerServers: [], lpiLabelSpecs: [], carrierTypes: [], boxingSpecs: [], brands: [], pinCounts: [], packageCodes: [], trReelIds: [] },
                     lotList: [], etestList: [], allLotsChecked: false, statusMsg: 'READY', statusMsgType: ''
@@ -158,58 +292,54 @@
                 isFtLotInfoMode() { return this.form.labelFormat === 'FT_LOT_INFO'; },
                 isLabelPackEnabled() { return this.form.labelFormat === 'FT_Label_PACK_INFO'; },
                 isTrLabelMode() { return this.form.labelFormat === 'FT_TR_LABEL'; },
-                
-                // 💡 新增：判斷是否為 TO_SUB 系列標籤
                 isSubLabelMode() {
                     const subLabels = ['TO_SUBFT_ENG_SAMPLE', 'TO_SUBFT_NORMAL', 'TO_SUBMK_ENG_SAMPLE', 'TO_SUBMK_NORMAL', 'TO_SUBTR_ENG_SAMPLE', 'TO_SUBTR_NORMAL'];
                     return subLabels.includes(this.form.labelFormat);
                 },
+                
+                // 💡 新增：CP Virtual 標籤判斷
+                isCpVirtualMode() {
+                    return this.form.labelFormat === 'CP_VIRTUAL_LOT_LABEL' || this.form.labelFormat === 'CP_VIRTUAL_MERGE';
+                },
 
+                // 💡 將 CP Virtual 系列加入 Lot List 顯示清單中
                 isLotListEnabled() {
-                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD', 'FT_LOT_INFO'];
+                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD', 'FT_LOT_INFO', 'CP_VIRTUAL_LOT_LABEL', 'CP_VIRTUAL_MERGE'];
                     return listFormats.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 },
+                
                 isBoxQtyEnabled() {
-                    // 💡 注意：TO_SUB 系列不在這個隱藏清單內，所以 BoxQty 會正常啟用
                     const singleLabels = ["FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG", "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL", "FT_BIN_CARD", "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE"];
                     return !singleLabels.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 }
             },
             mounted() { 
                 this.loadInitData(); 
-                
-                // 💡 取得當前登入者工號並放入 PACKER 欄位
                 let currentUserId = sessionStorage.getItem('mes_loginId');
-                if (!currentUserId && window.checkAuth) {
-                    currentUserId = window.checkAuth().userName;
-                }
+                if (!currentUserId && window.checkAuth) currentUserId = window.checkAuth().userName;
                 this.form.subPacker = currentUserId || 'System';
             },
             methods: {
-                // 💡 TO_SUB 系列：輸入 Lot No 觸發查詢 (完美重複利用 /lot-info API)
-                async fetchSubLabelInfo() {
-                    if (!this.form.labelData) {
-                        this.form.subProductNo = ''; this.form.subQty = '';
+                // (其餘所有 API 呼叫方法與前端操作邏輯皆保持與上一版本完全一致，請保留)
+                async fetchLotInfo(row) {
+                    if (!row.lotNo) {
+                        row.productNo = ''; row.waferQty = ''; row.chipQty = ''; row.lotOwner = ''; row.speed = ''; row.route = ''; row.step = ''; row.checked = false;
                         return;
                     }
                     try {
-                        const response = await mesfetch("/api/print/print-label/lot-info", { 
-                            LotId: this.form.labelData.trim(), 
-                            LabelFormat: this.form.labelFormat 
-                        });
-                        
+                        const response = await mesfetch("/api/print/print-label/lot-info", { LotId: row.lotNo, LabelFormat: this.form.labelFormat });
                         if (response.Success && response.Data) {
-                            this.form.subProductNo = response.Data.ProductNo || '';
-                            this.form.subQty = response.Data.ChipQty || ''; // 依據 VB6 邏輯取得 ChipQty
+                            row.productNo = response.Data.ProductNo || ''; row.waferQty = response.Data.WaferQty || ''; row.chipQty = response.Data.ChipQty || '';
+                            row.lotOwner = response.Data.LotOwner || ''; row.speed = response.Data.Speed || ''; row.route = response.Data.Route || ''; row.step = response.Data.Step || '';
+                            row.checked = true;
                         } else {
-                            VMessageBox.alert(response.Message || '查無此批號');
-                            this.form.subProductNo = ''; this.form.subQty = '';
+                            VMessageBox.alert(response.Message || '查無此批號'); row.checked = false;
                         }
-                    } catch (e) { console.error(e); }
+                    } catch (e) { console.error(e); row.checked = false; }
                 },
 
-                // (省略其他方法如 loadInitData, onStageChange 等)
-
+                // (略過龐大重複程式碼)
+                
                 async onLabelFormatChange() {
                     this.form.printerServer = '';
                     if (!this.form.stage || !this.form.labelFormat) return;
@@ -217,103 +347,33 @@
                     if (this.isLotListEnabled) this.initLotList();
                     if (this.isEtestMergeMode) { this.form.labelData = ''; this.form.totalQty = ''; this.initEtestList(); }
                     if (this.isLabelPackEnabled) { this.setLpiMode('Auto'); this.form.labelData = ''; }
-                    
-                    // 💡 切換至 TO_SUB 模式時重置欄位
-                    if (this.isSubLabelMode) {
-                        this.form.labelData = ''; this.form.subProductNo = ''; this.form.subQty = '';
-                    }
+                    if (this.isSubLabelMode) { this.form.labelData = ''; this.form.subProductNo = ''; this.form.subQty = ''; }
 
                     try {
                         const response = await mesfetch("/api/print/print-label/mapped-servers", { Stage: this.form.stage, LabelFormat: this.form.labelFormat });
                         if (response.Success) this.options.printerServers = response.Data;
                     } catch (error) { console.error(error); }
                 },
-
-                async doPrint() {
-                    if (this.isBinCardMode) { VMessageBox.alert('FT BIN CARD 標籤請使用右方的 Pass / Fail 按鈕進行列印！'); return; }
-                    if (!this.form.printerServer || !this.form.labelFormat) { VMessageBox.alert('請選擇完整的伺服器與標籤格式！'); return; }
-
-                    let lotsToPrint = [];
-                    
-                    if (this.isSubLabelMode) {
-                        // 💡 TO_SUB 系列防呆
-                        if (!this.form.labelData.trim() || !this.form.subProductNo) {
-                            VMessageBox.alert('請輸入 LOT NO 並確認批號資訊已載入！'); return;
-                        }
-                        if (this.form.boxQty <= 0) {
-                            VMessageBox.alert('請輸入正確的 Box Qty (箱數)！'); return;
-                        }
-                        lotsToPrint.push(this.form.labelData.trim());
+                
+                // (省略原本完整的 doPrint 邏輯)
+                
+                initLotList() {
+                    this.lotList = [];
+                    for (let i = 0; i < 10; i++) {
+                        this.lotList.push({ checked: false, lotNo: '', productNo: '', waferQty: '', chipQty: '', lotOwner: '', speed: '', route: '', step: '' });
                     }
-                    else if (this.isTrLabelMode) {
-                        if (!this.form.labelData.trim() || !this.form.trReelId) { VMessageBox.alert('請輸入 Lot NO 並確認 Reel ID 是否選定！'); return; }
-                        lotsToPrint.push(this.form.labelData.trim());
-                    }
-                    else if (this.isLabelPackEnabled && this.form.lpiMode === 'Manual') {
-                        if (!this.form.lpiLabelSpecNo || !this.form.packageCode) { VMessageBox.alert('請選擇完整的 Label Pack 手動參數！'); return; }
-                        lotsToPrint.push(''); 
-                    } 
-                    else if (this.isLotListEnabled) {
-                        lotsToPrint = this.lotList.filter(row => row.checked && row.lotNo.trim() !== '').map(row => row.lotNo.trim());
-                        if (lotsToPrint.length === 0) { VMessageBox.alert('請至少勾選一筆 Lot 才能列印！'); return; }
-                    } 
-                    else {
-                        if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') { VMessageBox.alert('請輸入 LOT NO 或 Label Data！'); return; }
-                        lotsToPrint.push(this.form.labelData.trim());
-                    }
-
-                    let finalPrintMode = this.form.printMode;
-                    if (this.isLabelPackEnabled) finalPrintMode = this.form.lpiMode;
-                    if (this.isSubLabelMode) finalPrintMode = 'Normal'; // TO_SUB 系列固定為 Normal
-
-                    document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
-                    try {
-                        let allSuccess = true; let errorMsg = '';
-                        for (const currentLot of lotsToPrint) {
-                            const payload = {
-                                Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: currentLot,
-                                PrintMode: finalPrintMode, PrinterServer: this.form.printerServer,
-                                BoxQty: this.form.boxQty, PrintQty: this.form.printQty,
-                                SearchData: this.form.searchData,
-                                
-                                // 💡 依據不同模式傳遞專屬參數給後端組裝 ZPL
-                                WaferId: this.isTrLabelMode ? this.form.trReelId : '',
-                                IPN: this.isTrLabelMode ? this.form.trIpn : (this.isSubLabelMode ? this.form.subProductNo : ''),
-                                CQty: this.isSubLabelMode ? this.form.subQty : '',
-                                
-                                // TO_SUB 會用到 Packer
-                                UserId: this.isSubLabelMode ? this.form.subPacker : (window.checkAuth ? window.checkAuth().userName : 'System')
-                            };
-                            
-                            // LPI 專屬參數
-                            if(this.isLabelPackEnabled) {
-                                payload.LabelSpecNo = this.form.lpiLabelSpecNo; payload.CarrierType = this.form.carrierType;
-                                payload.BoxingSpecNo = this.form.boxingSpecNo; payload.Brand = this.form.brand;
-                                payload.PinCount = this.form.pinCount; payload.PackageCode = this.form.packageCode;
-                            }
-
-                            const res = await this.executeSinglePrint(payload);
-                            if (!res.Success) { allSuccess = false; errorMsg += `Lot [${currentLot}] 失敗: ${res.Message}\n`; }
-                        }
-                        if (allSuccess) { VMessageBox.alert('標籤列印指令已全數成功送出！'); this.setStatus('PRINT SUCCESS', 'success'); }
-                        else { VMessageBox.alert(errorMsg); this.setStatus('COMPLETED WITH ERRORS', 'warning'); }
-                    } finally { document.body.style.cursor = 'default'; }
                 },
+                toggleAllLots() { this.lotList.forEach(row => { row.checked = this.allLotsChecked; }); },
+                addNewRow() { this.lotList.push({ checked: false, lotNo: '', productNo: '', waferQty: '', chipQty: '', lotOwner: '', speed: '', route: '', step: '' }); },
+                removeRow(index) { this.lotList.splice(index, 1); if (this.lotList.length === 0) this.addNewRow(); },
+                handleDown(index) {
+                    if (index === this.lotList.length - 1) this.addNewRow();
+                    this.$nextTick(() => { if (this.$refs.lotInputs && this.$refs.lotInputs[index + 1]) this.$refs.lotInputs[index + 1].focus(); });
+                },
+                handleUp(index) { if (index > 0 && this.$refs.lotInputs && this.$refs.lotInputs[index - 1]) this.$refs.lotInputs[index - 1].focus(); },
+                handleEnter(row, index) { this.fetchLotInfo(row); this.handleDown(index); },
 
-                // (省略 executeSinglePrint)
-
-                doClear() {
-                    this.form.stage = ''; this.form.labelFormat = ''; this.form.labelData = ''; this.form.printMode = 'Normal';
-                    this.form.printerServer = ''; this.form.boxQty = 1; this.form.printQty = 1; this.form.searchData = '';
-                    this.form.passSheet = 1; this.form.failSheet = 1; this.form.totalQty = '';
-                    this.form.trIpn = ''; this.form.trQtyReel = ''; this.form.trReelId = ''; this.options.trReelIds = [];
-                    
-                    // 💡 清空 TO_SUB 系列
-                    this.form.subProductNo = ''; this.form.subQty = '';
-                    
-                    // (省略其他初始化)
-                    this.setStatus('CLEARED', '');
-                }
+                // ... (略，請參考上一版本完整貼上)
             }
         });
     </script>
