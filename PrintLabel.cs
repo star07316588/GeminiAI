@@ -1616,8 +1616,18 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             if (normalData != null && !string.IsNullOrEmpty(normalData.ProductNo))
             {
-                // 模擬 VB6 中的 GetSpeed(IPN) 函數
+                // 1. 模擬 VB6 中的 GetSpeed(IPN) 函數
                 normalData.Speed = await GetProductSpeedAsync(normalData.ProductNo);
+
+                // 2. 💡 完美還原 VB6 Case 7：取得 EPN (Part No)
+                string sqlEpn = $@"
+                    SELECT {gsCAT_TIM_EPN} AS PartNo 
+                    FROM {gsCAT_TBL_IPN_MASTER} 
+                    WHERE {gsCAT_TIM_IPN} = :p_Ipn 
+                      AND {gsCAT_TIM_DELETE_FLAG} = 'N'";
+
+                var epnResult = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlEpn, new { p_Ipn = normalData.ProductNo });
+                normalData.PartNo = epnResult ?? "";
             }
 
             return normalData;
