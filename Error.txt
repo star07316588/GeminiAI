@@ -1,9 +1,3 @@
-var userId = sessionStorage.getItem('mes_loginId')
-
-var oLot = WipServiceWrapper.Instance.LotById(request.LotId);
-string ipn = oLot.CustomAttributes(LotCustomAttributes.Ipn);
-string chipQty = oLot.CustomAttributes(LotCustomAttributes.ChipQty);
-
 Private Sub txtLotId_KeyPress(Index As Integer, KeyAscii As Integer)
 On Error GoTo ExitHandler:
 Dim sProcID As String
@@ -40,15 +34,22 @@ Dim iReel   As Integer
 '----
     
     Select Case Index
-        Case 0
+        Case 7 'add by Nelson on 2008/06/03 for ReqNo:M200806003
             Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
             If oLot Is Nothing Then
                 UtShowMsgBox ("The Lot is not exist!")
                 GoTo ExitHandler
             End If
             Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
-            Me.txtQty(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
-        'Case ..略
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
+            sPartNo = modCustom.RetrieveEPNbyIPN(moAppLog, _
+                                                moFwWIP, _
+                                                moFwWF, _
+                                                moCwMbx, _
+                                                oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value)
+            Me.txtPartNo(Index).Text = sPartNo
+        'Added by Jack on 2016/06/03 for 2016 MES Phase-5 Project (FT eRunCard Paperless Phase-2 Project) <Start>
     End Select
 '----
 ' Done
