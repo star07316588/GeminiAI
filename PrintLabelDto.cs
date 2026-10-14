@@ -43,9 +43,10 @@ namespace MES.Net.Shared.DTOs.Print
         public string StepName { get; set; }
         public string StepId { get; set; }
     }
-    public class LotDetailData
+public class LotDetailData
     {
         public string ProductNo { get; set; }
+        public string PartNo { get; set; } // 💡 新增：對應 VB6 的 EPN
         public string WaferQty { get; set; }
         public string ChipQty { get; set; }
         public string LotOwner { get; set; }
