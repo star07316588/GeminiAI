@@ -34,7 +34,7 @@ Dim iReel   As Integer
 '----
     
     Select Case Index
-        Case 7 'add by Nelson on 2008/06/03 for ReqNo:M200806003
+        Case 2
             Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
             If oLot Is Nothing Then
                 UtShowMsgBox ("The Lot is not exist!")
@@ -43,13 +43,15 @@ Dim iReel   As Integer
             Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
             Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
             Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
-            sPartNo = modCustom.RetrieveEPNbyIPN(moAppLog, _
-                                                moFwWIP, _
-                                                moFwWF, _
-                                                moCwMbx, _
-                                                oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value)
-            Me.txtPartNo(Index).Text = sPartNo
-        'Added by Jack on 2016/06/03 for 2016 MES Phase-5 Project (FT eRunCard Paperless Phase-2 Project) <Start>
+        Case 5
+            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
+            If oLot Is Nothing Then
+                UtShowMsgBox ("The Lot is not exist!")
+                GoTo ExitHandler
+            End If
+            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
+            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
+            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
     End Select
 '----
 ' Done
@@ -80,90 +82,3 @@ ErrorHandler:
         Call HandleError(False, typErrInfo, , moAppLog, True)
     End If
 End Sub
-
-Public Function RetrieveEPNbyIPN(ByRef moAppLog As Object, _
-        ByVal moFwWIP As Object, _
-        ByVal moFwWF As Object, _
-        ByVal moCwMbx As Object, _
-        ByVal sIPN As String) As String
-    On Error GoTo ExitHandler
-        
-    Dim sReturnValue    As String
-    
-    Dim sTable          As String
-    Dim sCol            As String
-    Dim sWhere          As String
-    
-    Dim colIPNInfo      As Collection
-    
-    Dim sProcID         As String
-    Dim typErrInfo      As tErrInfo
-    
-    '----
-    ' Init
-    '----
-    sReturnValue = ""
-    sProcID = "RetrieveEPNbyIPN"
-    Call LogProcIn(msMODULE_ID, sProcID, moAppLog) '"Entering Function...", moAppLog, glLOG_PROC, msMODULE_ID, sProcID)
-    
-    '-----
-    ' Action
-    '-----
-    If Len(Trim(sIPN)) = 0 Then
-        GoTo ExitHandler
-    End If
-    
-    sTable = modConstCAT.gsCAT_TBL_IPN_MASTER
-    sCol = modConstCAT.gsCAT_TIM_EPN
-    sWhere = modConstCAT.gsCAT_TIM_IPN & " = '" & sIPN & "' AND " & _
-        modConstCAT.gsCAT_TIM_DELETE_FLAG & " = 'N' "
-     
-        Set colIPNInfo = modRawSQL.SelectRawSqlTxn(moAppLog, moFwWIP, moFwWF, moCwMbx, _
-        "CAT", sTable, sCol, sWhere)
-    If colIPNInfo.Count = 0 Then
-        GoTo ExitHandler
-    End If
-    
-    sReturnValue = colIPNInfo.Item(1).Item(modConstCAT.gsCAT_TIM_EPN)
-    '----
-    ' Done
-    '----
-
-ExitHandler:
-    ' NOTE 1:
-    ' MUST CALL GetErrInfo() here first before another action
-    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
-    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
-    
-    RetrieveEPNbyIPN = sReturnValue
-    
-    '----
-    ' Release local objects
-    '----
-    Set moFwWIP = Nothing
-    Set moFwWF = Nothing
-    Set moCwMbx = Nothing
-    
-    Set colIPNInfo = Nothing
-    
-
-ErrorHandler:
-    If typErrInfo.lErrNumber Then
-        ' NOTE 2:
-        ' If you have custom handling of some Errors, please
-        ' UN-REMARED the following Select Case block!
-        ' Also, modify if neccessarily!!!
-        '---- Start of Select Case Block ----
-        Select Case typErrInfo.lErrNumber
-        Case glERR_INVALIDOBJECT
-            ' Retry code goes here...
-        Case Else
-            typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
-                "程式執行失敗, 請洽IT人員處理"
-        End Select
-        '---- Start of Select Case Block ----
-        On Error GoTo ExitHandler:
-        Call HandleError(True, typErrInfo, , moAppLog)
-    End If
-
-End Function
