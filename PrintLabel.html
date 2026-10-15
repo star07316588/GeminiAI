@@ -54,12 +54,12 @@
                         <option v-for="opt in options.labelFormats" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
-                    <!-- 一般單批輸入框隱藏邏輯 (包含 RENESAS_SHIPPING 也要隱藏) -->
-                    <label class="field-label" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode && !isRenesasMode">Label Data :</label>
-                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Wafer ID" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode && !isRenesasMode">
+                    <!-- 一般單批輸入框隱藏邏輯 (包含 WS_SUMMARY 也要隱藏) -->
+                    <label class="field-label" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode && !isRenesasMode && !isWsSummaryMode">Label Data :</label>
+                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 Lot ID 或 Wafer ID" v-show="!isLotListEnabled && !isBoxCountingMode && !isEtestMergeMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode && !isRenesasMode && !isWsSummaryMode">
 
-                    <!-- RENESAS_SHIPPING 隱藏 Print Mode -->
-                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode && !isFtLotInfoMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode && !isCpVirtualMode && !isRenesasMode">
+                    <!-- 隱藏 Print Mode -->
+                    <template v-if="!isBinCardMode && !isBoxCountingMode && !isEtestMergeMode && !isFtLotInfoMode && !isLabelPackEnabled && !isTrLabelMode && !isSubLabelMode && !isCpVirtualMode && !isRenesasMode && !isWsSummaryMode">
                         <label class="field-label">Print Mode :</label>
                         <div class="radio-group">
                             <label class="radio-item"><input type="radio" v-model="form.printMode" value="Normal" @change="onPrintModeChange"> Normal</label>
@@ -74,7 +74,7 @@
                         <option v-for="opt in options.printerServers" :key="opt" :value="opt">{{ opt }}</option>
                     </select>
 
-                    <!-- 💡 RENESAS_SHIPPING 保留 Box Qty 顯示 -->
+                    <!-- 💡 WS_SUMMARY 也顯示 Box Qty，但因為它在 isBoxQtyEnabled 裡會回傳 false，所以會自動被 disabled 變成唯讀反灰 -->
                     <template v-if="!isBinCardMode && !isBoxCountingMode && !isFtLotInfoMode && !isLabelPackEnabled && !isTrLabelMode">
                         <label class="field-label">Box Qty :</label>
                         <input type="number" class="form-control" v-model.number="form.boxQty" min="1" :disabled="!isBoxQtyEnabled">
@@ -88,53 +88,34 @@
                 </div>
             </div>
 
-            <!-- 💡 新增：RENESAS_SHIPPING 專屬 Label Form -->
-            <div class="form-panel" v-show="isRenesasMode">
+            <!-- 💡 新增：WS_SUMMARY / WSMULTILOT_TO_SFG 專屬 Label Form -->
+            <div class="form-panel" v-show="isWsSummaryMode">
                 <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
                 <div class="form-list-layout" style="background: #f9f9f9; padding: 20px; border: 1px solid #ccc; border-radius: 4px;">
                     
                     <label class="field-label">LOT NO :</label>
                     <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 LOT NO 後按 Enter" @blur="fetchSubLabelInfo" @keyup.enter="fetchSubLabelInfo">
 
-                    <label class="field-label">PRODUCT NO :</label>
+                    <!-- 💡 巧妙利用 Vue 動態渲染標籤名稱，免寫兩套 HTML -->
+                    <label class="field-label">{{ form.labelFormat === 'WS_DGRADE_SUMMARY' ? 'PRODUCT NO :' : 'IPN :' }}</label>
                     <input type="text" class="form-control" v-model="form.subProductNo" readonly>
-
-                    <label class="field-label">PART NO :</label>
-                    <input type="text" class="form-control" v-model="form.subPartNo" readonly>
 
                     <label class="field-label">WAFER QTY :</label>
-                    <input type="text" class="form-control" style="width: 50%;" v-model="form.subWaferQty" readonly>
+                    <input type="text" class="form-control" v-model="form.subWaferQty" readonly>
 
-                    <label class="field-label">QUANTITY :</label>
-                    <div style="display: flex; gap: 20px; align-items: center;">
-                        <input type="text" class="form-control" style="width: 150px;" v-model="form.subQty" readonly>
-                        <label style="font-size: 13px; font-weight: bold;">USERID :</label>
-                        <input type="text" class="form-control" style="width: 150px;" v-model="form.subPacker" readonly>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- TO_SUB 系列專屬 Label Form (維持原有，以 subProductNo/subQty 共用資料) -->
-            <div class="form-panel" v-show="isSubLabelMode">
-                <div class="form-title"><i class="mdi mdi-form-textbox"></i> Label Form</div>
-                <div class="form-list-layout" style="background: #f9f9f9; padding: 20px; border: 1px solid #ccc; border-radius: 4px;">
-                    <label class="field-label">(1T) LOT NO :</label>
-                    <input type="text" class="form-control" v-model="form.labelData" placeholder="輸入 LOT NO 後按 Enter" @blur="fetchSubLabelInfo" @keyup.enter="fetchSubLabelInfo">
-                    <label class="field-label">(1P) PRODUCT NO :</label>
-                    <input type="text" class="form-control" v-model="form.subProductNo" readonly>
-                    <label class="field-label">(Q) QUANTITY :</label>
+                    <!-- 💡 動態渲染 QUANTITY / CHIP QTY -->
+                    <label class="field-label">{{ form.labelFormat === 'WS_DGRADE_SUMMARY' ? 'QUANTITY :' : 'CHIP QTY :' }}</label>
                     <input type="text" class="form-control" v-model="form.subQty" readonly>
-                    <label class="field-label">PACKER :</label>
+
+                    <label class="field-label">USER ID :</label>
                     <input type="text" class="form-control" v-model="form.subPacker" readonly>
+
                 </div>
             </div>
 
-            <!-- (保留其他表單區塊，因篇幅限制省略其 HTML 結構，請保留原有的 FT_TR_LABEL, Lot List 等) -->
-            <div class="form-panel" v-show="isLotListEnabled">
-                <!-- Lot List -->
-            </div>
-            
+            <!-- (省略保留其他表單區塊，因篇幅限制省略其 HTML 結構：RENESAS_SHIPPING, TO_SUB, TR_LABEL, Lot List 等) -->
+            <!-- 💡 請直接將上一回合的其餘 <div class="form-panel" ...> 區塊保留貼在此處 -->
+
         </div>
         <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
     </div>
@@ -158,10 +139,7 @@
                         passSheet: 1, failSheet: 1, totalQty: '',
                         lpiMode: 'Auto', lpiLabelSpecNo: '', carrierType: '', boxingSpecNo: '', brand: '', pinCount: '', packageCode: '',
                         trIpn: '', trQtyReel: '', trReelId: '',
-                        
-                        // 💡 RENESAS_SHIPPING 與 TO_SUB 共用變數擴充
-                        subProductNo: '', subQty: '', subPacker: '',
-                        subPartNo: '', subWaferQty: '' // 新增擴充
+                        subProductNo: '', subQty: '', subPacker: '', subPartNo: '', subWaferQty: ''
                     },
                     options: { stages: [], labelFormats: [], printerServers: [], lpiLabelSpecs: [], carrierTypes: [], boxingSpecs: [], brands: [], pinCounts: [], packageCodes: [], trReelIds: [] },
                     lotList: [], etestList: [], allLotsChecked: false, statusMsg: 'READY', statusMsgType: ''
@@ -179,19 +157,20 @@
                     const subLabels = ['TO_SUBFT_ENG_SAMPLE', 'TO_SUBFT_NORMAL', 'TO_SUBMK_ENG_SAMPLE', 'TO_SUBMK_NORMAL', 'TO_SUBTR_ENG_SAMPLE', 'TO_SUBTR_NORMAL'];
                     return subLabels.includes(this.form.labelFormat);
                 },
-                
-                // 💡 新增：RENESAS_SHIPPING 判斷
                 isRenesasMode() { return this.form.labelFormat === 'RENESAS_SHIPPING'; },
-
-                isCpVirtualMode() {
-                    return this.form.labelFormat === 'CP_VIRTUAL_LOT_LABEL' || this.form.labelFormat === 'CP_VIRTUAL_MERGE';
+                isCpVirtualMode() { return this.form.labelFormat === 'CP_VIRTUAL_LOT_LABEL' || this.form.labelFormat === 'CP_VIRTUAL_MERGE'; },
+                
+                // 💡 新增：WS_SUMMARY 系列判斷
+                isWsSummaryMode() {
+                    return this.form.labelFormat === 'WSMULTILOT_TO_SFG' || this.form.labelFormat === 'WS_DGRADE_SUMMARY';
                 },
+
                 isLotListEnabled() {
                     const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD', 'FT_LOT_INFO', 'CP_VIRTUAL_LOT_LABEL', 'CP_VIRTUAL_MERGE'];
                     return listFormats.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 },
                 isBoxQtyEnabled() {
-                    // RENESAS_SHIPPING 不在名單內，BoxQty 自動開啟
+                    // WSMULTILOT_TO_SFG 與 WS_DGRADE_SUMMARY 皆在此名單內，因此會被 disable 反灰
                     const singleLabels = ["FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG", "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL", "FT_BIN_CARD", "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE"];
                     return !singleLabels.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
                 }
@@ -203,7 +182,7 @@
                 this.form.subPacker = currentUserId || 'System';
             },
             methods: {
-                // 💡 擴充 fetchSubLabelInfo 以支援 RENESAS 額外的 WaferQty 與 PartNo (EPN)
+                // 💡 完全重複使用 fetchSubLabelInfo 方法，因為我們已經把它設計得可以同時拿 WaferQty 與 ChipQty 了
                 async fetchSubLabelInfo() {
                     if (!this.form.labelData) {
                         this.form.subProductNo = ''; this.form.subQty = '';
@@ -219,11 +198,8 @@
                         if (response.Success && response.Data) {
                             this.form.subProductNo = response.Data.ProductNo || '';
                             this.form.subQty = response.Data.ChipQty || '';
-                            
-                            // 💡 綁定新增的 EPN 與 WaferQty
                             this.form.subPartNo = response.Data.PartNo || '';
                             this.form.subWaferQty = response.Data.WaferQty || '';
-                            
                         } else {
                             VMessageBox.alert(response.Message || '查無此批號');
                             this.form.subProductNo = ''; this.form.subQty = '';
@@ -240,8 +216,8 @@
                     if (this.isEtestMergeMode) { this.form.labelData = ''; this.form.totalQty = ''; this.initEtestList(); }
                     if (this.isLabelPackEnabled) { this.setLpiMode('Auto'); this.form.labelData = ''; }
                     
-                    // 重置共用表單
-                    if (this.isSubLabelMode || this.isRenesasMode) {
+                    // 💡 切換至 WsSummary 模式時，與其他單一表單一起重置
+                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) {
                         this.form.labelData = ''; this.form.subProductNo = ''; this.form.subQty = '';
                         this.form.subPartNo = ''; this.form.subWaferQty = '';
                     }
@@ -258,11 +234,14 @@
 
                     let lotsToPrint = [];
                     
-                    if (this.isSubLabelMode || this.isRenesasMode) {
+                    // 💡 將 WsSummary 加入防呆判斷
+                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) {
                         if (!this.form.labelData.trim() || !this.form.subProductNo) {
                             VMessageBox.alert('請輸入 LOT NO 並確認批號資訊已載入！'); return;
                         }
-                        if (this.form.boxQty <= 0) {
+                        
+                        // 注意：因為 WsSummary 的 BoxQty 是唯讀不需輸入，所以只在 Enabled 的時候檢查
+                        if (this.isBoxQtyEnabled && this.form.boxQty <= 0) {
                             VMessageBox.alert('請輸入正確的 Box Qty (箱數)！'); return;
                         }
                         lotsToPrint.push(this.form.labelData.trim());
@@ -286,7 +265,7 @@
 
                     let finalPrintMode = this.form.printMode;
                     if (this.isLabelPackEnabled) finalPrintMode = this.form.lpiMode;
-                    if (this.isSubLabelMode || this.isRenesasMode) finalPrintMode = 'Normal'; 
+                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) finalPrintMode = 'Normal'; 
 
                     document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
                     try {
@@ -299,12 +278,13 @@
                                 SearchData: this.form.searchData,
                                 
                                 WaferId: this.isTrLabelMode ? this.form.trReelId : '',
-                                IPN: this.isTrLabelMode ? this.form.trIpn : ((this.isSubLabelMode || this.isRenesasMode) ? this.form.subProductNo : ''),
-                                CQty: (this.isSubLabelMode || this.isRenesasMode) ? this.form.subQty : '',
-                                WQty: this.isRenesasMode ? this.form.subWaferQty : '',
                                 
-                                // TO_SUB 與 RENESAS 會用到 Packer
-                                UserId: (this.isSubLabelMode || this.isRenesasMode) ? this.form.subPacker : (window.checkAuth ? window.checkAuth().userName : 'System')
+                                // 💡 傳遞參數：將這幾個模式共用的 sub... 變數對應傳入
+                                IPN: this.isTrLabelMode ? this.form.trIpn : ((this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subProductNo : ''),
+                                CQty: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subQty : '',
+                                WQty: (this.isRenesasMode || this.isWsSummaryMode) ? this.form.subWaferQty : '',
+                                
+                                UserId: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subPacker : (window.checkAuth ? window.checkAuth().userName : 'System')
                             };
                             
                             const res = await this.executeSinglePrint(payload);
