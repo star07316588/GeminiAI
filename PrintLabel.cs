@@ -1572,6 +1572,24 @@ namespace MES.Net.Infrastructure.Repository.Print
         public async Task<LotDetailData> GetLotDetailAsync(string lotId, string labelFormat)
         {
             // =========================================================
+            // 💡 邏輯零：工程批上架 (對應 VB6 的 TBL_WS_ENG_LOC_MASTER 查詢)
+            // 完美對應 VB6 中 spdWsEngLoc_Change 的獨立 SQL 查詢
+            // =========================================================
+            if (labelFormat == "WS_ENG_SHELF" || labelFormat == "WS_ENG_LOC_LABEL")
+            {
+                string sqlEngLoc = @"
+                    SELECT 
+                        LOTID AS LotId, 
+                        WQTY AS WaferQty, 
+                        OWNERID AS LotOwner, 
+                        OWNERDEP AS Route -- 💡 借用 Route 欄位將 OwnerDep 傳回前端
+                    FROM TBL_WS_ENG_LOC_MASTER 
+                    WHERE LOTID = :p_LotId";
+
+                var engData = await _dbConnection.QueryFirstOrDefaultAsync<LotDetailData>(sqlEngLoc, new { p_LotId = lotId });
+                return engData; // 若查無資料，則回傳 null 觸發前端警告
+            }
+            // =========================================================
             // 邏輯一：CP 虛擬併批 (對應 VB6 的 Case gsLABEL_CP_VIRTUAL...)
             // =========================================================
             if (labelFormat == "CP_VIRTUAL_LOT_LABEL" || labelFormat == "CP_VIRTUAL_MERGE")
