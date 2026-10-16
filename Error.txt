@@ -1,84 +1,36 @@
-Private Sub txtLotId_KeyPress(Index As Integer, KeyAscii As Integer)
-On Error GoTo ExitHandler:
-Dim sProcID As String
-Dim typErrInfo As tErrInfo
-Dim oLot       As FwLot
-Dim sPartNo    As String
+Private Sub spdWsEngLoc_Change(ByVal Col As Long, ByVal Row As Long)
+    Dim sSQL As String
+    Dim colRS As Collection
+    Dim vLotID As Variant
 
-Dim sSQL    As String
-Dim colRS   As Collection
-Dim oItem   As Object
-
-Dim i       As Integer
-Dim sIPN    As String
-Dim sCQty   As String
-Dim iReel   As Integer
-
-'----
-' Init
-'----
-    sProcID = "txtLotId_KeyPress"
-    Call LogProcIn(msMODULE_ID, sProcID, moAppLog)
-
-'----
-' Condition Checking
-'----
-    If KeyAscii <> 13 Then
-        GoTo ExitHandler
+'Add by Sam start on 20110823 for ReqNo:JC201100218
+    If Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_WS_ENG_LOC_LABEL Then
+        If Col = miSPDWSENGLOC_LOT_ID Then
+            With Me.spdWsEngLoc
+                .GetText Col, Row, vLotID
+                sSQL = " select A." & gsCAT_TWELM_LOTID & " ,A." & gsCAT_TWELM_WQTY & _
+                       " ,A." & gsCAT_TWELM_OWNERID & " ,A." & gsCAT_TWELM_OWNERDEP & _
+                       " ,A." & gsCAT_TWELM_LOCID & _
+                       " FROM " & gsCAT_TBL_WS_ENG_LOC_MASTER & " A " & _
+                       " WHERE A." & gsCAT_TWELM_LOTID & "='" & CStr(vLotID) & "' "
+                Set colRS = moProRawSql.QueryDatabase(sSQL)
+                If colRS.Count > 0 Then
+                    Call .SetText(miSPDWSENGLOC_CHECK, Row, 1) '勾選.
+                    Call .SetText(miSPDWSENGLOC_LOT_ID, Row, colRS.Item(1).Item(gsCAT_TWELM_LOTID))
+                    Call .SetText(miSPDWSENGLOC_WQTY, Row, colRS.Item(1).Item(gsCAT_TWELM_WQTY))
+                    Call .SetText(miSPDWSENGLOC_OWNERID, Row, colRS.Item(1).Item(gsCAT_TWELM_OWNERID))
+                    Call .SetText(miSPDWSENGLOC_OWNERDEP, Row, colRS.Item(1).Item(gsCAT_TWELM_OWNERDEP))
+                Else
+                    UtShowMsgBox ("The Lot is not exist in Tbl_Ws_Eng_Loc_Master!")
+                    Call .SetText(miSPDWSENGLOC_CHECK, Row, "")
+                    Call .SetText(miSPDWSENGLOC_LOT_ID, Row, "")
+                    Call .SetText(miSPDWSENGLOC_WQTY, Row, "")
+                    Call .SetText(miSPDWSENGLOC_OWNERID, Row, "")
+                    Call .SetText(miSPDWSENGLOC_OWNERDEP, Row, "")
+                End If
+            End With
+        End If
+       
     End If
-    
-    txtLotId(Index).Locked = True
-    txtLotId(Index).BackColor = &H80000000
-'----
-' Action
-'----
-    
-    Select Case Index
-        Case 2
-            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
-            If oLot Is Nothing Then
-                UtShowMsgBox ("The Lot is not exist!")
-                GoTo ExitHandler
-            End If
-            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
-            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
-            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
-        Case 5
-            Set oLot = moFwWIP.LotById(Trim(Me.txtLotId(Index).Text))
-            If oLot Is Nothing Then
-                UtShowMsgBox ("The Lot is not exist!")
-                GoTo ExitHandler
-            End If
-            Me.txtProdNo(Index).Text = oLot.CustomAttributes.Item(modConstFwAttr.gsLOT_CUSTOMATTR_IPN).Value
-            Me.txtCqty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_CHIP_QTY).Value
-            Me.txtWQty(Index).Text = oLot.CustomAttributes(modConstFwAttr.gsLOT_CUSTOMATTR_WAFER_QTY).Value
-    End Select
-'----
-' Done
-'----
-
-ExitHandler:
-    ' NOTE 1:
-    ' MUST CALL GetErrInfo() here first before another action
-    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
-    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, moAppLog)
-    ' <Your cleaning up codes goes here...>
-ErrorHandler:
-    If typErrInfo.lErrNumber Then
-        ' NOTE 2:
-        ' If you have custom handling of some Errors, please
-        ' UN-REMARED the following Select Case block!
-        ' Also, modify if neccessarily!!!
-        '---- Start of Select Case Block ----
-        Select Case typErrInfo.lErrNumber
-            Case glERR_INVALIDOBJECT
-                ' Retry code goes here...
-            Case Else
-                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
-                                        "程式執行失敗, 請洽IT人員處理"
-            End Select
-        '---- Start of Select Case Block ----
-        On Error GoTo ExitHandler:
-        Call HandleError(False, typErrInfo, , moAppLog, True)
-    End If
+ 'Add by Sam end on 20110823 for ReqNo:JC201100218
 End Sub
