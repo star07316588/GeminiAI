@@ -194,32 +194,47 @@
             computed: {
                 actionButtons() { return [{ action: 'print', label: 'Print', icon: 'mdi-printer', color: 'primary' }, { action: 'clear', label: 'Clear', icon: 'mdi-eraser' }]; },
                 
-                // 💡 新增：WS_ENG_SHELF 判斷
-                isWsEngShelfMode() { 
-                    return this.form.labelFormat === 'WS_ENG_SHELF' || this.form.labelFormat === 'WS_ENG_LOC_LABEL'; 
-                },
-
-                // 💡 將 WS_ENG_SHELF 從共用 Lot List 中排除
-                isLotListEnabled() {
-                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD', 'FT_LOT_INFO', 'CP_VIRTUAL_LOT_LABEL', 'CP_VIRTUAL_MERGE'];
-                    return listFormats.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
-                },
-
-                // (保留其他判斷旗標：isBinCardMode, isBoxCountingMode, isEtestMergeMode... 同上一版)
-                isBinCardMode() { return this.form.labelFormat && this.form.labelFormat.includes('FT_BIN_CARD'); },
+                isBinCardMode() { return this.form.labelFormat === 'FT_BIN_CARD_LABEL' || this.form.labelFormat === 'FT_BIN_CARD'; },
                 isBoxCountingMode() { return this.form.labelFormat === 'FT_BOX_COUNTING'; },
                 isEtestMergeMode() { return this.form.labelFormat === 'FT_ETEST_MERGE_LABEL' || this.form.labelFormat === 'FT_ETEST_MERGE'; },
                 isFtLotInfoMode() { return this.form.labelFormat === 'FT_LOT_INFO'; },
                 isLabelPackEnabled() { return this.form.labelFormat === 'FT_Label_PACK_INFO'; },
                 isTrLabelMode() { return this.form.labelFormat === 'FT_TR_LABEL'; },
-                isSubLabelMode() { return ['TO_SUBFT_ENG_SAMPLE', 'TO_SUBFT_NORMAL', 'TO_SUBMK_ENG_SAMPLE', 'TO_SUBMK_NORMAL', 'TO_SUBTR_ENG_SAMPLE', 'TO_SUBTR_NORMAL'].includes(this.form.labelFormat); },
                 isRenesasMode() { return this.form.labelFormat === 'RENESAS_SHIPPING'; },
-                isWsSummaryMode() { return this.form.labelFormat === 'WSMULTILOT_TO_SFG' || this.form.labelFormat === 'WS_DGRADE_SUMMARY'; },
-                isCpVirtualMode() { return this.form.labelFormat === 'CP_VIRTUAL_LOT_LABEL' || this.form.labelFormat === 'CP_VIRTUAL_MERGE'; },
+                isWsEngShelfMode() { return this.form.labelFormat === 'WS_ENG_SHELF' || this.form.labelFormat === 'WS_ENG_LOC_LABEL'; },
                 
+                isSubLabelMode() {
+                    const subLabels = ['TO_SUBFT_ENG_SAMPLE', 'TO_SUBFT_NORMAL', 'TO_SUBMK_ENG_SAMPLE', 'TO_SUBMK_NORMAL', 'TO_SUBTR_ENG_SAMPLE', 'TO_SUBTR_NORMAL'];
+                    return subLabels.includes(this.form.labelFormat);
+                },
+                
+                // 💡 完美共用：將 WS_SUMMARY 加入這個陣列中，一秒完成新標籤！
+                isWsSummaryMode() { 
+                    const summaryLabels = ['WSMULTILOT_TO_SFG', 'WS_DGRADE_SUMMARY', 'WS_SUMMARY'];
+                    return summaryLabels.includes(this.form.labelFormat); 
+                },
+
+                isCpVirtualMode() {
+                    return this.form.labelFormat === 'CP_VIRTUAL_LOT_LABEL' || this.form.labelFormat === 'CP_VIRTUAL_MERGE';
+                },
+
+                isLotListEnabled() {
+                    const listFormats = ['WS_SMALL_LABEL', 'FT_SMALL_LABEL', 'CP_SMALL_LABEL', 'FT_BIN_CARD_LABEL', 'FT_BIN_CARD', 'FT_LOT_INFO', 'CP_VIRTUAL_LOT_LABEL', 'CP_VIRTUAL_MERGE'];
+                    return listFormats.includes(this.form.labelFormat);
+                },
+                
+                // 💡 乾淨精準的 BoxQty 控制清單 (不在這裡面的，包含 WS_SUMMARY，都會自動開啟 BoxQty 欄位)
                 isBoxQtyEnabled() {
-                    const singleLabels = ["FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", "WS_SUMMARY", "WS_TO_SFG", "WS_DGRADE_SUMMARY", "FT_LOT_INFO", "FT_Label_PACK_INFO", "WS_MULTILOT_TO_SFG", "WSMCD_TO_SFG", "FT_TR_LABEL", "FT_BOX_COUNTING", "FT_BIN_CARD_LABEL", "WS_ENG_LOC_LABEL", "FT_BIN_CARD", "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE", "WS_ENG_SHELF"];
-                    return !singleLabels.some(fmt => this.form.labelFormat && this.form.labelFormat.includes(fmt));
+                    const singleLabels = [
+                        "FT_SMALL_LABEL", "CP_SMALL_LABEL", "WS_SMALL_LABEL", 
+                        "CP_VIRTUAL_LOT_LABEL", "CP_VIRTUAL_MERGE", 
+                        "FT_LOT_INFO", "FT_Label_PACK_INFO", 
+                        "FT_TR_LABEL", "FT_BOX_COUNTING", 
+                        "FT_BIN_CARD_LABEL", "FT_BIN_CARD", 
+                        "FT_ETEST_MERGE_LABEL", "FT_ETEST_MERGE", 
+                        "WS_ENG_LOC_LABEL", "WS_ENG_SHELF"
+                    ];
+                    return !singleLabels.includes(this.form.labelFormat);
                 }
             },
             mounted() { this.loadInitData(); },
