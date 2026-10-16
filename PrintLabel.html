@@ -265,10 +265,92 @@
                         }
                     } catch (e) { console.error(e); row.checked = false; }
                 },
+                async onLabelFormatChange() {
+                    this.form.printerServer = '';
+                    if (!this.form.stage || !this.form.labelFormat) return;
+                    
+                    // 💡 修正 1：將 isWsEngShelfMode 也加入初始化 Lot List 的判斷中
+                    if (this.isLotListEnabled || this.isWsEngShelfMode) this.initLotList();
+                    
+                    if (this.isEtestMergeMode) { this.form.labelData = ''; this.form.totalQty = ''; this.initEtestList(); }
+                    if (this.isLabelPackEnabled) { this.setLpiMode('Auto'); this.form.labelData = ''; }
+                    
+                    // 重置共用表單
+                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) {
+                        this.form.labelData = ''; this.form.subProductNo = ''; this.form.subQty = '';
+                        this.form.subPartNo = ''; this.form.subWaferQty = '';
+                    }
 
+                    try {
+                        const response = await mesfetch("/api/print/print-label/mapped-servers", { Stage: this.form.stage, LabelFormat: this.form.labelFormat });
+                        if (response.Success) this.options.printerServers = response.Data;
+                    } catch (error) { console.error(error); }
+                },
                 // (其餘初始化、API 呼叫與 doPrint 等所有方法皆保持原樣，因為 WsEngShelf 與一般的 LotList 列印邏輯完全共用 lotsToPrint 收集機制！)
                 // ... 省略重複代碼 ...
-            }
+            },
+            async doPrint() {
+                    if (this.isBinCardMode) { VMessageBox.alert('FT BIN CARD 標籤請使用右方的 Pass / Fail 按鈕進行列印！'); return; }
+                    if (!this.form.printerServer || !this.form.labelFormat) { VMessageBox.alert('請選擇完整的伺服器與標籤格式！'); return; }
+
+                    let lotsToPrint = [];
+                    
+                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) {
+                        if (!this.form.labelData.trim() || !this.form.subProductNo) {
+                            VMessageBox.alert('請輸入 LOT NO 並確認批號資訊已載入！'); return;
+                        }
+                        if (this.form.boxQty <= 0) {
+                            VMessageBox.alert('請輸入正確的 Box Qty (箱數)！'); return;
+                        }
+                        lotsToPrint.push(this.form.labelData.trim());
+                    }
+                    else if (this.isTrLabelMode) {
+                        if (!this.form.labelData.trim() || !this.form.trReelId) { VMessageBox.alert('請輸入 Lot NO 並確認 Reel ID 是否選定！'); return; }
+                        lotsToPrint.push(this.form.labelData.trim());
+                    }
+                    else if (this.isLabelPackEnabled && this.form.lpiMode === 'Manual') {
+                        if (!this.form.lpiLabelSpecNo || !this.form.packageCode) { VMessageBox.alert('請選擇完整的 Label Pack 手動參數！'); return; }
+                        lotsToPrint.push(''); 
+                    } 
+                    // 💡 修正 2：將 isWsEngShelfMode 視為表格模式，去抓取表格中被打勾的項目
+                    else if (this.isLotListEnabled || this.isWsEngShelfMode) {
+                        lotsToPrint = this.lotList.filter(row => row.checked && row.lotNo.trim() !== '').map(row => row.lotNo.trim());
+                        if (lotsToPrint.length === 0) { VMessageBox.alert('請至少勾選一筆 Lot 才能列印！'); return; }
+                    } 
+                    else {
+                        if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') { VMessageBox.alert('請輸入 LOT NO 或 Label Data！'); return; }
+                        lotsToPrint.push(this.form.labelData.trim());
+                    }
+
+                    let finalPrintMode = this.form.printMode;
+                    if (this.isLabelPackEnabled) finalPrintMode = this.form.lpiMode;
+                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) finalPrintMode = 'Normal'; 
+
+                    document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
+                    try {
+                        let allSuccess = true; let errorMsg = '';
+                        for (const currentLot of lotsToPrint) {
+                            const payload = {
+                                Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: currentLot,
+                                PrintMode: finalPrintMode, PrinterServer: this.form.printerServer,
+                                BoxQty: this.form.boxQty, PrintQty: this.form.printQty,
+                                SearchData: this.form.searchData,
+                                
+                                WaferId: this.isTrLabelMode ? this.form.trReelId : '',
+                                IPN: this.isTrLabelMode ? this.form.trIpn : ((this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subProductNo : ''),
+                                CQty: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subQty : '',
+                                WQty: (this.isRenesasMode || this.isWsSummaryMode) ? this.form.subWaferQty : '',
+                                
+                                UserId: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subPacker : (window.checkAuth ? window.checkAuth().userName : 'System')
+                            };
+                            
+                            const res = await this.executeSinglePrint(payload);
+                            if (!res.Success) { allSuccess = false; errorMsg += `Lot [${currentLot}] 失敗: ${res.Message}\n`; }
+                        }
+                        if (allSuccess) { VMessageBox.alert('標籤列印指令已全數成功送出！'); this.setStatus('PRINT SUCCESS', 'success'); }
+                        else { VMessageBox.alert(errorMsg); this.setStatus('COMPLETED WITH ERRORS', 'warning'); }
+                    } finally { document.body.style.cursor = 'default'; }
+                },
         });
     </script>
 </body>
