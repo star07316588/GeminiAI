@@ -1,36 +1,68 @@
-Private Sub spdWsEngLoc_Change(ByVal Col As Long, ByVal Row As Long)
-    Dim sSQL As String
-    Dim colRS As Collection
-    Dim vLotID As Variant
+                /* ── 1. 執行查詢 (對應 ExecQuery) ── */
+                async doQuery() {
+                    if (!this.qry.lotId.trim()) {
+                        VMessageBox.alert('Pls input LotID !!');
+                        return;
+                    }
 
-'Add by Sam start on 20110823 for ReqNo:JC201100218
-    If Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_WS_ENG_LOC_LABEL Then
-        If Col = miSPDWSENGLOC_LOT_ID Then
-            With Me.spdWsEngLoc
-                .GetText Col, Row, vLotID
-                sSQL = " select A." & gsCAT_TWELM_LOTID & " ,A." & gsCAT_TWELM_WQTY & _
-                       " ,A." & gsCAT_TWELM_OWNERID & " ,A." & gsCAT_TWELM_OWNERDEP & _
-                       " ,A." & gsCAT_TWELM_LOCID & _
-                       " FROM " & gsCAT_TBL_WS_ENG_LOC_MASTER & " A " & _
-                       " WHERE A." & gsCAT_TWELM_LOTID & "='" & CStr(vLotID) & "' "
-                Set colRS = moProRawSql.QueryDatabase(sSQL)
-                If colRS.Count > 0 Then
-                    Call .SetText(miSPDWSENGLOC_CHECK, Row, 1) '勾選.
-                    Call .SetText(miSPDWSENGLOC_LOT_ID, Row, colRS.Item(1).Item(gsCAT_TWELM_LOTID))
-                    Call .SetText(miSPDWSENGLOC_WQTY, Row, colRS.Item(1).Item(gsCAT_TWELM_WQTY))
-                    Call .SetText(miSPDWSENGLOC_OWNERID, Row, colRS.Item(1).Item(gsCAT_TWELM_OWNERID))
-                    Call .SetText(miSPDWSENGLOC_OWNERDEP, Row, colRS.Item(1).Item(gsCAT_TWELM_OWNERDEP))
-                Else
-                    UtShowMsgBox ("The Lot is not exist in Tbl_Ws_Eng_Loc_Master!")
-                    Call .SetText(miSPDWSENGLOC_CHECK, Row, "")
-                    Call .SetText(miSPDWSENGLOC_LOT_ID, Row, "")
-                    Call .SetText(miSPDWSENGLOC_WQTY, Row, "")
-                    Call .SetText(miSPDWSENGLOC_OWNERID, Row, "")
-                    Call .SetText(miSPDWSENGLOC_OWNERDEP, Row, "")
-                End If
-            End With
-        End If
-       
-    End If
- 'Add by Sam end on 20110823 for ReqNo:JC201100218
-End Sub
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('QUERYING...', 'info');
+
+                    try {
+                        const response = await mesfetch("/api/print/print-setup-form/query", { LotId: this.qry.lotId });
+
+                        if (response.Success) {
+                            const data = response.Data;
+
+                            this.formData.lotId = data.LotId || data.lotId;
+                            this.formData.stage = data.Stage || data.stage;
+                            this.formData.lotStatus = data.LotStatus || data.lotStatus;
+                            this.formData.ipn = data.IPN || data.ipn;
+                            this.formData.lotOwner = data.LotOwner || data.lotOwner;
+
+                            // 🌟 強制轉換大小寫，確保 Vuetify 絕對能吃到 text 與 value
+                            const mapSelectItems = (list) => {
+                                if (!list || !Array.isArray(list)) return [];
+                                return list.map(item => ({
+                                    text: item.Text || item.text || '',
+                                    value: item.Value || item.value || ''
+                                }));
+                            };
+
+                            this.options.stepList = mapSelectItems(data.StepList || data.stepList);
+                            this.options.testerIdList = mapSelectItems(data.TesterIdList || data.testerIdList);
+                            this.options.subSystemList = mapSelectItems(data.SubSystemList || data.subSystemList);
+
+                            // 🌟 綁定 Setup Reason 下拉選單資料
+                            this.options.setupReasonList = mapSelectItems(data.SetupReasonList || data.setupReasonList);
+
+                            this.formData.stepNo = data.SelectedStep || data.selectedStep || '';
+                            this.formData.testerId = data.SelectedTesterId || data.selectedTesterId || '';
+
+                            // 🌟 將 API 回傳的 SetupWaferId 綁定到畫面
+                            this.formData.setupWaferId1 = data.SetupWaferId1 || data.setupWaferId1 || '';
+                            this.formData.setupWaferId2 = data.SetupWaferId2 || data.setupWaferId2 || '';
+                            this.formData.setupWaferId3 = data.SetupWaferId3 || data.setupWaferId3 || '';
+
+                            if (this.options.subSystemList.length === 1) {
+                                this.formData.subSystemValue = this.options.subSystemList[0].value; // 注意這裡用小寫 value
+                                await this.doSubSystemChange();
+                            } else {
+                                this.formData.subSystemValue = '';
+                            }
+
+                            this.setStatus('QUERY SUCCESS', 'success');
+                        } else {
+                            VMessageBox.alert(response.Message || response.message);
+                            this.doClear();
+                            this.setStatus('QUERY FAILED', 'error');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        VMessageBox.alert('查詢發生預期外的錯誤', 'Error');
+                        this.doClear();
+                        this.setStatus('QUERY FAILED', 'error');
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                },
