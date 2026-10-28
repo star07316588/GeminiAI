@@ -3655,6 +3655,26 @@ namespace MES.Net.Application.Services.Print
         
         private async Task SendToPrinterAndLogAsync(string printerServer, string zplCommand, PrintLabelRequest req)
         {
+            bool isLocalDebug = true; // 💡 可寫在 Web.config 或 AppSettings
+
+            if (isLocalDebug)
+            {
+                // 測試模式：將 ZPL 呼叫 Labelary API 轉成 PNG 儲存在本機
+                using (var client = new System.Net.Http.HttpClient())
+                {
+                    // 假設產線印表機是 300 DPI (12dpmm)，標籤大小 4x2 英吋
+                    var requestUrl = "http://api.labelary.com/v1/printers/12dpmm/labels/4x2/0/";
+                    var content = new System.Net.Http.StringContent(zpl);
+                    var response = await client.PostAsync(requestUrl, content);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
+                        System.IO.File.WriteAllBytes($@"C:\Temp\LabelTest_{req.LotId}.png", imageBytes);
+                    }
+                }
+                return; // 結束，不實際連線印表機
+            }
             // 1. 發送至 MQ 或 Socket
             string parsedServer = printerServer.Contains("@") 
                 ? printerServer.Substring(0, printerServer.IndexOf("@")) 
@@ -3918,6 +3938,26 @@ namespace MES.Net.Application.Services.Print
         // =========================================================================
         private async Task SendToPrinterAndLogAsync(string printerServer, string zplCommand, PrintLabelRequest req)
         {
+            bool isLocalDebug = true; // 💡 可寫在 Web.config 或 AppSettings
+
+            if (isLocalDebug)
+            {
+                // 測試模式：將 ZPL 呼叫 Labelary API 轉成 PNG 儲存在本機
+                using (var client = new System.Net.Http.HttpClient())
+                {
+                    // 假設產線印表機是 300 DPI (12dpmm)，標籤大小 4x2 英吋
+                    var requestUrl = "http://api.labelary.com/v1/printers/12dpmm/labels/4x2/0/";
+                    var content = new System.Net.Http.StringContent(zpl);
+                    var response = await client.PostAsync(requestUrl, content);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
+                        System.IO.File.WriteAllBytes($@"C:\Temp\LabelTest_{req.LotId}.png", imageBytes);
+                    }
+                }
+                return; // 結束，不實際連線印表機
+            }
             string parsedServer = printerServer.Contains("@") 
                 ? printerServer.Substring(0, printerServer.IndexOf("@")) 
                 : printerServer;
