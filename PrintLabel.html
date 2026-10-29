@@ -683,28 +683,47 @@
                     if (this.isBinCardMode) { VMessageBox.alert('FT BIN CARD 標籤請使用右方的 Pass / Fail 按鈕進行列印！'); return; }
                     if (!this.form.printerServer || !this.form.labelFormat) { VMessageBox.alert('請選擇完整的伺服器與標籤格式！'); return; }
 
+                    // 💡 將 lotsToPrint 升級為「物件陣列」，以便儲存 LotId, IPN, 數量等附加資訊
                     let lotsToPrint = [];
                     
                     if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) {
                         if (!this.form.labelData.trim() || !this.form.subProductNo) { VMessageBox.alert('請輸入 LOT NO 並確認批號資訊已載入！'); return; }
                         if (this.form.boxQty <= 0) { VMessageBox.alert('請輸入正確的 Box Qty (箱數)！'); return; }
-                        lotsToPrint.push(this.form.labelData.trim());
+                        lotsToPrint.push({ 
+                            lotId: this.form.labelData.trim(), 
+                            ipn: this.form.subProductNo, 
+                            cQty: this.form.subQty, 
+                            wQty: this.form.subWaferQty 
+                        });
                     }
                     else if (this.isTrLabelMode) {
                         if (!this.form.labelData.trim() || !this.form.trReelId) { VMessageBox.alert('請輸入 Lot NO 並確認 Reel ID 是否選定！'); return; }
-                        lotsToPrint.push(this.form.labelData.trim());
+                        lotsToPrint.push({ 
+                            lotId: this.form.labelData.trim(), 
+                            ipn: this.form.trIpn, 
+                            waferId: this.form.trReelId 
+                        });
                     }
                     else if (this.isLabelPackEnabled && this.form.lpiMode === 'Manual') {
                         if (!this.form.lpiLabelSpecNo || !this.form.packageCode) { VMessageBox.alert('請選擇完整的 Label Pack 手動參數！'); return; }
-                        lotsToPrint.push(''); 
+                        lotsToPrint.push({ lotId: '' }); 
                     } 
                     else if (this.isLotListEnabled || this.isWsEngShelfMode) {
-                        lotsToPrint = this.lotList.filter(row => row.checked && row.lotNo.trim() !== '').map(row => row.lotNo.trim());
+                        // 💡 修正核心：當使用表格模式時，將 productNo (IPN) 與數量一起包裝進物件中
+                        lotsToPrint = this.lotList
+                            .filter(row => row.checked && row.lotNo.trim() !== '')
+                            .map(row => ({
+                                lotId: row.lotNo.trim(),
+                                ipn: row.productNo,
+                                cQty: row.chipQty,
+                                wQty: row.waferQty
+                            }));
+                        
                         if (lotsToPrint.length === 0) { VMessageBox.alert('請至少勾選一筆 Lot 才能列印！'); return; }
                     } 
                     else {
                         if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') { VMessageBox.alert('請輸入 LOT NO 或 Label Data！'); return; }
-                        lotsToPrint.push(this.form.labelData.trim());
+                        lotsToPrint.push({ lotId: this.form.labelData.trim() });
                     }
 
                     let finalPrintMode = this.form.printMode;
@@ -714,18 +733,28 @@
                     document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
                     try {
                         let allSuccess = true; let errorMsg = '';
-                        for (const currentLot of lotsToPrint) {
+                        
+                        // 💡 遍歷物件陣列，將對應的屬性精準塞入 API Payload
+                        for (const item of lotsToPrint) {
                             const payload = {
-                                Stage: this.form.stage, LabelFormat: this.form.labelFormat, LotId: currentLot,
-                                PrintMode: finalPrintMode, PrinterServer: this.form.printerServer,
-                                BoxQty: this.form.boxQty, PrintQty: this.form.printQty,
+                                Stage: this.form.stage, 
+                                LabelFormat: this.form.labelFormat, 
+                                LotId: item.lotId,
+                                PrintMode: finalPrintMode, 
+                                PrinterServer: this.form.printerServer,
+                                BoxQty: this.form.boxQty, 
+                                PrintQty: this.form.printQty,
                                 SearchData: this.form.searchData,
-                                WaferId: this.isTrLabelMode ? this.form.trReelId : '',
-                                IPN: this.isTrLabelMode ? this.form.trIpn : ((this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subProductNo : ''),
-                                CQty: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subQty : '',
-                                WQty: (this.isRenesasMode || this.isWsSummaryMode) ? this.form.subWaferQty : '',
+                                
+                                // 💡 確保 IPN 與 數量 都能順利傳送至後端
+                                WaferId: item.waferId || '',
+                                IPN: item.ipn || '',
+                                CQty: item.cQty || '',
+                                WQty: item.wQty || '',
+                                
                                 UserId: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subPacker : (window.checkAuth ? window.checkAuth().userName : 'System')
                             };
+                            
                             if (this.isLabelPackEnabled) {
                                 payload.LabelSpecNo = this.form.lpiLabelSpecNo; payload.CarrierType = this.form.carrierType;
                                 payload.BoxingSpecNo = this.form.boxingSpecNo; payload.Brand = this.form.brand;
@@ -733,27 +762,12 @@
                             }
                             
                             const res = await this.executeSinglePrint(payload);
-                            if (!res.Success) { allSuccess = false; errorMsg += `Lot [${currentLot}] 失敗: ${res.Message}\n`; }
+                            if (!res.Success) { allSuccess = false; errorMsg += `Lot [${item.lotId}] 失敗: ${res.Message}\n`; }
                         }
+                        
                         if (allSuccess) { VMessageBox.alert('標籤列印指令已全數成功送出！'); this.setStatus('PRINT SUCCESS', 'success'); }
                         else { VMessageBox.alert(errorMsg); this.setStatus('COMPLETED WITH ERRORS', 'warning'); }
                     } finally { document.body.style.cursor = 'default'; }
-                },
-
-                async executeSinglePrint(payload) {
-                    try {
-                        const response = await mesfetch("/api/print/print-label/print", payload);
-                        if (!response.Success && response.Message && response.Message.includes("REQUIRE_ORIGINAL_LOT")) {
-                            return await new Promise((resolve) => {
-                                VMessageBox.prompt(`Lot ${payload.LotId} 無母批資訊，請輸入原始批號：`, '補入資訊', { confirmButtonText: '確定', cancelButtonText: '取消' })
-                                    .then(async (result) => {
-                                        if (result && result.value) { payload.OriLotID = result.value.trim(); resolve(await this.executeSinglePrint(payload)); }
-                                        else { resolve({ Success: false, Message: '使用者取消補入' }); }
-                                    }).catch(() => { resolve({ Success: false, Message: '使用者取消' }); });
-                            });
-                        }
-                        return response;
-                    } catch (error) { console.error(error); return { Success: false, Message: '系統發生非預期錯誤' }; }
                 },
 
                 doClear() {
