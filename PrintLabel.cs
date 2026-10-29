@@ -4606,28 +4606,27 @@ namespace MES.Net.Application.Services.Print
         // =========================================================================
         private async Task<string> Generate_FT_BIN_CARD_ZplAsync(PrintLabelRequest req, string timeStampYMD)
         {
-            // 1. 查詢該 Lot 的詳細屬性 (對應 VB6 的 SELECT FROM TBL_LOT_ATTRIBUTE)
+            // 1. 查詢該 Lot 的詳細屬性 (還原 VB6 的 SELECT IPN, STEPNAME, STEPID FROM TBL_LOT_ATTRIBUTE)
             var lotAttr = await _repo.GetLotAttributeAsync(req.LotId) ?? new LotAttributeData();
             
+            // 若資料庫查無 IPN，則降級使用前端傳來的 IPN (若有)
             string ipn = !string.IsNullOrEmpty(lotAttr.Ipn) ? lotAttr.Ipn : (req.IPN ?? "");
             string stepName = lotAttr.StepName ?? "";
             string stepId = lotAttr.StepId ?? "";
 
-            // 2. 判斷 ZPL 模板 (依據前端傳入的 Pass/Fail 按鈕)
-            bool isPass = req.IsPass ?? true; // 若無傳入則預設為 Pass
+            // 2. 判斷 ZPL 模板 (依據前端按下 Pass 或 Fail 按鈕傳入的 IsPass 參數)
+            bool isPass = req.IsPass ?? true; 
             string zplTemplate = isPass ? ZplTemplates.FT_BIN_CARD_PASS : ZplTemplates.FT_BIN_CARD_FAIL;
 
-            // 💡 備註：在 VB6 中 Prt_FT_FT_BIN_CARD_LABEL 內部可能還有查詢 CarGradeFlag 的邏輯，
-            // 若有需要，也可在此處繼續 await _repo... 查詢並替換。
-
-            // 3. 變數替換
+            // 3. 變數替換並回傳 ZPL 字串
             return zplTemplate
                 .Replace("{LotNo}", req.LotId)
-                .Replace("{Ipn}", ipn)
+                .Replace("{ProdNo}", ipn)             // 💡 修正 1：對應 ZPL 模板的 {ProdNo}
                 .Replace("{StepName}", stepName)
-                .Replace("{StepId}", stepId)
-                .Replace("{UserId}", req.UserId)
-                .Replace("{TimeStamp}", timeStampYMD);
+                .Replace("{StepID}", stepId)          // 💡 修正 2：對應 ZPL 模板的 {StepID} (注意大寫)
+                .Replace("{TestMode}", req.SearchData ?? "") // 💡 修正 3：清除或帶入 {TestMode} 避免印出原字串
+                .Replace("{UserId}", req.UserId)      
+                .Replace("{TimeStamp}", timeStampYMD); 
         }
     }
 }
