@@ -1,68 +1,210 @@
-                /* ── 1. 執行查詢 (對應 ExecQuery) ── */
-                async doQuery() {
-                    if (!this.qry.lotId.trim()) {
-                        VMessageBox.alert('Pls input LotID !!');
-                        return;
-                    }
+目前測試FT_ETEST_MERGE_LABEL列印，發現呈現結果不相同，請協助修正
 
-                    document.body.style.cursor = 'wait';
-                    this.setStatus('QUERYING...', 'info');
+VB最後列印呈現的結果如下
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS^FO15,15^A0N,40,30^CI13^FR^FDLot No: 8N297200CA^FS^FO300,15^A0N,40,30^CI13^FR^FDQTY: 980^FS^FO15,60^A0N,40,30^CI13^FR^FDLot No: 8N297200CC^FS^FO300,60^A0N,40,30^CI13^FR^FDQTY: 980^FS^FO15,105^A0N,40,30^CI13^FR^FDLot No: 8N297200CB^FS^FO300,105^A0N,40,30^CI13^FR^FDQTY: 980^FS^FO15,150^A0N,40,30^CI13^FR^FDLot No: 8N297200CD^FS^FO300,150^A0N,40,30^CI13^FR^FDQTY: 980^FS^PQ1,1,1,Y^XZ
 
-                    try {
-                        const response = await mesfetch("/api/print/print-setup-form/query", { LotId: this.qry.lotId });
+C#最後列印呈現結果如下
+^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+{DynamicMergeBlock}
+^PQ1,1,1,Y^XZ
 
-                        if (response.Success) {
-                            const data = response.Data;
+VB模板SourceCode
+Public Sub Prt_FT_ETEST_MERGE(ByVal sLotsInfo As String, _
+                            ByVal sPrinterServer As String, _
+                            ByVal moCwMbx As Object, _
+                            ByVal oLogCtrl As Object)
 
-                            this.formData.lotId = data.LotId || data.lotId;
-                            this.formData.stage = data.Stage || data.stage;
-                            this.formData.lotStatus = data.LotStatus || data.lotStatus;
-                            this.formData.ipn = data.IPN || data.ipn;
-                            this.formData.lotOwner = data.LotOwner || data.lotOwner;
 
-                            // 🌟 強制轉換大小寫，確保 Vuetify 絕對能吃到 text 與 value
-                            const mapSelectItems = (list) => {
-                                if (!list || !Array.isArray(list)) return [];
-                                return list.map(item => ({
-                                    text: item.Text || item.text || '',
-                                    value: item.Value || item.value || ''
-                                }));
-                            };
+On Error GoTo ExitHandler:
 
-                            this.options.stepList = mapSelectItems(data.StepList || data.stepList);
-                            this.options.testerIdList = mapSelectItems(data.TesterIdList || data.testerIdList);
-                            this.options.subSystemList = mapSelectItems(data.SubSystemList || data.subSystemList);
+Dim sMsg            As String
+Dim sProcID         As String
+Dim typErrInfo      As tErrInfo
+Dim lErrCode        As Long
+Dim sErrMsg         As String
 
-                            // 🌟 綁定 Setup Reason 下拉選單資料
-                            this.options.setupReasonList = mapSelectItems(data.SetupReasonList || data.setupReasonList);
+Dim iIdx            As Integer
+Dim arrLotInfo      As Variant
+'----
+' Init
+'----
+    sProcID = "Prt_FT_ETEST_MERGE"
+    Call LogProcIn(msMODULE_ID, sProcID, oLogCtrl)
 
-                            this.formData.stepNo = data.SelectedStep || data.selectedStep || '';
-                            this.formData.testerId = data.SelectedTesterId || data.selectedTesterId || '';
+'----
+' Condition Checking
+'----
+    
+'----
+' Action
+'----
+   
+    '******
+    'Print Label Info
+    '******
+    arrLotInfo = Split(sLotsInfo, ",")
+    sMsg = ""
+    
+    '每六批印一張
+    For iIdx = LBound(arrLotInfo) To UBound(arrLotInfo)
+        
+'        If (iIdx - LBound(arrLotInfo)) Mod 2 = 0 Then
+'            sMsg = sMsg & "^FO15,36^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+'        Else
+'            sMsg = sMsg & "^FO500,36^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+'        End If
+        '---
+        'Modify by Janus, 20050831, request no : M200507046
+        Select Case ((iIdx - LBound(arrLotInfo)) Mod 12)
+        Case 0
+            sMsg = "^XA"
+            sMsg = sMsg & "^PRC"
+            sMsg = sMsg & "^LH0,0^FS"
+            sMsg = sMsg & "^LL280"
+            sMsg = sMsg & "^MD0"
+            sMsg = sMsg & "^LH0,0^FS"
+            sMsg = sMsg & "^FO15,15^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+            'sMsg = sMsg & "^FO15,36^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+        Case 1
+            'sMsg = sMsg & "^FO500,36^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO300,15^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+        Case 2
+            'sMsg = sMsg & "^FO15,100^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO15,60^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+        Case 3
+            'sMsg = sMsg & "^FO500,100^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO300,60^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+        Case 4
+            'sMsg = sMsg & "^FO15,164^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO15,105^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+        Case 5
+            'sMsg = sMsg & "^FO500,164^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO300,105^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+        Case 6
+            'sMsg = sMsg & "^FO15,228^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO15,150^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+        Case 7
+            'sMsg = sMsg & "^FO500,228^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO300,150^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+        Case 8
+            'sMsg = sMsg & "^FO15,292^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO15,195^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+        Case 9
+            'sMsg = sMsg & "^FO500,292^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO300,195^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+        Case 10
+            'sMsg = sMsg & "^FO15,356^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO15,235^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
+        Case 11
+            'sMsg = sMsg & "^FO500,356^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^FO300,235^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
+            sMsg = sMsg & "^PQ1,1,1,Y"
+            sMsg = sMsg & "^XZ"
+            'End Modify by Janus, 20050831
+            '---
+            '******
+            'Send message to TDS
+            '******
+            
+            'Add by Tony Start on 20110117 for Req.JC201100003
+            If InStr(1, sPrinterServer, "@") <> 0 Then
+                sPrinterServer = VBA.Left(sPrinterServer, (InStr(1, sPrinterServer, "@")) - 1)
+            End If
+            'Add by Tony End on 20110117 for Req.JC201100003
+            
+            If Not moCwMbx.Send("MBX_" & sPrinterServer, sMsg) Then
+                Call moCwMbx.GetError(lErrCode, sErrMsg)
+                Call RaiseError(lErrCode, sErrMsg)
+            End If
+        End Select
+        
+        If iIdx = UBound(arrLotInfo) And ((iIdx - LBound(arrLotInfo)) Mod 12) <> 11 Then
+            sMsg = sMsg & "^PQ1,1,1,Y"
+            sMsg = sMsg & "^XZ"
 
-                            // 🌟 將 API 回傳的 SetupWaferId 綁定到畫面
-                            this.formData.setupWaferId1 = data.SetupWaferId1 || data.setupWaferId1 || '';
-                            this.formData.setupWaferId2 = data.SetupWaferId2 || data.setupWaferId2 || '';
-                            this.formData.setupWaferId3 = data.SetupWaferId3 || data.setupWaferId3 || '';
+            'Add by Tony Start on 20110117 for Req.JC201100003
+            If InStr(1, sPrinterServer, "@") <> 0 Then
+                sPrinterServer = VBA.Left(sPrinterServer, (InStr(1, sPrinterServer, "@")) - 1)
+            End If
+            'Add by Tony End on 20110117 for Req.JC201100003
+            
+            If Not moCwMbx.Send("MBX_" & sPrinterServer, sMsg) Then
+                Call moCwMbx.GetError(lErrCode, sErrMsg)
+                Call RaiseError(lErrCode, sErrMsg)
+            End If
+        End If
+    Next iIdx
 
-                            if (this.options.subSystemList.length === 1) {
-                                this.formData.subSystemValue = this.options.subSystemList[0].value; // 注意這裡用小寫 value
-                                await this.doSubSystemChange();
-                            } else {
-                                this.formData.subSystemValue = '';
-                            }
 
-                            this.setStatus('QUERY SUCCESS', 'success');
-                        } else {
-                            VMessageBox.alert(response.Message || response.message);
-                            this.doClear();
-                            this.setStatus('QUERY FAILED', 'error');
-                        }
-                    } catch (error) {
-                        console.error(error);
-                        VMessageBox.alert('查詢發生預期外的錯誤', 'Error');
-                        this.doClear();
-                        this.setStatus('QUERY FAILED', 'error');
-                    } finally {
-                        document.body.style.cursor = 'default';
-                    }
-                },
+    '******
+    
+    '******
+    ' End of Label Info
+    '******
+
+
+'----
+' Done
+'----
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, oLogCtrl)
+    On Error Resume Next
+
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+           Case glERR_INVALIDOBJECT
+               ' Retry code goes here...
+           Case Else
+                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                                        "程式執行失敗, 請洽IT人員處理"
+        End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , oLogCtrl, True)
+    End If
+End Sub
+
+C# ZplTemplates
+public static readonly string FT_ETEST_MERGE_Base = @"
+            ^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
+            {DynamicMergeBlock}
+            ^PQ1,1,1,Y^XZ";
+
+C# Generate_FT_ETEST_MERGE_ZplAsync function
+        private async Task<string> Generate_FT_ETEST_MERGE_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            // 列印時重新獲取子批號清單，以確保資料準確
+            var mergeData = await _printLabelRepo.GetEtestMergeDataAsync(req.LotId);
+
+            // 基礎 ZPL (根據您之前轉換的 ZplTemplates 調整)
+            string zpl = ZplTemplates.FT_ETEST_MERGE_Base
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{TotalQty}", mergeData?.TotalQty ?? "");
+
+            // 依序替換 5 個子批號的位置 (假設 ZPL 模板裡寫了 {ChildLot1}, {ChildQty1}...)
+            for (int i = 0; i < 5; i++)
+            {
+                string cLot = "";
+                string cQty = "";
+
+                if (mergeData != null && i < mergeData.ChildLots.Count)
+                {
+                    cLot = mergeData.ChildLots[i].ChildLotId;
+                    cQty = mergeData.ChildLots[i].Qty;
+                }
+
+                zpl = zpl.Replace($"{{ChildLot{i + 1}}}", cLot)
+                         .Replace($"{{ChildQty{i + 1}}}", cQty);
+            }
+
+            return zpl;
+        }
