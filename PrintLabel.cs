@@ -3907,30 +3907,49 @@ namespace MES.Net.Application.Services.Print
         private async Task<string> Generate_FT_ETEST_MERGE_ZplAsync(PrintLabelRequest req, string timeStampYMD)
         {
             // 列印時重新獲取子批號清單，以確保資料準確
-            var mergeData = await _repo.GetEtestMergeDataAsync(req.LotId);
-            
-            // 基礎 ZPL (根據您之前轉換的 ZplTemplates 調整)
-            string zpl = ZplTemplates.FT_ETEST_MERGE_LABEL
-                .Replace("{LotNo}", req.LotId)
-                .Replace("{TotalQty}", mergeData?.TotalQty ?? "");
+            var mergeData = await _printLabelRepo.GetEtestMergeDataAsync(req.LotId);
 
-            // 依序替換 5 個子批號的位置 (假設 ZPL 模板裡寫了 {ChildLot1}, {ChildQty1}...)
-            for (int i = 0; i < 5; i++)
+            if (mergeData == null || mergeData.ChildLots == null || mergeData.ChildLots.Count == 0)
             {
-                string cLot = "";
-                string cQty = "";
-                
-                if (mergeData != null && i < mergeData.ChildLots.Count)
-                {
-                    cLot = mergeData.ChildLots[i].ChildLotId;
-                    cQty = mergeData.ChildLots[i].Qty;
-                }
-
-                zpl = zpl.Replace($"{{ChildLot{i + 1}}}", cLot)
-                         .Replace($"{{ChildQty{i + 1}}}", cQty);
+                throw new Exception($"查無母批號 [{req.LotId}] 的 ETEST MERGE 資訊，無法列印。");
             }
 
-            return zpl;
+            // 💡 完美還原 VB6 Case 0 ~ 11 的 Y 座標排版 (每張標籤最多印 6 筆)
+            int[] yCoords = { 15, 60, 105, 150, 195, 235 };
+            
+            // 使用 StringBuilder 來組裝最終的 ZPL (若超過6筆會產生多張標籤 ^XA...^XZ^XA...^XZ)
+            System.Text.StringBuilder finalZpl = new System.Text.StringBuilder();
+
+            int totalChildren = mergeData.ChildLots.Count;
+
+            // 每 6 筆切換一張新的標籤
+            for (int i = 0; i < totalChildren; i += 6)
+            {
+                System.Text.StringBuilder dynamicBlock = new System.Text.StringBuilder();
+
+                // 抓取這一頁要印的子批號 (最多 6 筆)
+                var pageLots = mergeData.ChildLots.Skip(i).Take(6).ToList();
+
+                for (int j = 0; j < pageLots.Count; j++)
+                {
+                    int y = yCoords[j]; // 根據索引取得對應的 Y 座標
+                    string cLot = pageLots[j].ChildLotId;
+                    string cQty = pageLots[j].Qty;
+
+                    // 💡 動態組裝單列的 ZPL (完美對應 VB6 的字串拼接)
+                    dynamicBlock.Append($"^FO15,{y}^A0N,40,30^CI13^FR^FDLot No: {cLot}^FS");
+                    dynamicBlock.Append($"^FO300,{y}^A0N,40,30^CI13^FR^FDQTY: {cQty}^FS");
+                }
+
+                // 將組合好的動態字串，替換到 Base 模板的 {DynamicMergeBlock} 中
+                string pageZpl = ZplTemplates.FT_ETEST_MERGE_Base
+                                     .Replace("{DynamicMergeBlock}", dynamicBlock.ToString());
+
+                finalZpl.Append(pageZpl);
+            }
+
+            // 回傳結果，Zebra 印表機只要收到 ^XA...^XZ^XA...^XZ 就會自動連續印出多張
+            return finalZpl.ToString();
         }
 
         // =========================================================================
