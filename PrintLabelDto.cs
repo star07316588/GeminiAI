@@ -293,4 +293,20 @@ public class LotDetailData
         public int CQty { get; set; }
         public int WQty { get; set; }
     }
+
+    public class LotExtendedData
+    {
+        public string Csum { get; set; }
+        public string Green { get; set; }
+        public string Brand { get; set; }
+        public string VendorCode { get; set; }
+        public string DateCode { get; set; }
+        public string MarkingSpecNo { get; set; }
+        public string IcDrawing { get; set; }
+        public string CarrierType { get; set; }
+        public string ProdLine { get; set; }
+        public string ExtraRomFlag { get; set; }
+        public string NFflag { get; set; }
+        public string CargradeFlag { get; set; }
+    }
 }
