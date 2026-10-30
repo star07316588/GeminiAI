@@ -2434,7 +2434,64 @@ namespace MES.Net.Infrastructure.Printing
         public static readonly string VIRTUAL_TITLE_SLOT_MODE = @"
 ^FO20,25^A0N,32.24^CI0^FR^FDVLotId:{LotNo}^FS
 ^BY2,2.0^FO270,20^BAN,40,N,N,N^FD{LotNo}^FS";
-        
+
+        public static readonly string FT_LOT_INFO_LABEL = @"
+^XA^MCY^FWN^CFD,24^LH0,0^CI0^PR2^MNY^MTT^MMT^MD0^PON^PMN^LRN
+^FO9,3^GB783,464,4,B,0^FS
+^A0N,28,28^FO20,17^FDIPN^FS
+^A0N,28,28^FO20,52^FDLot no.^FS
+^A0N,28,28^FO20,86^FDQty^FS
+^A0N,28,28^FO20,123^FDRoute^FS
+^A0N,28,28^FO20,156^FDOwner^FS
+^A0N,28,28^FO20,190^FDCsum^FS
+^A0N,28,28^FO20,224^FDGreen^FS
+^A0N,28,28^FO21,258^FDBrand^FS
+^A0N,28,28^FO22,430^FDCarrier Type^FS
+^A0N,28,28^FO22,395^FDIC Outline^FS
+^A0N,28,28^FO368,291^FDAEB^FS
+^A0N,28,28^FO368,189^FDProdLine^FS
+^A0N,28,28^FO368,224^FDXtraRom^FS
+^A0N,28,28^FO368,258^FDN flag^FS
+^A0N,28,28^FO22,291^FDAssy Code^FS
+^A0N,28,28^FO22,327^FDDateCode^FS
+^A0N,28,28^FO22,361^FDIC Marking^FS
+^A0N,34,34^FO174,430^FD:^FS
+^A0N,34,34^FO173,393^FD:^FS
+^A0N,34,34^FO173,190^FD:^FS
+^A0N,34,34^FO173,258^FD:^FS
+^A0N,34,34^FO173,292^FD:^FS
+^A0N,34,34^FO173,224^FD:^FS
+^A0N,34,34^FO173,361^FD:^FS
+^A0N,34,34^FO173,327^FD:^FS
+^A0N,34,34^FO173,156^FD:^FS
+^A0N,34,34^FO173,123^FD:^FS
+^A0N,34,34^FO173,86^FD:^FS
+^A0N,34,34^FO173,52^FD:^FS
+^A0N,34,34^FO173,17^FD:^FS
+^A0N,34,34^FO480,189^FD:^FS
+^A0N,34,34^FO480,224^FD:^FS
+^A0N,34,34^FO480,258^FD:^FS
+^A0N,34,34^FO480,291^FD:^FS
+^BY2^FO416,47^BCN,49,N,N,N^FD{LotNo}^FS
+^A0N,28,28^FO193,17^FD{Ipn}^FS
+^A0N,28,28^FO193,52^FD{LotNo}^FS
+^A0N,28,28^FO193,86^FD{CQty} EA^FS
+^A0N,28,28^FO193,123^FD{Route}^FS
+^A0N,28,28^FO193,156^FD{LotOwner}^FS
+^A0N,28,28^FO193,190^FD{Csum}^FS
+^A0N,28,28^FO193,224^FD{Green}^FS
+^A0N,28,28^FO193,258^FD{Brand}^FS
+^A0N,28,28^FO193,291^FD{VendorCode}^FS
+^A0N,28,28^FO193,327^FD{DateCode}^FS
+^A0N,28,28^FO193,361^FD{MarkingSpecNo}^FS
+^A0N,28,28^FO193,395^FD{IcDrawing}^FS
+^A0N,28,28^FO193,430^FD{CarrierType}^FS
+^A0N,28,28^FO496,189^FD{ProdLine}^FS
+^A0N,28,28^FO496,224^FD{ExtraRomFlag}^FS
+^A0N,28,28^FO496,258^FD{NFflag}^FS
+^A0N,28,28^FO496,291^FD{CargradeFlag}^FS
+^PQ1,0,1,Y
+^XZ";
 }
 using System.Threading.Tasks;
 
@@ -3873,7 +3930,8 @@ namespace MES.Net.Application.Services.Print
                 case "FT_ETEST_MERGE_LABEL":
                 case "FT_ETEST_MERGE":
                     return await Generate_FT_ETEST_MERGE_ZplAsync(req, timeStampYMD);
-                    
+                case "FT_LOT_INFO":
+                    return await Generate_FT_LOT_INFO_ZplAsync(req);
                 case "CP_VIRTUAL_LOT_LABEL":
                     return await Generate_CP_VIRTUAL_ZplAsync(req, false);
 
@@ -3950,6 +4008,49 @@ namespace MES.Net.Application.Services.Print
 
             // 回傳結果，Zebra 印表機只要收到 ^XA...^XZ^XA...^XZ 就會自動連續印出多張
             return finalZpl.ToString();
+        }
+
+        // =========================================================================
+        // 🔹 加工廠：產生 FT_LOT_INFO_LABEL
+        // =========================================================================
+        private async Task<string> Generate_FT_LOT_INFO_ZplAsync(PrintLabelRequest req)
+        {
+            // 1. 取得 Lot 基礎資訊
+            var lotData = await _printLabelRepo.GetLotDetailAsync(req.LotId, req.LabelFormat);
+            
+            string ipn = !string.IsNullOrEmpty(lotData?.ProductNo) ? lotData.ProductNo : (req.IPN ?? "");
+            string cQty = !string.IsNullOrEmpty(lotData?.ChipQty) ? lotData.ChipQty : (req.CQty ?? "");
+            string lotOwner = lotData?.LotOwner ?? "";
+            
+            // 💡 規則 1：Route 長度限制最多 35 碼 (對應 VB6: Mid(sRouteId, 1, 35))
+            string route = lotData?.Route ?? "";
+            if (route.Length > 35)
+            {
+                route = route.Substring(0, 35);
+            }
+
+            // 2. 取得額外 12 項屬性 (實作見下方 Repository)
+            var ext = await _printLabelRepo.GetLotExtendedAttributesAsync(req.LotId) ?? new LotExtendedData();
+
+            // 3. 置換 ZPL 範本 (💡 規則 2：CQty 在模板中已加上 " EA")
+            return ZplTemplates.FT_LOT_INFO_LABEL
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{Ipn}", ipn)
+                .Replace("{CQty}", cQty) 
+                .Replace("{Route}", route)
+                .Replace("{LotOwner}", lotOwner)
+                .Replace("{Csum}", ext.Csum ?? "")
+                .Replace("{Green}", ext.Green ?? "")
+                .Replace("{Brand}", ext.Brand ?? "")
+                .Replace("{VendorCode}", ext.VendorCode ?? "")
+                .Replace("{DateCode}", ext.DateCode ?? "")
+                .Replace("{MarkingSpecNo}", ext.MarkingSpecNo ?? "")
+                .Replace("{IcDrawing}", ext.IcDrawing ?? "")
+                .Replace("{CarrierType}", ext.CarrierType ?? "")
+                .Replace("{ProdLine}", ext.ProdLine ?? "")
+                .Replace("{ExtraRomFlag}", ext.ExtraRomFlag ?? "")
+                .Replace("{NFflag}", ext.NFflag ?? "")
+                .Replace("{CargradeFlag}", ext.CargradeFlag ?? "");
         }
 
         // =========================================================================
