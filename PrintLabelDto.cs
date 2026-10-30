@@ -309,4 +309,15 @@ public class LotDetailData
         public string NFflag { get; set; }
         public string CargradeFlag { get; set; }
     }
+
+    public class LpiAutoParamsData
+    {
+        public string CarrierType { get; set; }
+        public string BoxingSpecNo { get; set; }
+        public string Brand { get; set; }
+        public string PinCount { get; set; }
+        public string PackageCode { get; set; }
+        public string LabelSpecNo { get; set; }
+        public string Ipn { get; set; }
+    }
 }
