@@ -1810,6 +1810,28 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return response;
         }
+        public async Task<LotExtendedData> GetLotExtendedAttributesAsync(string lotId)
+        {
+            string sql = @"
+                SELECT 
+                    A.DATECODE AS DateCode, 
+                    A.CARGRADEFLAG AS CargradeFlag, 
+                    A.PRODLINE AS ProdLine, 
+                    A.EXTRAROMFLAG AS ExtraRomFlag, 
+                    A.NFFLAG AS NFflag, 
+                    A.VENDORCODE AS VendorCode, 
+                    A.CSUM AS Csum, 
+                    A.GREEN AS Green,
+                    M.BRAND AS Brand, 
+                    M.IC_DRAWING AS IcDrawing, 
+                    M.MARKINGSPECNO AS MarkingSpecNo, 
+                    M.CARRIER_TYPE AS CarrierType
+                FROM TBL_LOT_ATTRIBUTE A
+                LEFT JOIN TBL_IPN_MASTER M ON A.IPN = M.IPN
+                WHERE A.LOTID = :p_LotId";
+    
+            return await _dbConnection.QueryFirstOrDefaultAsync<LotExtendedData>(sql, new { p_LotId = lotId });
+        }
     }
 }
 
