@@ -1,61 +1,585 @@
-        ElseIf sLabelType = modPrint.gsLABEL_FT_LOT_INFO Then
-            'ps : 以IPN 前4碼去串 tbl_prod_body.prodline
-            sSQL = "select a." & gsCAT_TLI_VENDORCODE & " ," & _
-                             " b." & gsCAT_TLATT_IPN & "," & _
-                             " b." & gsCAT_TLATT_CHIPQTY & "," & _
-                             " b." & gsCAT_TLATT_ROUTE & "," & _
-                             " b." & gsCAT_TLATT_LOTOWNER & "," & _
-                             " b." & gsCAT_TLATT_DATECODE & "," & _
-                             " c." & gsCAT_TIM_CARGRADEFLAG & "," & _
-                             " e." & gsCAT_TPB_PROD_LINE & "," & _
-                             " c." & gsCAT_TIM_CARRIER_TYPE & "," & _
-                             " c." & gsCAT_TIM_EXTRAROMFLAG & "," & _
-                             " c." & gsCAT_TIM_BRAND & "," & _
-                             " c." & gsCAT_TIM_ICDRAWING & "," & _
-                             " c." & gsCAT_TIM_MARKING_SPEC_NO & "," & _
-                             " decode(c." & gsCAT_TIM_GPTYPE & ", null, null, 'XX', 'N', 'Y') as Green," & _
-                             " c." & gsCAT_TIM_CHECKSUM & "," & _
-                             " decode(d." & gsCAT_TPBS_CUSTOMER_NO & ", '0000010750', 'Y', 'N') as NFlag"
+
+目前試著列印FT_Label_PACK_INFO，發現req.Ipn是空的傳進來，也幫我看看是否需要調整
+
+原始VB
+        ElseIf sLabelType = modPrint.gsLABEL_FT_Label_PACK_INFO Then
+            sSQL = "select a." & gsCAT_TIM_CARRIER_TYPE & ", a." & gsCAT_TIM_BOXING_SPEC_NO & ", " _
+                       & " a." & gsCAT_TIM_BRAND & ", a." & gsCAT_TIM_PIN_COUNT & ", " _
+                       & " a." & gsCAT_TIM_PACKAGE_CODE & ", c." & gsCAT_TCUM_LABELSPECNO & ", " _
+                       & " a." & gsCAT_TIM_IPN
             sSQL = sSQL _
-                        & " from " & gsCAT_TBL_LOT_INFO & " a, " _
-                                   & gsCAT_TBL_LOT_ATTRIBUTE & " b, " _
-                                   & gsCAT_TBL_IPN_MASTER & " c, " _
-                                   & gsCAT_TBL_PRM_BE_SPEC & " d, " _
-                                   & gsCAT_TBL_PROD_BODY & " e " _
-                        & " where a." & gsCAT_TLI_LOT_ID & " = '" & sLotID & "' " _
-                        & " and a." & gsCAT_TLI_LOT_ID & " = b." & gsCAT_TLATT_LOTID & " " _
-                        & " and b." & gsCAT_TLATT_IPN & " = c." & gsCAT_TIM_IPN & "(+) " _
-                        & " and c." & gsCAT_TIM_IPN & " = d." & gsCAT_TPBS_IPN & "(+) " _
-                        & " and substr(b." & gsCAT_TLATT_IPN & ", 1, 4) = e." & gsCAT_TPB_PROD_BODY & "(+) " _
-                        & " and d." & gsCAT_TPBS_DEFAULTS & "(+) = 'Y' " _
-                        & " and ROWNUM = 1 "
-            
+                       & " from " _
+                       & gsCAT_TBL_IPN_MASTER & " a, " & gsCAT_TBL_PRM_BE_SPEC & " b, " _
+                       & gsCAT_TBL_CUSTOMER_MASTER & " c, " & gsCAT_TBL_LOT_ATTRIBUTE & " d "
+            'defaults='Y' added by Jack on 2016/07/04
+            sSQL = sSQL _
+                       & " where d." & gsCAT_TLATT_LOTID & " = '" & sLotID & "' " _
+                       & "   and d." & gsCAT_TLATT_IPN & " = a." & gsCAT_TIM_IPN & " " _
+                       & "   and d." & gsCAT_TLATT_IPN & " = b." & gsCAT_TPBS_IPN & "(+) " _
+                       & "   and b." & gsCAT_TPBS_CUSTOMER_NO & " = c." & gsCAT_TCUM_CUSTOMERNO & "(+) " _
+                       & "   and b." & gsCAT_TPBS_DEFAULTS & "= 'Y' "
+                       
             Set colRS = oProRawSql.QueryDatabase(sSQL)
-            If Not colRS Is Nothing Then
-                If colRS.Count > 0 Then
-                    sVendorCode = colRS.Item(1).Item(1)
-                    sLotipn = colRS.Item(1).Item(2)
-                    sCQty = colRS.Item(1).Item(3)
-                    sRouteId = colRS.Item(1).Item(4)
-                    sLotOwner = colRS.Item(1).Item(5)
-                    sDateCode = colRS.Item(1).Item(6)
-                    sIpnCarGradeFlag = colRS.Item(1).Item(7)
-                    sIpnProdLine = colRS.Item(1).Item(8)
-                    sCarrierType = colRS.Item(1).Item(9)
-                    sExtraRomFlag = colRS.Item(1).Item(10)
-                    sBrand = colRS.Item(1).Item(11)
-                    sIcDrawing = colRS.Item(1).Item(12)
-                    sMarkingSpecNo = colRS.Item(1).Item(13)
-                    sIpnGreen = colRS.Item(1).Item(14)
-                    sIpnCsum = colRS.Item(1).Item(15)
-                    sNFlag = colRS.Item(1).Item(16)
-                    
-                    Call modPrint.Prt_FT_FT_LOT_INFO(sLotID, Trim(sLotipn), Trim(sCQty), _
-                                                    Trim(sRouteId), Trim(sLotOwner), Trim(sDateCode), _
-                                                    Trim(sIpnCarGradeFlag), Trim(sIpnProdLine), Trim(sCarrierType), _
-                                                    Trim(sExtraRomFlag), Trim(sBrand), Trim(sIcDrawing), _
-                                                    Trim(sMarkingSpecNo), Trim(sIpnGreen), Trim(sIpnCsum), _
-                                                    Trim(sVendorCode), Trim(sNFlag), sPrinterServer, _
-                                                    oCwMbx, oLogCtrl)
+            If colRS.Count > 0 Then
+                sCarrierType = colRS.Item(1).Item(gsCAT_TIM_CARRIER_TYPE)
+                sBoxingSpecNo = colRS.Item(1).Item(gsCAT_TIM_BOXING_SPEC_NO)
+                sBrand = colRS.Item(1).Item(gsCAT_TIM_BRAND)
+                sPinCount = colRS.Item(1).Item(gsCAT_TIM_PIN_COUNT)
+                sPackageCode = colRS.Item(1).Item(gsCAT_TIM_PACKAGE_CODE)
+                sLabelSpecNo = colRS.Item(1).Item(gsCAT_TCUM_LABELSPECNO)
+                sLPI_IPN = colRS.Item(1).Item(gsCAT_TIM_IPN)
+            Else
+                '為了因應工程品不follow PROD 的情況, 所以Rule  改成...
+                '若IPN不存在, 且User 用的是auto  mode , 則顯示message
+                '因工程品後段"是否follow PROD" 的欄位, 並沒有傳至MES, 所以產線印出Label, 還是會比對委測單, 以確保品質.
+                'IPN 不存在, 或Tbl_prm_backend_spec.defaults<>'Y' ,  請以Manual 列印
+                Call UtShowMsgBox("IPN 不存在 或Tbl_prm_backend_spec.defaults<>'Y', " & vbNewLine & _
+                                  "請以Manual mode 列印" & vbNewLine & vbNewLine & _
+                                  "IPN is not exist or Tbl_prm_backend_spec.defaults<>'Y'" & vbNewLine & _
+                                  "please use Manual mode Print Label ")
+                GoTo ExitHandler
+            End If
+        
+            Call modPrint.Prt_FT_Label_PACK_INFO(sLotID, sLabelSpecNo, _
+                                                 sCarrierType, sBoxingSpecNo, _
+                                                 sBrand, sPinCount, _
+                                                 sPackageCode, True, sPrinterServer, _
+                                                 oCwMbx, oLogCtrl, oProRawSql, sLPI_IPN)
+
+Public Sub Prt_FT_Label_PACK_INFO(ByVal sLotID As String, _
+        ByVal sLabelSpecNo As String, _
+        ByVal sCarrierType As String, _
+        ByVal sBoxingSpecNo As String, _
+        ByVal sBrand As String, _
+        ByVal sPinCount As String, _
+        ByVal sPackageCode As String, _
+        ByVal bIsAutoPrint As Boolean, _
+        ByVal sPrinterServer As String, _
+        ByVal moCwMbx As Object, _
+        ByVal oLogCtrl As Object, _
+        ByVal moProRawSql As Object, _
+        ByVal sIPN As String _
+        )
+    On Error GoTo ExitHandler:
+
+    Dim sMsg                    As String
+    Dim sProcID                 As String
+    Dim typErrInfo              As tErrInfo
+    Dim lErrCode                As Long
+    Dim sErrMsg                 As String
+
+    Dim sSQL                    As String
+    Dim sTable                  As String
+    Dim sColumn                 As String
+    Dim sWhere                  As String
+    Dim sOther                  As String
+    Dim colRaws                 As Collection
+    Dim oRaws                   As FwStrings
+
+    '列印資料-1 : 欄位來自 Tbl_Ft_Label_Spec_Info.
+    Dim sLabelSpecNoVer         As String
+    Dim sSpecialLabelSize       As String
+    Dim sSerial                 As String
+    Dim sMergeLabelSpec         As String
+    Dim sCopiesStdLabel         As String
+    Dim sCopiesSpecialLabel     As String
+    Dim sCopiesMergeLabel       As String
+    Dim sSpecialStickReel       As String
+    Dim sSpecialStickAlbag      As String
+    Dim sSpecialPositionBox_1   As String
+    Dim sSpecialPositionBox_2   As String
+
+    '列印資料-2 : 欄位來自 Tbl_Ft_Label_Boxing_Info.
+    Dim sBoxingSpecNoVer        As String
+    Dim sVacuum                 As String
+    Dim sHic                    As String
+    Dim sDesiccant              As String
+    Dim sAlbag                  As String
+
+    '列印資料-3 : 其它欄位
+    Dim sPrintLotNO             As String
+    Dim sPrintMode              As String
+    Dim sPackageCodePinCount    As String
+    
+    'Added by Jack on 2016/07/04 <Start>
+    Dim sGrade                  As String
+    Dim sBixType                As String
+    'Added by Jack on 2016/07/04 <End>
+    
+    '----
+    ' Init
+    '----
+    sProcID = "Prt_FT_Label_PACK_INFO"
+    Call LogProcIn(msMODULE_ID, sProcID, oLogCtrl)
+    sPackageCodePinCount = sPinCount & sPackageCode
+    
+    '----
+    ' Condition Checking
+    '----
+    If bIsAutoPrint Then
+        sPrintLotNO = sLotID
+        sPrintMode = "Auto"
+    Else
+        sPrintLotNO = "NA" 'MK320 San Lee 要求帶NA, 不要空白(ps : SAP拉回, MES 沒有這筆Lot)
+        sPrintMode = "Manual"
+    End If
+
+    'Check-Item-1 :
+    sTable = gsCAT_TBL_FT_LABEL_SPEC_INFO
+
+    sColumn = gsCAT_TFLSI_LABELSPECNOVER & ", " & gsCAT_TFLSI_SPECIALLABELSIZE & ", " & gsCAT_TFLSI_SERIAL & ", " & _
+        gsCAT_TFLSI_COPIES_STD_LABEL & ", " & gsCAT_TFLSI_COPIES_SPECIAL_LABEL & ", " & gsCAT_TFLSI_COPIES_MERGE_LABEL & ", " & _
+        gsCAT_TFLSI_MERGE_LABEL_SPEC & ", " & gsCAT_TFLSI_SPECIAL_STICK_REEL & ", " & gsCAT_TFLSI_SPECIAL_STICK_ALBAG & ", " & _
+        gsCAT_TFLSI_SPECIAL_POSITION_BOX_1 & ", " & gsCAT_TFLSI_SPECIAL_POSITION_BOX_2 & " "
+
+        sWhere = gsCAT_TFLSI_LABELSPECNO & "='" & sLabelSpecNo & "' and " & _
+        gsCAT_TFLSI_CARRIERTYPE & "='" & sCarrierType & "' and " & _
+        gsCAT_TFLSI_DELETEFLAG & "='N' "
+    
+    sSQL = "SELECT " & sColumn & " FROM " & sTable & " WHERE " & sWhere
+    
+    Set colRaws = moProRawSql.QueryDatabase(sSQL)
+    If colRaws Is Nothing Then
+        Call RaiseError(glERR_INVALIDOBJECT, _
+            FormatErrorText(gsETX_INVALIDOBJECT, "Collection"))
+    End If
+    
+    If colRaws.Count = 0 Then
+        'Added by Jack on 2016/07/04 <Start>
+        '若AutoMode的sLabelSpecNo串不到資料, 改用default的LabelSpecNo.
+        If bIsAutoPrint Then
+            sTable = gsCAT_TBL_IPN_MASTER
+
+            sColumn = gsCAT_TIM_GRADE & ", " & gsCAT_TIM_BIZTYPE
+
+            sWhere = gsCAT_TIM_IPN & "='" & sIPN & "' and " & _
+                     gsCAT_TIM_DELETE_FLAG & "='N' "
+    
+            sSQL = "SELECT " & sColumn & " FROM " & sTable & " WHERE " & sWhere
+            Set colRaws = moProRawSql.QueryDatabase(sSQL)
+            If colRaws Is Nothing Then
+                Call RaiseError(glERR_INVALIDOBJECT, _
+                    FormatErrorText(gsETX_INVALIDOBJECT, "Collection"))
+            End If
+            If colRaws.Count <> 0 Then
+                sGrade = colRaws.Item(1).Item(gsCAT_TIM_GRADE)
+                sBixType = colRaws.Item(1).Item(gsCAT_TIM_BIZTYPE)
+                If sBrand = "KH" And colRaws.Item(1).Item(gsCAT_TIM_GRADE) = "Y" And _
+                    sPackageCode <> "H" And sPackageCode <> "W" Then
+                    sLabelSpecNo = "6130K-0807.1"
+                    ElseIf sBrand = "KH" And colRaws.Item(1).Item(gsCAT_TIM_BIZTYPE) = "D" And _
+                        (sPackageCode = "H" Or sPackageCode = "W") Then
+                    sLabelSpecNo = "6130K-0807.1"
+                ElseIf sBrand = "KH" And sPackageCode <> "H" And sPackageCode <> "W" Then
+                    sLabelSpecNo = "6130K-0807"
+                Else
+                    sLabelSpecNo = "6130-0807"
                 End If
             End If
+            sTable = gsCAT_TBL_FT_LABEL_SPEC_INFO
+
+            sColumn = gsCAT_TFLSI_LABELSPECNOVER & ", " & gsCAT_TFLSI_SPECIALLABELSIZE & ", " & gsCAT_TFLSI_SERIAL & ", " & _
+                gsCAT_TFLSI_COPIES_STD_LABEL & ", " & gsCAT_TFLSI_COPIES_SPECIAL_LABEL & ", " & gsCAT_TFLSI_COPIES_MERGE_LABEL & ", " & _
+                gsCAT_TFLSI_MERGE_LABEL_SPEC & ", " & gsCAT_TFLSI_SPECIAL_STICK_REEL & ", " & gsCAT_TFLSI_SPECIAL_STICK_ALBAG & ", " & _
+                gsCAT_TFLSI_SPECIAL_POSITION_BOX_1 & ", " & gsCAT_TFLSI_SPECIAL_POSITION_BOX_2 & " "
+        
+                sWhere = gsCAT_TFLSI_LABELSPECNO & "='" & sLabelSpecNo & "' and " & _
+                gsCAT_TFLSI_CARRIERTYPE & "='" & sCarrierType & "' and " & _
+                gsCAT_TFLSI_DELETEFLAG & "='N' "
+            
+            sSQL = "SELECT " & sColumn & " FROM " & sTable & " WHERE " & sWhere
+            
+            Set colRaws = moProRawSql.QueryDatabase(sSQL)
+            If colRaws Is Nothing Then
+                Call RaiseError(glERR_INVALIDOBJECT, _
+                    FormatErrorText(gsETX_INVALIDOBJECT, "Collection"))
+            End If
+            
+            If colRaws.Count = 0 Then
+                Call UtShowMsgBox("FT_Label_Info(Default) 資訊異常, 請通知主任確認CAT資訊正確性. " & vbNewLine & vbNewLine & _
+                                "FT_Label_Info error, Please inform the Supervisor confirmed " & vbNewLine & _
+                                "that infomation of CAT system is correct. " & vbNewLine & vbNewLine & _
+                                "(CAT:Tbl_Ft_Label_Spec_Info table) ")
+                GoTo ExitHandler
+            Else
+                sLabelSpecNoVer = colRaws.Item(1).Item(gsCAT_TFLSI_LABELSPECNOVER)
+                sSpecialLabelSize = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIALLABELSIZE)
+                sSerial = colRaws.Item(1).Item(gsCAT_TFLSI_SERIAL)
+                sMergeLabelSpec = colRaws.Item(1).Item(gsCAT_TFLSI_MERGE_LABEL_SPEC)
+                sCopiesStdLabel = colRaws.Item(1).Item(gsCAT_TFLSI_COPIES_STD_LABEL)
+                sCopiesSpecialLabel = colRaws.Item(1).Item(gsCAT_TFLSI_COPIES_SPECIAL_LABEL)
+                sCopiesMergeLabel = colRaws.Item(1).Item(gsCAT_TFLSI_COPIES_MERGE_LABEL)
+                sSpecialStickReel = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_STICK_REEL)
+                sSpecialStickAlbag = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_STICK_ALBAG)
+                sSpecialPositionBox_1 = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_POSITION_BOX_1)
+                sSpecialPositionBox_2 = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_POSITION_BOX_2)
+            End If
+            'Added by Jack on 2016/07/04 <End>
+        Else
+            Call UtShowMsgBox("FT_Label_Info 資訊異常, 請通知主任確認CAT資訊正確性. " & vbNewLine & vbNewLine & _
+                "FT_Label_Info error, Please inform the Supervisor confirmed " & vbNewLine & _
+                "that infomation of CAT system is correct. " & vbNewLine & vbNewLine & _
+                "(CAT:Tbl_Ft_Label_Spec_Info table) ")
+            GoTo ExitHandler
+        End If
+    Else
+        sLabelSpecNoVer = colRaws.Item(1).Item(gsCAT_TFLSI_LABELSPECNOVER)
+        sSpecialLabelSize = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIALLABELSIZE)
+        sSerial = colRaws.Item(1).Item(gsCAT_TFLSI_SERIAL)
+        sMergeLabelSpec = colRaws.Item(1).Item(gsCAT_TFLSI_MERGE_LABEL_SPEC)
+        sCopiesStdLabel = colRaws.Item(1).Item(gsCAT_TFLSI_COPIES_STD_LABEL)
+        sCopiesSpecialLabel = colRaws.Item(1).Item(gsCAT_TFLSI_COPIES_SPECIAL_LABEL)
+        sCopiesMergeLabel = colRaws.Item(1).Item(gsCAT_TFLSI_COPIES_MERGE_LABEL)
+        sSpecialStickReel = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_STICK_REEL)
+        sSpecialStickAlbag = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_STICK_ALBAG)
+        sSpecialPositionBox_1 = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_POSITION_BOX_1)
+        sSpecialPositionBox_2 = colRaws.Item(1).Item(gsCAT_TFLSI_SPECIAL_POSITION_BOX_2)
+    End If
+
+    'Check-Item-2 :
+    sTable = gsCAT_TBL_FT_LABEL_BOXING_INFO
+
+    sColumn = gsCAT_TFLBI_BOXINGSPECNOVER & ", " & gsCAT_TFLBI_VACUUM & ", " & gsCAT_TFLBI_HIC & ", " & _
+        gsCAT_TFLBI_DESICCANT & ", " & gsCAT_TFLBI_ALBAG & " "
+
+        sWhere = gsCAT_TFLBI_CARRIERTYPE & "='" & sCarrierType & "' and " & _
+        gsCAT_TFLBI_BOXINGSPECNO & "='" & sBoxingSpecNo & "' and " & _
+        gsCAT_TFLBI_BRAND & "='" & sBrand & "' and " & _
+        gsCAT_TFLBI_PINCOUNT & "='" & sPinCount & "' and " & _
+        gsCAT_TFLBI_PACKAGECODE & "='" & sPackageCode & "' and " & _
+        gsCAT_TFLBI_DELETEFLAG & "='N' "
+    
+    sSQL = "SELECT " & sColumn & " FROM " & sTable & " WHERE " & sWhere
+    
+    Set colRaws = moProRawSql.QueryDatabase(sSQL)
+    If colRaws Is Nothing Then
+        Call RaiseError(glERR_INVALIDOBJECT, _
+            FormatErrorText(gsETX_INVALIDOBJECT, "Collection"))
+    End If
+    
+    If colRaws.Count = 0 Then
+        'Auto mode : Package +Pincount 先以Lot’s IPN值為主, 若串不到資料, 再改為ALL + ALL 去串.
+        If bIsAutoPrint Then
+            sTable = gsCAT_TBL_FT_LABEL_BOXING_INFO
+        
+            sColumn = gsCAT_TFLBI_BOXINGSPECNOVER & ", " & gsCAT_TFLBI_VACUUM & ", " & gsCAT_TFLBI_HIC & ", " & _
+                gsCAT_TFLBI_DESICCANT & ", " & gsCAT_TFLBI_ALBAG & " "
+        
+                sWhere = gsCAT_TFLBI_CARRIERTYPE & "='" & sCarrierType & "' and " & _
+                gsCAT_TFLBI_BOXINGSPECNO & "='" & sBoxingSpecNo & "' and " & _
+                gsCAT_TFLBI_BRAND & "='" & sBrand & "' and " & _
+                gsCAT_TFLBI_PINCOUNT & "='ALL' and " & _
+                gsCAT_TFLBI_PACKAGECODE & "='ALL' and " & _
+                gsCAT_TFLBI_DELETEFLAG & "='N' "
+            
+            sSQL = "SELECT " & sColumn & " FROM " & sTable & " WHERE " & sWhere
+            
+            Set colRaws = moProRawSql.QueryDatabase(sSQL)
+            If colRaws Is Nothing Then
+                Call RaiseError(glERR_INVALIDOBJECT, _
+                    FormatErrorText(gsETX_INVALIDOBJECT, "Collection"))
+            End If
+            
+            If colRaws.Count = 0 Then
+                Call UtShowMsgBox("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性. " & vbNewLine & vbNewLine & _
+                    "FT_Boxing_Info error, Please inform the Supervisor confirmed " & vbNewLine & _
+                    "that infomation of CAT system is correct. " & vbNewLine & vbNewLine & _
+                    "(CAT:Tbl_Ft_Boxing_Spec_Info table) ")
+                GoTo ExitHandler
+            Else
+                sPackageCodePinCount = "ALL" 'user要求只印一個ALL即可.
+                
+                sBoxingSpecNoVer = colRaws.Item(1).Item(gsCAT_TFLBI_BOXINGSPECNOVER)
+                sVacuum = colRaws.Item(1).Item(gsCAT_TFLBI_VACUUM)
+                sHic = colRaws.Item(1).Item(gsCAT_TFLBI_HIC)
+                sDesiccant = colRaws.Item(1).Item(gsCAT_TFLBI_DESICCANT)
+                sAlbag = colRaws.Item(1).Item(gsCAT_TFLBI_ALBAG)
+            End If
+        Else
+            Call UtShowMsgBox("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性. " & vbNewLine & vbNewLine & _
+                "FT_Boxing_Info error, Please inform the Supervisor confirmed " & vbNewLine & _
+                "that infomation of CAT system is correct. " & vbNewLine & vbNewLine & _
+                "(CAT:Tbl_Ft_Boxing_Spec_Info table) ")
+            GoTo ExitHandler
+        End If
+    Else
+        If sPinCount = "ALL" And sPackageCode = "ALL" Then
+            sPackageCodePinCount = "ALL" 'user要求只印一個ALL即可.
+        End If
+        
+        sBoxingSpecNoVer = colRaws.Item(1).Item(gsCAT_TFLBI_BOXINGSPECNOVER)
+        sVacuum = colRaws.Item(1).Item(gsCAT_TFLBI_VACUUM)
+        sHic = colRaws.Item(1).Item(gsCAT_TFLBI_HIC)
+        sDesiccant = colRaws.Item(1).Item(gsCAT_TFLBI_DESICCANT)
+        sAlbag = colRaws.Item(1).Item(gsCAT_TFLBI_ALBAG)
+    End If
+
+    '----
+    ' Action
+    '----
+    On Error Resume Next
+       
+    '******
+    'Print Label Info
+    '******
+
+    sMsg = sMsg & "^XA"
+    sMsg = sMsg & "^MCY"
+    sMsg = sMsg & "^XZ"
+    sMsg = sMsg & "^XA"
+    sMsg = sMsg & "^FWN^CFD,24^LH0,0"
+    sMsg = sMsg & "^CI0^PR2^MNY^MTT^MMT^MD0^PON^PMN^LRN"
+    sMsg = sMsg & "^XZ"
+    sMsg = sMsg & "^XA"
+    sMsg = sMsg & "^DFR:TEMP_FMT.ZPL"
+    sMsg = sMsg & "^LRN"
+    sMsg = sMsg & "^XZ"
+    sMsg = sMsg & "^XA"
+    sMsg = sMsg & "^XFR:TEMP_FMT.ZPL"
+    sMsg = sMsg & "^FO15,17^GB1167,112,2,B,0^FS"
+    sMsg = sMsg & "^FO15,71^GB1165,2,2,B,0^FS"
+    sMsg = sMsg & "^FO191,18^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO247,16^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO799,18^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO709,18^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO988,15^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^A0N,23,24^FO40,33^FDLabel Spec.^FS"
+    sMsg = sMsg & "^A0N,23,24^FO425,33^FDLabel Size^FS"
+    sMsg = sMsg & "^A0N,23,24^FO199,33^FDVer.^FS"
+    sMsg = sMsg & "^A0N,23,24^FO723,33^FDSerial^FS"
+    sMsg = sMsg & "^A0N,23,24^FO858,33^FDSource^FS"
+    sMsg = sMsg & "^A0N,23,24^FO1047,33^FDLotNo.^FS"
+    sMsg = sMsg & "^A0N,28,28^FO255,89^FD" & sSpecialLabelSize & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO199,89^FD" & sLabelSpecNoVer & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO20,89^FD" & sLabelSpecNo & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO998,89^FD" & sPrintLotNO & "^FS" '注意!! 可能為 "NA" <-- Manual mode
+    sMsg = sMsg & "^A0N,28,28^FO859,89^FD" & sPrintMode & "^FS" '注意!! Auto / Manual.
+    sMsg = sMsg & "^A0N,28,28^FO741,89^FD" & sSerial & "^FS"
+    sMsg = sMsg & "^FO13,315^GB1167,112,2,B,0^FS"
+    sMsg = sMsg & "^FO15,368^GB1165,2,2,B,0^FS"
+    sMsg = sMsg & "^FO519,315^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO799,314^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO398,314^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO247,314^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO191,316^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO988,312^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^A0N,23,24^FO36,333^FDBoxing Spec.^FS"
+    sMsg = sMsg & "^A0N,23,24^FO198,333^FDVer.^FS"
+    sMsg = sMsg & "^A0N,23,24^FO294,333^FDBrand^FS"
+    sMsg = sMsg & "^A0N,23,24^FO419,333^FDPackage^FS"
+    sMsg = sMsg & "^A0N,23,24^FO594,333^FDCarrier Type^FS"
+    sMsg = sMsg & "^A0N,23,24^FO808,333^FDVacuum^FS"
+    sMsg = sMsg & "^A0N,23,24^FO921,333^FDHIC^FS"
+    sMsg = sMsg & "^A0N,23,24^FO992,333^FDDesiccant^FS"
+    sMsg = sMsg & "^A0N,23,24^FO1093,333^FDAl. bag^FS"
+    sMsg = sMsg & "^FO895,314^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO1087,314^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^A0N,28,28^FO19,387^FD" & sBoxingSpecNo & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO199,388^FD" & sBoxingSpecNoVer & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO296,388^FD" & sBrand & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO411,388^FD" & sPackageCodePinCount & "^FS" '注意 : 可能為 "ALL"
+    sMsg = sMsg & "^A0N,28,28^FO527,388^FD" & sCarrierType & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO832,388^FD" & sVacuum & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO934,388^FD" & sHic & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO1032,388^FD" & sDesiccant & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO1108,387^FD" & sAlbag & "^FS"
+    sMsg = sMsg & "^FO13,136^GB1167,168,2,B,0^FS"
+    sMsg = sMsg & "^FO13,190^GB1165,2,2,B,0^FS"
+    sMsg = sMsg & "^FO14,248^GB1165,2,2,B,0^FS"
+    sMsg = sMsg & "^FO190,190^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO400,190^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO520,140^GB2,162,2,B,0^FS"
+    sMsg = sMsg & "^FO802,140^GB2,162,2,B,0^FS"
+    sMsg = sMsg & "^FO988,137^GB2,162,2,B,0^FS"
+    sMsg = sMsg & "^A0N,23,24^FO214,153^FDLabel  Copies^FS"
+    sMsg = sMsg & "^A0N,23,24^FO69,209^FDSTD^FS"
+    sMsg = sMsg & "^A0N,23,24^FO251,209^FDSpecial^FS"
+    sMsg = sMsg & "^A0N,23,24^FO422,209^FDMerge^FS"
+    sMsg = sMsg & "^A0N,23,24^FO578,153^FDMerge Label^FS"
+    sMsg = sMsg & "^A0N,23,24^FO621,209^FDSpec.^FS"
+    sMsg = sMsg & "^A0N,23,24^FO825,153^FDSpecial Stick^FS"
+    sMsg = sMsg & "^A0N,23,24^FO1018,153^FDSpecial Pos.^FS"
+    sMsg = sMsg & "^A0N,23,24^FO822,209^FDReel^FS"
+    sMsg = sMsg & "^FO895,192^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^FO1088,193^GB2,110,2,B,0^FS"
+    sMsg = sMsg & "^A0N,23,24^FO903,209^FDAl. Bag^FS"
+    sMsg = sMsg & "^A0N,23,24^FO1007,209^FDBox_1^FS"
+    sMsg = sMsg & "^A0N,23,24^FO1098,208^FDBox_2^FS"
+    sMsg = sMsg & "^A0N,28,28^FO78,265^FD" & sCopiesStdLabel & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO270,265^FD" & sCopiesSpecialLabel & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO442,265^FD" & sCopiesMergeLabel & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO535,265^FD" & sMergeLabelSpec & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO837,265^FD" & sSpecialStickReel & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO926,265^FD" & sSpecialStickAlbag & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO1000,265^FD" & sSpecialPositionBox_1 & "^FS"
+    sMsg = sMsg & "^A0N,28,28^FO1094,265^FD" & sSpecialPositionBox_2 & "^FS"
+    sMsg = sMsg & "^PQ1,0,1,Y"
+    sMsg = sMsg & "^XZ"
+    sMsg = sMsg & "^XA"
+    sMsg = sMsg & "^IDR:TEMP_FMT.ZPL"
+    sMsg = sMsg & "^XZ"
+    '使用的欄位變數:
+    'sLotID, sLabelSpecNo, sCarrierType, sBoxingSpecNo, sBrand, sPinCount, sPackageCode
+    'sLabelSpecNoVer , sSpecialLabelSize, , sMergeLabelSpec, sCopiesStdLabel
+    'sCopiesSpecialLabel , sCopiesMergeLabel, sSpecialStickReel, sSpecialStickAlbag
+    'sSpecialPositionBox_1 , sSpecialPositionBox_2
+    'sBoxingSpecNoVer, sVacuum, sHic, sDesiccant, sAlbag
+
+    '******
+    ' End of Label Info
+    '******
+
+    '******
+    'Send message to MES Server MailBox.
+    '******
+    If InStr(1, sPrinterServer, "@") <> 0 Then
+        sPrinterServer = VBA.Left(sPrinterServer, (InStr(1, sPrinterServer, "@")) - 1)
+    End If
+        
+    If Not moCwMbx.Send("MBX_" & sPrinterServer, sMsg) Then
+        Call moCwMbx.GetError(lErrCode, sErrMsg)
+        Call RaiseError(lErrCode, sErrMsg)
+    End If
+    '******
+    '----
+    ' Done
+    '----
+ExitHandler:
+    ' NOTE 1:
+    ' MUST CALL GetErrInfo() here first before another action
+    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, oLogCtrl)
+    On Error Resume Next
+
+ErrorHandler:
+    If typErrInfo.lErrNumber Then
+        ' NOTE 2:
+        ' If you have custom handling of some Errors, please
+        ' UN-REMARED the following Select Case block!
+        ' Also, modify if neccessarily!!!
+        '---- Start of Select Case Block ----
+        Select Case typErrInfo.lErrNumber
+        Case glERR_INVALIDOBJECT
+            ' Retry code goes here...
+        Case Else
+            typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                "程式執行失敗, 請洽IT人員處理"
+        End Select
+        '---- Start of Select Case Block ----
+        On Error GoTo ExitHandler:
+        Call HandleError(False, typErrInfo, , oLogCtrl, True)
+    End If
+End Sub
+
+
+目前C# Source Code
+private async Task<string> Generate_FT_Label_PACK_INFO_ZplAsync(PrintLabelRequest req)
+        {
+            // 判斷是否為自動模式 (對應 VB6 的 bIsAutoPrint)
+            bool isAutoPrint = req.PrintMode == "Auto";
+
+            // 1. 初始化列印變數
+            string printLotNo = isAutoPrint ? req.LotId : "NA";
+            string printMode = isAutoPrint ? "Auto" : "Manual";
+            string packageCodePinCount = req.PinCount + req.PackageCode;
+            string currentLabelSpecNo = req.LabelSpecNo; // 使用區域變數，因為 Fallback 時可能會被重新指派
+
+            // -------------------------------------------------------------
+            // [Check-Item-1] : 查詢 Label Spec Info
+            // -------------------------------------------------------------
+            var specInfo = await _printLabelRepo.GetLabelSpecInfoAsync(currentLabelSpecNo, req.CarrierType);
+
+            // 如果第一輪沒查到
+            if (specInfo == null)
+            {
+                if (!isAutoPrint)
+                {
+                    throw new Exception("FT_Label_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // Auto Mode 的退回機制：查 IPN_MASTER 重新決定 LabelSpecNo
+                var ipnData = await _printLabelRepo.GetIpnMasterForLabelSpecAsync(req.IPN);
+                if (ipnData.Grade != null)
+                {
+                    string grade = ipnData.Grade;
+                    string bizType = ipnData.BizType;
+                    bool isHOrW = req.PackageCode == "H" || req.PackageCode == "W";
+
+                    if (req.Brand == "KH" && grade == "Y" && !isHOrW)
+                        currentLabelSpecNo = "6130K-0807.1";
+                    else if (req.Brand == "KH" && bizType == "D" && isHOrW)
+                        currentLabelSpecNo = "6130K-0807.1";
+                    else if (req.Brand == "KH" && !isHOrW)
+                        currentLabelSpecNo = "6130K-0807";
+                    else
+                        currentLabelSpecNo = "6130-0807";
+                }
+
+                // 以新的 LabelSpecNo 重新查第二次
+                specInfo = await _printLabelRepo.GetLabelSpecInfoAsync(currentLabelSpecNo, req.CarrierType);
+                if (specInfo == null)
+                {
+                    throw new Exception("FT_Label_Info(Default) 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+            }
+
+            // -------------------------------------------------------------
+            // [Check-Item-2] : 查詢 Label Boxing Info
+            // -------------------------------------------------------------
+            var boxingInfo = await _printLabelRepo.GetLabelBoxingInfoAsync(req.CarrierType, req.BoxingSpecNo, req.Brand, req.PinCount, req.PackageCode);
+
+            // 如果第一輪沒查到
+            if (boxingInfo == null)
+            {
+                if (!isAutoPrint)
+                {
+                    throw new Exception("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // Auto Mode 的退回機制：強制設定 PinCount = ALL, PackageCode = ALL 重新查詢
+                boxingInfo = await _printLabelRepo.GetLabelBoxingInfoAsync(req.CarrierType, req.BoxingSpecNo, req.Brand, "ALL", "ALL");
+                if (boxingInfo == null)
+                {
+                    throw new Exception("FT_Boxing_Info 資訊異常, 請通知主任確認CAT資訊正確性.");
+                }
+
+                // 如果重查成功，標籤顯示值要變成 ALL
+                packageCodePinCount = "ALL";
+            }
+            else
+            {
+                // 如果第一次就查到，且兩者原本就是傳入 ALL，標籤顯示值也要設為 ALL
+                if (req.PinCount == "ALL" && req.PackageCode == "ALL")
+                {
+                    packageCodePinCount = "ALL";
+                }
+            }
+
+            // -------------------------------------------------------------
+            //  變數替換並直接 Return 字串 (交回給 ExecutePrintAsync 總管)
+            // -------------------------------------------------------------
+            return ZplTemplates.FT_Label_PACK_INFO
+                .Replace("{SpecialLabelSize}", specInfo.SpecialLabelSize ?? "")
+                .Replace("{LabelSpecNoVer}", specInfo.LabelSpecNoVer ?? "")
+                .Replace("{LabelSpecNo}", currentLabelSpecNo ?? "")
+                .Replace("{PrintLotNO}", printLotNo)
+                .Replace("{PrintMode}", printMode)
+                .Replace("{Serial}", specInfo.Serial ?? "")
+                .Replace("{BoxingSpecNo}", req.BoxingSpecNo ?? "")
+                .Replace("{BoxingSpecNoVer}", boxingInfo.BoxingSpecNoVer ?? "")
+                .Replace("{Brand}", req.Brand ?? "")
+                .Replace("{PackageCodePinCount}", packageCodePinCount)
+                .Replace("{CarrierType}", req.CarrierType ?? "")
+                .Replace("{Vacuum}", boxingInfo.Vacuum ?? "")
+                .Replace("{Hic}", boxingInfo.Hic ?? "")
+                .Replace("{Desiccant}", boxingInfo.Desiccant ?? "")
+                .Replace("{Albag}", boxingInfo.Albag ?? "")
+                .Replace("{CopiesStdLabel}", specInfo.CopiesStdLabel ?? "")
+                .Replace("{CopiesSpecialLabel}", specInfo.CopiesSpecialLabel ?? "")
+                .Replace("{CopiesMergeLabel}", specInfo.CopiesMergeLabel ?? "")
+                .Replace("{MergeLabelSpec}", specInfo.MergeLabelSpec ?? "")
+                .Replace("{SpecialStickReel}", specInfo.SpecialStickReel ?? "")
+                .Replace("{SpecialStickAlbag}", specInfo.SpecialStickAlbag ?? "")
+                .Replace("{SpecialPositionBox_1}", specInfo.SpecialPositionBox_1 ?? "")
+                .Replace("{SpecialPositionBox_2}", specInfo.SpecialPositionBox_2 ?? "");
+        }
