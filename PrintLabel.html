@@ -704,12 +704,23 @@
                             waferId: this.form.trReelId 
                         });
                     }
-                    else if (this.isLabelPackEnabled && this.form.lpiMode === 'Manual') {
-                        if (!this.form.lpiLabelSpecNo || !this.form.packageCode) { VMessageBox.alert('請選擇完整的 Label Pack 手動參數！'); return; }
-                        lotsToPrint.push({ lotId: '' }); 
+                    else if (this.isLabelPackEnabled) {
+                        // 💡 修正：針對 FT_Label_PACK_INFO 區分 Auto 與 Manual
+                        if (this.form.lpiMode === 'Manual') {
+                            if (!this.form.lpiLabelSpecNo || !this.form.packageCode) { VMessageBox.alert('請選擇完整的 Label Pack 手動參數！'); return; }
+                            lotsToPrint.push({ lotId: '', ipn: '' }); // 手動模式不依賴 IPN 查詢
+                        } else {
+                            if (!this.form.labelData.trim()) { VMessageBox.alert('Auto 模式請輸入 LOT NO！'); return; }
+                            // 💡 關鍵：Auto 模式下，必須確保 IPN 有被傳入 (我們可以透過額外的欄位或直接送出讓後端去查)
+                            lotsToPrint.push({ 
+                                lotId: this.form.labelData.trim(), 
+                                // 若 LPI 畫面上沒有獨立顯示 IPN 的文字框，可以暫時傳空字串，
+                                // 並讓後端 C# 在 GetLabelSpecInfoAsync 前主動用 LotId 查一次 IPN
+                                ipn: '' 
+                            });
+                        }
                     } 
                     else if (this.isLotListEnabled || this.isWsEngShelfMode) {
-                        // 💡 修正核心：當使用表格模式時，將 productNo (IPN) 與數量一起包裝進物件中
                         lotsToPrint = this.lotList
                             .filter(row => row.checked && row.lotNo.trim() !== '')
                             .map(row => ({
@@ -734,7 +745,6 @@
                     try {
                         let allSuccess = true; let errorMsg = '';
                         
-                        // 💡 遍歷物件陣列，將對應的屬性精準塞入 API Payload
                         for (const item of lotsToPrint) {
                             const payload = {
                                 Stage: this.form.stage, 
@@ -746,7 +756,6 @@
                                 PrintQty: this.form.printQty,
                                 SearchData: this.form.searchData,
                                 
-                                // 💡 確保 IPN 與 數量 都能順利傳送至後端
                                 WaferId: item.waferId || '',
                                 IPN: item.ipn || '',
                                 CQty: item.cQty || '',
