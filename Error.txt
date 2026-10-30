@@ -1,210 +1,178 @@
-目前測試FT_ETEST_MERGE_LABEL列印，發現呈現結果不相同，請協助修正
+目前測試FT_LOT_INFO列印，發現連zpl都沒有建立，請協助建立並確認相關rule是否有通
 
-VB最後列印呈現的結果如下
-^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS^FO15,15^A0N,40,30^CI13^FR^FDLot No: 8N297200CA^FS^FO300,15^A0N,40,30^CI13^FR^FDQTY: 980^FS^FO15,60^A0N,40,30^CI13^FR^FDLot No: 8N297200CC^FS^FO300,60^A0N,40,30^CI13^FR^FDQTY: 980^FS^FO15,105^A0N,40,30^CI13^FR^FDLot No: 8N297200CB^FS^FO300,105^A0N,40,30^CI13^FR^FDQTY: 980^FS^FO15,150^A0N,40,30^CI13^FR^FDLot No: 8N297200CD^FS^FO300,150^A0N,40,30^CI13^FR^FDQTY: 980^FS^PQ1,1,1,Y^XZ
+    Public Sub Prt_FT_FT_LOT_INFO(ByVal sLotNo As String, _
+            ByVal sIPN As String, _
+            ByVal sCQty As String, _
+            ByVal sRouteId As String, _
+            ByVal sLotOwner As String, _
+            ByVal sDateCode As String, _
+            ByVal sCargradeFlag As String, _
+            ByVal sProdLine As String, _
+            ByVal sCarrierType As String, _
+            ByVal sExtraRomFlag As String, _
+            ByVal sBrand As String, _
+            ByVal sIcDrawing As String, _
+            ByVal sMarkingSpecNo As String, _
+            ByVal sGreen As String, _
+            ByVal sCsum As String, _
+            ByVal sVendorCode As String, _
+            ByVal sNFflag As String, _
+            ByVal sPrinterServer As String, _
+            ByVal moCwMbx As Object, _
+            ByVal oLogCtrl As Object)
+        On Error GoTo ExitHandler:
 
-C#最後列印呈現結果如下
-^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
-{DynamicMergeBlock}
-^PQ1,1,1,Y^XZ
+        Dim sMsg                    As String
+        Dim sProcID                 As String
+        Dim typErrInfo              As tErrInfo
+        Dim lErrCode                As Long
+        Dim sErrMsg                 As String
 
-VB模板SourceCode
-Public Sub Prt_FT_ETEST_MERGE(ByVal sLotsInfo As String, _
-                            ByVal sPrinterServer As String, _
-                            ByVal moCwMbx As Object, _
-                            ByVal oLogCtrl As Object)
+        '----
+        ' Init
+        '----
+1       sProcID = "Prt_FT_FT_LOT_INFO"
+2       Call LogProcIn(msMODULE_ID, sProcID, oLogCtrl)
 
+        '----
+        ' Condition Checking
+        '----
 
-On Error GoTo ExitHandler:
-
-Dim sMsg            As String
-Dim sProcID         As String
-Dim typErrInfo      As tErrInfo
-Dim lErrCode        As Long
-Dim sErrMsg         As String
-
-Dim iIdx            As Integer
-Dim arrLotInfo      As Variant
-'----
-' Init
-'----
-    sProcID = "Prt_FT_ETEST_MERGE"
-    Call LogProcIn(msMODULE_ID, sProcID, oLogCtrl)
-
-'----
-' Condition Checking
-'----
+        '----
+        ' Action
+        '----
+        On Error Resume Next
+       
+        '******
+        'Print Label Info
+        '******
+        'ps : <1> Route的部份, user要求只要列印35碼, 以免超過長度.(目前平均約35碼)
+        '         Mid(sRouteId, 1, 35)
+        '     <2> 測試時需要 : sRouteId = sRouteId & "-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     
-'----
-' Action
-'----
-   
-    '******
-    'Print Label Info
-    '******
-    arrLotInfo = Split(sLotsInfo, ",")
-    sMsg = ""
-    
-    '每六批印一張
-    For iIdx = LBound(arrLotInfo) To UBound(arrLotInfo)
-        
-'        If (iIdx - LBound(arrLotInfo)) Mod 2 = 0 Then
-'            sMsg = sMsg & "^FO15,36^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-'        Else
-'            sMsg = sMsg & "^FO500,36^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-'        End If
-        '---
-        'Modify by Janus, 20050831, request no : M200507046
-        Select Case ((iIdx - LBound(arrLotInfo)) Mod 12)
-        Case 0
-            sMsg = "^XA"
-            sMsg = sMsg & "^PRC"
-            sMsg = sMsg & "^LH0,0^FS"
-            sMsg = sMsg & "^LL280"
-            sMsg = sMsg & "^MD0"
-            sMsg = sMsg & "^LH0,0^FS"
-            sMsg = sMsg & "^FO15,15^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-            'sMsg = sMsg & "^FO15,36^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-        Case 1
-            'sMsg = sMsg & "^FO500,36^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO300,15^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-        Case 2
-            'sMsg = sMsg & "^FO15,100^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO15,60^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-        Case 3
-            'sMsg = sMsg & "^FO500,100^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO300,60^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-        Case 4
-            'sMsg = sMsg & "^FO15,164^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO15,105^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-        Case 5
-            'sMsg = sMsg & "^FO500,164^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO300,105^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-        Case 6
-            'sMsg = sMsg & "^FO15,228^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO15,150^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-        Case 7
-            'sMsg = sMsg & "^FO500,228^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO300,150^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-        Case 8
-            'sMsg = sMsg & "^FO15,292^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO15,195^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-        Case 9
-            'sMsg = sMsg & "^FO500,292^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO300,195^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-        Case 10
-            'sMsg = sMsg & "^FO15,356^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO15,235^A0N,40,30^CI13^FR^FDLot No: " & arrLotInfo(iIdx) & "^FS"
-        Case 11
-            'sMsg = sMsg & "^FO500,356^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^FO300,235^A0N,40,30^CI13^FR^FDQTY: " & arrLotInfo(iIdx) & "^FS"
-            sMsg = sMsg & "^PQ1,1,1,Y"
-            sMsg = sMsg & "^XZ"
-            'End Modify by Janus, 20050831
-            '---
-            '******
-            'Send message to TDS
-            '******
-            
-            'Add by Tony Start on 20110117 for Req.JC201100003
-            If InStr(1, sPrinterServer, "@") <> 0 Then
-                sPrinterServer = VBA.Left(sPrinterServer, (InStr(1, sPrinterServer, "@")) - 1)
-            End If
-            'Add by Tony End on 20110117 for Req.JC201100003
-            
-            If Not moCwMbx.Send("MBX_" & sPrinterServer, sMsg) Then
-                Call moCwMbx.GetError(lErrCode, sErrMsg)
-                Call RaiseError(lErrCode, sErrMsg)
-            End If
-        End Select
-        
-        If iIdx = UBound(arrLotInfo) And ((iIdx - LBound(arrLotInfo)) Mod 12) <> 11 Then
-            sMsg = sMsg & "^PQ1,1,1,Y"
-            sMsg = sMsg & "^XZ"
+        'sRouteId = sRouteId & "-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        'TO-DO : 上線時, 這一行必需拿掉!!
 
-            'Add by Tony Start on 20110117 for Req.JC201100003
-            If InStr(1, sPrinterServer, "@") <> 0 Then
-                sPrinterServer = VBA.Left(sPrinterServer, (InStr(1, sPrinterServer, "@")) - 1)
-            End If
-            'Add by Tony End on 20110117 for Req.JC201100003
-            
-            If Not moCwMbx.Send("MBX_" & sPrinterServer, sMsg) Then
-                Call moCwMbx.GetError(lErrCode, sErrMsg)
-                Call RaiseError(lErrCode, sErrMsg)
-            End If
+3       sMsg = sMsg & "^XA"
+4       sMsg = sMsg & "^MCY"
+5       sMsg = sMsg & "^XZ"
+6       sMsg = sMsg & "^XA"
+7       sMsg = sMsg & "^FWN^CFD,24^LH0,0"
+8       sMsg = sMsg & "^CI0^PR2^MNY^MTT^MMT^MD0^PON^PMN^LRN"
+9       sMsg = sMsg & "^XZ"
+10      sMsg = sMsg & "^XA"
+11      sMsg = sMsg & "^DFR:TEMP_FMT.ZPL"
+12      sMsg = sMsg & "^LRN"
+13      sMsg = sMsg & "^XZ"
+14      sMsg = sMsg & "^XA"
+15      sMsg = sMsg & "^XFR:TEMP_FMT.ZPL"
+16      sMsg = sMsg & "^FO9,3^GB783,464,4,B,0^FS"
+17      sMsg = sMsg & "^A0N,28,28^FO20,17^FDIPN^FS"
+18      sMsg = sMsg & "^A0N,28,28^FO20,52^FDLot no.^FS"
+19      sMsg = sMsg & "^A0N,28,28^FO20,86^FDQty^FS"
+20      sMsg = sMsg & "^A0N,28,28^FO20,123^FDRoute^FS"
+21      sMsg = sMsg & "^A0N,28,28^FO20,156^FDOwner^FS"
+22      sMsg = sMsg & "^A0N,28,28^FO20,190^FDCsum^FS"
+23      sMsg = sMsg & "^A0N,28,28^FO20,224^FDGreen^FS"
+24      sMsg = sMsg & "^A0N,28,28^FO21,258^FDBrand^FS"
+25      sMsg = sMsg & "^A0N,28,28^FO22,430^FDCarrier Type^FS"
+26      sMsg = sMsg & "^A0N,28,28^FO22,395^FDIC Outline^FS"
+27      sMsg = sMsg & "^A0N,28,28^FO368,291^FDAEB^FS"
+28      sMsg = sMsg & "^A0N,28,28^FO368,189^FDProdLine^FS"
+29      sMsg = sMsg & "^A0N,28,28^FO368,224^FDXtraRom^FS"
+30      sMsg = sMsg & "^A0N,28,28^FO368,258^FDN flag^FS"
+31      sMsg = sMsg & "^A0N,28,28^FO22,291^FDAssy Code^FS"
+32      sMsg = sMsg & "^A0N,28,28^FO22,327^FDDateCode^FS"
+33      sMsg = sMsg & "^A0N,28,28^FO22,361^FDIC Marking^FS"
+34      sMsg = sMsg & "^A0N,34,34^FO174,430^FD:^FS"
+35      sMsg = sMsg & "^A0N,34,34^FO173,393^FD:^FS"
+36      sMsg = sMsg & "^A0N,34,34^FO173,190^FD:^FS"
+37      sMsg = sMsg & "^A0N,34,34^FO173,258^FD:^FS"
+38      sMsg = sMsg & "^A0N,34,34^FO173,292^FD:^FS"
+39      sMsg = sMsg & "^A0N,34,34^FO173,224^FD:^FS"
+40      sMsg = sMsg & "^A0N,34,34^FO173,361^FD:^FS"
+41      sMsg = sMsg & "^A0N,34,34^FO173,327^FD:^FS"
+42      sMsg = sMsg & "^A0N,34,34^FO173,156^FD:^FS"
+43      sMsg = sMsg & "^A0N,34,34^FO173,123^FD:^FS"
+44      sMsg = sMsg & "^A0N,34,34^FO173,86^FD:^FS"
+45      sMsg = sMsg & "^A0N,34,34^FO173,52^FD:^FS"
+46      sMsg = sMsg & "^A0N,34,34^FO173,17^FD:^FS"
+47      sMsg = sMsg & "^A0N,34,34^FO480,189^FD:^FS"
+48      sMsg = sMsg & "^A0N,34,34^FO480,224^FD:^FS"
+49      sMsg = sMsg & "^A0N,34,34^FO480,258^FD:^FS"
+50      sMsg = sMsg & "^A0N,34,34^FO480,291^FD:^FS"
+        
+        'Modified by Jack on 2016/07/04 for eRunCard Paperless Project :
+        '<1> CQty 增加 " EA".
+        '<2> LotNo BarCode code-93 改 Code-128(字型).
+'51      sMsg = sMsg & "^BY2^FO416,47^BAN,49,N,N,Y^FD" & sLotNo & "^FS"
+'                       ^BY2^FO416,47^BCN,49,N,N,N^FD>:LOTID12345^FS
+51      sMsg = sMsg & "^BY2^FO416,47^BCN,49,N,N,N^FD" & sLotNo & "^FS"
+52      sMsg = sMsg & "^A0N,28,28^FO193,17^FD" & sIPN & "^FS"
+53      sMsg = sMsg & "^A0N,28,28^FO193,52^FD" & sLotNo & "^FS"
+54      sMsg = sMsg & "^A0N,28,28^FO193,86^FD" & sCQty & " EA^FS"
+55      sMsg = sMsg & "^A0N,28,28^FO193,123^FD" & Mid(sRouteId, 1, 35) & "^FS"
+56      sMsg = sMsg & "^A0N,28,28^FO193,156^FD" & sLotOwner & "^FS"
+57      sMsg = sMsg & "^A0N,28,28^FO193,190^FD" & sCsum & "^FS"
+58      sMsg = sMsg & "^A0N,28,28^FO193,224^FD" & sGreen & "^FS"
+59      sMsg = sMsg & "^A0N,28,28^FO193,258^FD" & sBrand & "^FS"
+60      sMsg = sMsg & "^A0N,28,28^FO193,291^FD" & sVendorCode & "^FS"
+61      sMsg = sMsg & "^A0N,28,28^FO193,327^FD" & sDateCode & "^FS"
+62      sMsg = sMsg & "^A0N,28,28^FO193,361^FD" & sMarkingSpecNo & "^FS"
+63      sMsg = sMsg & "^A0N,28,28^FO193,395^FD" & sIcDrawing & "^FS"
+64      sMsg = sMsg & "^A0N,28,28^FO193,430^FD" & sCarrierType & "^FS"
+65      sMsg = sMsg & "^A0N,28,28^FO496,189^FD" & sProdLine & "^FS"
+66      sMsg = sMsg & "^A0N,28,28^FO496,224^FD" & sExtraRomFlag & "^FS"
+67      sMsg = sMsg & "^A0N,28,28^FO496,258^FD" & sNFflag & "^FS"
+68      sMsg = sMsg & "^A0N,28,28^FO496,291^FD" & sCargradeFlag & "^FS"
+69      sMsg = sMsg & "^PQ1,0,1,Y"
+70      sMsg = sMsg & "^XZ"
+71      sMsg = sMsg & "^XA"
+72      sMsg = sMsg & "^IDR:TEMP_FMT.ZPL"
+73      sMsg = sMsg & "^XZ"
+    
+        '******
+        ' End of Label Info
+        '******
+
+        '******
+        'Send message to MES Server MailBox.
+        '******
+74      If InStr(1, sPrinterServer, "@") <> 0 Then
+75          sPrinterServer = VBA.Left(sPrinterServer, (InStr(1, sPrinterServer, "@")) - 1)
         End If
-    Next iIdx
-
-
-    '******
     
-    '******
-    ' End of Label Info
-    '******
-
-
-'----
-' Done
-'----
+76      If Not moCwMbx.Send("MBX_" & sPrinterServer, sMsg) Then
+77          Call moCwMbx.GetError(lErrCode, sErrMsg)
+78          Call RaiseError(lErrCode, sErrMsg)
+        End If
+        '******
+        '----
+        ' Done
+        '----
 ExitHandler:
-    ' NOTE 1:
-    ' MUST CALL GetErrInfo() here first before another action
-    Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
-    Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, oLogCtrl)
-    On Error Resume Next
+        ' NOTE 1:
+        ' MUST CALL GetErrInfo() here first before another action
+79      Call GetErrInfo(msMODULE_ID, sProcID, typErrInfo, Erl)
+80      Call LogProcOut(msMODULE_ID, sProcID, typErrInfo, oLogCtrl)
+        On Error Resume Next
 
 ErrorHandler:
-    If typErrInfo.lErrNumber Then
-        ' NOTE 2:
-        ' If you have custom handling of some Errors, please
-        ' UN-REMARED the following Select Case block!
-        ' Also, modify if neccessarily!!!
-        '---- Start of Select Case Block ----
-        Select Case typErrInfo.lErrNumber
-           Case glERR_INVALIDOBJECT
-               ' Retry code goes here...
-           Case Else
-                typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
-                                        "程式執行失敗, 請洽IT人員處理"
-        End Select
-        '---- Start of Select Case Block ----
-        On Error GoTo ExitHandler:
-        Call HandleError(False, typErrInfo, , oLogCtrl, True)
-    End If
-End Sub
-
-C# ZplTemplates
-public static readonly string FT_ETEST_MERGE_Base = @"
-            ^XA^PRC^LH0,0^FS^LL280^MD0^LH0,0^FS
-            {DynamicMergeBlock}
-            ^PQ1,1,1,Y^XZ";
-
-C# Generate_FT_ETEST_MERGE_ZplAsync function
-        private async Task<string> Generate_FT_ETEST_MERGE_ZplAsync(PrintLabelRequest req, string timeStampYMD)
-        {
-            // 列印時重新獲取子批號清單，以確保資料準確
-            var mergeData = await _printLabelRepo.GetEtestMergeDataAsync(req.LotId);
-
-            // 基礎 ZPL (根據您之前轉換的 ZplTemplates 調整)
-            string zpl = ZplTemplates.FT_ETEST_MERGE_Base
-                .Replace("{LotNo}", req.LotId)
-                .Replace("{TotalQty}", mergeData?.TotalQty ?? "");
-
-            // 依序替換 5 個子批號的位置 (假設 ZPL 模板裡寫了 {ChildLot1}, {ChildQty1}...)
-            for (int i = 0; i < 5; i++)
-            {
-                string cLot = "";
-                string cQty = "";
-
-                if (mergeData != null && i < mergeData.ChildLots.Count)
-                {
-                    cLot = mergeData.ChildLots[i].ChildLotId;
-                    cQty = mergeData.ChildLots[i].Qty;
-                }
-
-                zpl = zpl.Replace($"{{ChildLot{i + 1}}}", cLot)
-                         .Replace($"{{ChildQty{i + 1}}}", cQty);
-            }
-
-            return zpl;
-        }
+81      If typErrInfo.lErrNumber Then
+            ' NOTE 2:
+            ' If you have custom handling of some Errors, please
+            ' UN-REMARED the following Select Case block!
+            ' Also, modify if neccessarily!!!
+            '---- Start of Select Case Block ----
+            Select Case typErrInfo.lErrNumber
+            Case glERR_INVALIDOBJECT
+                ' Retry code goes here...
+            Case Else
+82              typErrInfo.sUserText = "Fail to execute application, please call IT support!!" & vbCrLf & _
+                    "程式執行失敗, 請洽IT人員處理"
+            End Select
+            '---- Start of Select Case Block ----
+            On Error GoTo ExitHandler:
+83          Call HandleError(False, typErrInfo, , oLogCtrl, True)
+        End If
+    End Sub
