@@ -3228,6 +3228,23 @@ namespace MES.Net.Application.Services.Print
             string printMode = isAutoPrint ? "Auto" : "Manual";
             string packageCodePinCount = pinCount + packageCode;
 
+            // 判斷是否為自動模式 (對應 VB6 的 bIsAutoPrint)
+            bool isAutoPrint = req.PrintMode == "Auto";
+            
+            // 💡 新增：如果 Auto 模式且前端沒傳 IPN，我們主動去查
+            if (isAutoPrint && string.IsNullOrWhiteSpace(req.IPN))
+            {
+                var lotData = await _printLabelRepo.GetLotDetailAsync(req.LotId, req.LabelFormat);
+                if (lotData != null && !string.IsNullOrWhiteSpace(lotData.ProductNo))
+                {
+                    req.IPN = lotData.ProductNo;
+                }
+                else
+                {
+                    throw new Exception("無法從系統中取得此 Lot 的 IPN 資訊，列印中斷。");
+                }
+            }
+
             // -------------------------------------------------------------
             // [Check-Item-1] : 查詢 Label Spec Info
             // -------------------------------------------------------------
