@@ -1853,6 +1853,27 @@ namespace MES.Net.Infrastructure.Repository.Print
     
             return await _dbConnection.QueryFirstOrDefaultAsync<LotExtendedData>(sql, new { p_LotId = lotId });
         }
+        public async Task<LpiAutoParamsData> GetLpiAutoParamsByLotIdAsync(string lotId)
+        {
+            // 💡 完美還原 VB6 txtLotId_KeyPress (Case 8) 的 LPI 初始查詢
+            string sql = @"
+                SELECT 
+                    A.CARRIER_TYPE AS CarrierType, 
+                    A.BOXING_SPEC_NO AS BoxingSpecNo, 
+                    A.BRAND AS Brand, 
+                    A.PIN_COUNT AS PinCount, 
+                    A.PACKAGE_CODE AS PackageCode, 
+                    C.LABELSPECNO AS LabelSpecNo, 
+                    A.IPN AS Ipn
+                FROM TBL_IPN_MASTER A
+                INNER JOIN TBL_LOT_ATTRIBUTE D ON D.IPN = A.IPN
+                LEFT JOIN TBL_PRM_BE_SPEC B ON A.IPN = B.IPN AND B.DEFAULTS = 'Y'
+                LEFT JOIN TBL_CUSTOMER_MASTER C ON B.CUSTOMER_NO = C.CUSTOMERNO
+                WHERE D.LOTID = :p_LotId
+                AND ROWNUM = 1";
+
+            return await _dbConnection.QueryFirstOrDefaultAsync<LpiAutoParamsData>(sql, new { p_LotId = lotId });
+        }
     }
 }
 
@@ -4404,23 +4425,33 @@ namespace MES.Net.Application.Services.Print
         // =========================================================================
         private async Task<string> Generate_FT_Label_PACK_INFO_ZplAsync(PrintLabelRequest req)
         {
-            // 判斷是否為自動模式 (對應 VB6 的 bIsAutoPrint)
+// 判斷是否為自動模式 (對應 VB6 的 bIsAutoPrint)
             bool isAutoPrint = req.PrintMode == "Auto";
-            
-            // 💡 新增：如果 Auto 模式且前端沒傳 IPN，我們主動去查
-            if (isAutoPrint && string.IsNullOrWhiteSpace(req.IPN))
+
+            // =============================================================
+            // 💡 關鍵修正：如果走的是 Auto 模式，前端不會傳送 6 大參數。
+            // 必須先去資料庫撈出對應的設定，否則 CarrierType 會是空的！
+            // =============================================================
+            if (isAutoPrint)
             {
-                var lotData = await _printLabelRepo.GetLotDetailAsync(req.LotId, req.LabelFormat);
-                if (lotData != null && !string.IsNullOrWhiteSpace(lotData.ProductNo))
+                var autoParams = await _printLabelRepo.GetLpiAutoParamsByLotIdAsync(req.LotId);
+                
+                if (autoParams == null)
                 {
-                    req.IPN = lotData.ProductNo;
+                    // 完全對應 VB6 的錯誤訊息與防呆邏輯
+                    throw new Exception("IPN 不存在 或 Tbl_prm_backend_spec.defaults <> 'Y',\n請以 Manual mode 列印。");
                 }
-                else
-                {
-                    throw new Exception("無法從系統中取得此 Lot 的 IPN 資訊，列印中斷。");
-                }
+
+                // 將查到的參數塞回 req 中，讓後續的 Check-Item-1 與 Check-Item-2 無縫接軌
+                req.LabelSpecNo = autoParams.LabelSpecNo;
+                req.CarrierType = autoParams.CarrierType;
+                req.BoxingSpecNo = autoParams.BoxingSpecNo;
+                req.Brand = autoParams.Brand;
+                req.PinCount = autoParams.PinCount;
+                req.PackageCode = autoParams.PackageCode;
+                req.IPN = autoParams.Ipn;
             }
-            
+
             // 1. 初始化列印變數
             string printLotNo = isAutoPrint ? req.LotId : "NA";
             string printMode = isAutoPrint ? "Auto" : "Manual";
