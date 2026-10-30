@@ -1812,23 +1812,44 @@ namespace MES.Net.Infrastructure.Repository.Print
         }
         public async Task<LotExtendedData> GetLotExtendedAttributesAsync(string lotId)
         {
+            // 💡 完全移植自 VB6 FT_LOT_INFO 的原始 SQL 邏輯
             string sql = @"
                 SELECT 
-                    A.DATECODE AS DateCode, 
-                    A.CARGRADEFLAG AS CargradeFlag, 
-                    A.PRODLINE AS ProdLine, 
-                    A.EXTRAROMFLAG AS ExtraRomFlag, 
-                    A.NFFLAG AS NFflag, 
-                    A.VENDORCODE AS VendorCode, 
-                    A.CSUM AS Csum, 
-                    A.GREEN AS Green,
-                    M.BRAND AS Brand, 
-                    M.IC_DRAWING AS IcDrawing, 
-                    M.MARKINGSPECNO AS MarkingSpecNo, 
-                    M.CARRIER_TYPE AS CarrierType
-                FROM TBL_LOT_ATTRIBUTE A
-                LEFT JOIN TBL_IPN_MASTER M ON A.IPN = M.IPN
-                WHERE A.LOTID = :p_LotId";
+                    A.VENDORCODE AS VendorCode,
+                    B.IPN AS Ipn,
+                    B.CHIPQTY AS ChipQty,
+                    B.ROUTE AS Route,
+                    B.LOTOWNER AS LotOwner,
+                    B.DATECODE AS DateCode,
+                    C.CARGRADEFLAG AS CargradeFlag,
+                    E.PROD_LINE AS ProdLine,
+                    C.CARRIER_TYPE AS CarrierType,
+                    C.EXTRAROMFLAG AS ExtraRomFlag,
+                    C.BRAND AS Brand,
+                    C.IC_DRAWING AS IcDrawing,
+                    C.MARKING_SPEC_NO AS MarkingSpecNo,
+                    -- 💡 對應 VB6 的 decode: 若為 null 則 null, 若為 'XX' 則 'N', 其他則 'Y' 
+                    -- (依據 Oracle decode 特性，此處以 CASE 轉換)
+                    CASE C.GPTYPE 
+                        WHEN 'XX' THEN 'N' 
+                        WHEN NULL THEN NULL 
+                        ELSE 'Y' 
+                    END AS Green,
+                    C.CHECKSUM AS Csum,
+                    -- 💡 對應 VB6 判斷客戶編號是否為 0000010750
+                    CASE D.CUSTOMER_NO 
+                        WHEN '0000010750' THEN 'Y' 
+                        ELSE 'N' 
+                    END AS NFflag
+                FROM TBL_LOT_INFO A
+                INNER JOIN TBL_LOT_ATTRIBUTE B ON A.LOT_ID = B.LOTID
+                LEFT JOIN TBL_IPN_MASTER C ON B.IPN = C.IPN
+                LEFT JOIN TBL_PRM_BE_SPEC D ON C.IPN = D.IPN AND D.DEFAULTS = 'Y'
+                -- 💡 對應 VB6 中 substr(IPN, 1, 4) 的關聯
+                LEFT JOIN TBL_PROD_BODY E ON SUBSTR(B.IPN, 1, 4) = E.PROD_BODY
+                WHERE A.LOT_ID = :p_LotId
+                -- 💡 確保只取一筆 (對應 VB6 的 ROWNUM = 1)
+                AND ROWNUM = 1";
     
             return await _dbConnection.QueryFirstOrDefaultAsync<LotExtendedData>(sql, new { p_LotId = lotId });
         }
