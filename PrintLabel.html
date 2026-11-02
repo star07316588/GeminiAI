@@ -779,13 +779,15 @@ computed: {
                                 SearchData: this.form.searchData,
                                 
                                 WaferId: item.waferId || '',
-                                IPN: item.ipn || '',
-                                CQty: item.cQty || '',
-                                WQty: item.wQty || '',
                                 
-                                // 💡 若後端 C# 接收的 PrintLabelRequest 有定義這兩個欄位，就可以接住資料了
-                                LotOwner: item.lotOwner || '',
-                                Route: item.route || '',
+                                // 💡 修正 1：針對 FT_TR_LABEL 傳送對應的 IPN
+                                IPN: this.isTrLabelMode ? this.form.trIpn : (item.ipn || ''),
+                                
+                                // 💡 修正 2：如果走 FT_TR_LABEL 模式，將畫面上輸入的 trQtyReel 放進 CQty 中傳送
+                                // 這樣後端就能從 req.CQty 中拿到真正的 2000
+                                CQty: this.isTrLabelMode ? this.form.trQtyReel.toString() : (item.cQty || ''),
+                                
+                                WQty: item.wQty || '',
                                 
                                 UserId: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subPacker : (window.checkAuth ? window.checkAuth().userName : 'System')
                             };
