@@ -3974,12 +3974,15 @@ namespace MES.Net.Application.Services.Print
                         .Replace("{PartNo}", partNo);
 
                 case "FT_TR_LABEL":
+                    // 💡 修正 3：使用 req.CQty 來接收前端傳來的 QtyReel 數量 (2000)
+                    string qtyReelValue = !string.IsNullOrWhiteSpace(req.CQty) ? req.CQty : "0";
+
                     return ZplTemplates.FT_TR_LABEL
                         .Replace("{LotId}", req.LotId)
                         .Replace("{IPN}", req.IPN)
-                        .Replace("{QtyReel}", printQtyForLabel)
-                        .Replace("{EqID}", req.SearchData) // 對應原 VB6 的 EqID
-                        .Replace("{ReelId}", req.WaferId); // 對應原 VB6 的 ReelID
+                        .Replace("{QtyReel}", qtyReelValue) // <== 換成這裡
+                        .Replace("{EqID}", req.SearchData)
+                        .Replace("{ReelId}", req.WaferId);
 
                 case "FT_BOX_COUNTING":
                     return ZplTemplates.FT_BOX_COUNTING_LABEL
