@@ -1,1 +1,1 @@
-update tbl_mbx_info set MBX_NAME = 'fw_mbx_mesdr',SERVER_NAME = 'fa5fw11s' where MBX_NO = 'MBX008'
+update tbl_mbx_info set MBX_NAME = 'fw_mbx_fwadmin',SERVER_NAME = 'fabfwp1' where MBX_NO = 'MBX008'
