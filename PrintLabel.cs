@@ -4947,19 +4947,14 @@ namespace MES.Net.Application.Services.Print
         // =========================================================================
         private async Task<string> Generate_RENESAS_SHIPPING_ZplAsync(PrintLabelRequest req, string timeStampYMD)
         {
-            // 1. 取得基本的批號資訊 (若前端有傳則以前端為主，否則查 DB)
+            // 1. 取得基本的批號資訊
             var lotData = await _printLabelRepo.GetLotDetailAsync(req.LotId, req.LabelFormat);
             string prodNo = !string.IsNullOrEmpty(lotData?.ProductNo) ? lotData.ProductNo : (req.IPN ?? "");
             string totalWaferQty = req.WQty ?? "";
             string totalChipQty = req.CQty ?? "";
 
-            // 💡 取得 EPN (Part No)
-            string partNo = "";
-            if (!string.IsNullOrEmpty(prodNo))
-            {
-                string sqlEpn = $@"SELECT {gsCAT_TIM_EPN} FROM {gsCAT_TBL_IPN_MASTER} WHERE {gsCAT_TIM_IPN} = :p_Ipn AND {gsCAT_TIM_DELETE_FLAG} = 'N'";
-                partNo = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlEpn, new { p_Ipn = prodNo }) ?? "";
-            }
+            // 💡 直接採用前端在 KeyPress 時就查好並傳過來的 PartNo，免去重複查詢 DB
+            string partNo = req.PartNo ?? "";
 
             // 2. 取得 25 片 Wafer 的詳細清單
             var waferList = await _printLabelRepo.GetRenesasWaferListAsync(req.LotId);
@@ -4974,7 +4969,7 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{PrintDate}", timeStampYMD)
                 .Replace("{UserId}", req.UserId);
 
-            // 💡 迴圈替換 25 組 Wafer 變數
+            // 迴圈替換 25 組 Wafer 變數
             for (int i = 1; i <= 25; i++)
             {
                 var wafer = waferList.FirstOrDefault(w => w.WaferIndex == i);
