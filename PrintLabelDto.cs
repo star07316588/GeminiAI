@@ -320,4 +320,11 @@ public class LotDetailData
         public string LabelSpecNo { get; set; }
         public string Ipn { get; set; }
     }
+
+    public class RenesasWaferData
+    {
+        public int WaferIndex { get; set; }
+        public string WaferId { get; set; }
+        public string ChipQty { get; set; }
+    }
 }
