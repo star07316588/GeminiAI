@@ -132,6 +132,7 @@ public class LotDetailData
         public string FabLotId { get; set; }        // 外部指定 FabLotId
         public string OriLotID { get; set; }        // 原始母批批號 (用於併批/降級標籤)
         public List<string> WSMCDInfoList { get; set; } // WSMCD 併批清單 (格式: "ChildLot;IPN;Code;Qty")
+        public string PartNo { get; set; }         // 💡 新增用來接收前端已查好的 Part No
 
         // ==========================================
         // 7. 系統/使用者資訊
