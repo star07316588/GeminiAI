@@ -1874,6 +1874,41 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return await _dbConnection.QueryFirstOrDefaultAsync<LpiAutoParamsData>(sql, new { p_LotId = lotId });
         }
+        public async Task<List<RenesasWaferData>> GetRenesasWaferListAsync(string lotId)
+        {
+            // 💡 完全對應 VB6 中針對 fwlot_n2m 等表格的四層查詢
+            string sql = @"
+                SELECT 
+                    B.KEYDATA AS WaferIndex,
+                    D.VALDATA AS ChipQty
+                FROM fwlot A
+                INNER JOIN fwlot_n2m B ON A.SYSID = B.FROMID
+                INNER JOIN fwcomponent C ON B.TOID = C.SYSID
+                INNER JOIN fwcomponent_pn2m D ON C.SYSID = D.FROMID
+                WHERE A.APPID = :p_LotId
+                ORDER BY TO_NUMBER(B.KEYDATA)"; // 確保依照 Wafer 順序排列
+
+            var result = await _dbConnection.QueryAsync(sql, new { p_LotId = lotId });
+
+            var waferList = new List<RenesasWaferData>();
+            string lotPrefix = lotId.Length >= 6 ? lotId.Substring(0, 6) : lotId; // 對應 Left(Me.txtLotId, 6)
+
+            foreach (dynamic row in result)
+            {
+                if (int.TryParse(row.WaferIndex?.ToString(), out int wIndex))
+                {
+                    waferList.Add(new RenesasWaferData
+                    {
+                        WaferIndex = wIndex,
+                        // 💡 組合格式：Lot 前六碼 + "-" + Index (例如：8N2972-1)
+                        WaferId = $"{lotPrefix}-{wIndex}",
+                        ChipQty = row.ChipQty?.ToString() ?? ""
+                    });
+                }
+            }
+
+            return waferList;
+        }
     }
 }
 
@@ -3795,6 +3830,8 @@ namespace MES.Net.Application.Services.Print
                             smallDb.CarGradeFlag, smallDb.ProdLine, req.OriLotID, smallDb.FuSa, smallDb.Location);
                         break;
 
+                    case "RENESAS_SHIPPING":
+                        return await Generate_RENESAS_SHIPPING_ZplAsync(req, timeStampYMD);
                     case "WS_DGRADE_SUMMARY":
                         await Prt_WS_WS_DGRADE_SUMMARY_Async(req.LotId, req.IPN, req.WQty, req.CQty, req.UserId, timeStampYMD, req.PrinterServer);
                         break;
@@ -4075,7 +4112,8 @@ namespace MES.Net.Application.Services.Print
 
                 case "FT_Label_PACK_INFO":
                     return await Generate_FT_Label_PACK_INFO_ZplAsync(req);
-
+                case "RENESAS_SHIPPING":
+                    return await Generate_RENESAS_SHIPPING_ZplAsync(req, timeStampYMD);
                 case "WS_SUMMARY":
                     return await Generate_WS_SUMMARY_ZplAsync(req, timeStampYMD);
 
@@ -4903,6 +4941,52 @@ namespace MES.Net.Application.Services.Print
                 .Replace("{TestMode}", req.SearchData ?? "") // 💡 修正 3：清除或帶入 {TestMode} 避免印出原字串
                 .Replace("{UserId}", req.UserId)      
                 .Replace("{TimeStamp}", timeStampYMD); 
+        }
+        // =========================================================================
+        // 🔹 加工廠：產生 RENESAS_SHIPPING (支援最多 25 片 Wafer 展開)
+        // =========================================================================
+        private async Task<string> Generate_RENESAS_SHIPPING_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            // 1. 取得基本的批號資訊 (若前端有傳則以前端為主，否則查 DB)
+            var lotData = await _printLabelRepo.GetLotDetailAsync(req.LotId, req.LabelFormat);
+            string prodNo = !string.IsNullOrEmpty(lotData?.ProductNo) ? lotData.ProductNo : (req.IPN ?? "");
+            string totalWaferQty = req.WQty ?? "";
+            string totalChipQty = req.CQty ?? "";
+
+            // 💡 取得 EPN (Part No)
+            string partNo = "";
+            if (!string.IsNullOrEmpty(prodNo))
+            {
+                string sqlEpn = $@"SELECT {gsCAT_TIM_EPN} FROM {gsCAT_TBL_IPN_MASTER} WHERE {gsCAT_TIM_IPN} = :p_Ipn AND {gsCAT_TIM_DELETE_FLAG} = 'N'";
+                partNo = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlEpn, new { p_Ipn = prodNo }) ?? "";
+            }
+
+            // 2. 取得 25 片 Wafer 的詳細清單
+            var waferList = await _printLabelRepo.GetRenesasWaferListAsync(req.LotId);
+
+            // 3. 開始置換 ZPL
+            string zpl = ZplTemplates.RENESAS_SHIPPING_LABEL
+                .Replace("{LotNo}", req.LotId)
+                .Replace("{PartNo}", partNo)
+                .Replace("{ProdNo}", prodNo)
+                .Replace("{TotalWaferQty}", totalWaferQty)
+                .Replace("{TotalChipQty}", totalChipQty)
+                .Replace("{PrintDate}", timeStampYMD)
+                .Replace("{UserId}", req.UserId);
+
+            // 💡 迴圈替換 25 組 Wafer 變數
+            for (int i = 1; i <= 25; i++)
+            {
+                var wafer = waferList.FirstOrDefault(w => w.WaferIndex == i);
+                
+                string wId = wafer != null ? wafer.WaferId : "";
+                string wQty = wafer != null ? wafer.ChipQty : "";
+
+                zpl = zpl.Replace($"{{WId{i}}}", wId)
+                         .Replace($"{{WQty{i}}}", wQty);
+            }
+
+            return zpl;
         }
     }
 }
