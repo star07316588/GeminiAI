@@ -328,4 +328,14 @@ public class LotDetailData
         public string WaferId { get; set; }
         public string ChipQty { get; set; }
     }
+
+    // 請放在 Shared DTO 中
+    public class MultiLotToSfgData
+    {
+        public string ChildLotId { get; set; }
+        public string Ipn { get; set; }
+        public string BinCode { get; set; }
+        public int ChipQty { get; set; }
+        public int WaferQty { get; set; }
+    }
 }
