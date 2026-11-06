@@ -1,51 +1,196 @@
-            ElseIf Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_RENESAS_SHIPPING Then 'add by Nelson on 2008/06/03 for ReqNo:M200806003
-                Dim arrWaferId(25) As String
-                Dim arrWaferIdChipQty(25) As String
-                Dim iWIdIndex As Integer
-                
-                Set colRS = moProRawSql.QueryDatabase("select b.keydata waferid,d.valdata chipqty " & _
-                                                      " from fwlot a," & _
-                                                            "fwlot_n2m b," & _
-                                                            "fwcomponent c," & _
-                                                            "fwcomponent_pn2m d " & _
-                                                      "where a.sysid=b.fromid and " & _
-                                                            "b.toid=c.sysid and " & _
-                                                            "c.sysid=d.fromid and " & _
-                                                            "a.appid='" & Me.txtLotId.Item(miIndex).Text & "' order by b.keydata")
+            ElseIf Me.cboStage.Text = gsSTAGE_WS And Me.cboLabelSpec.Text = modPrint.gsLABEL_WS_MULTILOT_TO_SFG Then
+                'Modifid by Jack on 2014/03/24 for JC201400088. <Start>
+                'Set colRS = moProRawSql.QueryDatabase( _
+                '    "select A." & gsCAT_TLI_MCDPARENT & "," & _
+                '          " A." & gsCAT_TLI_MCP_FLAG & "," & _
+                '          " C.VALDATA as IPN" & _
+                '        " from " & gsCAT_TBL_LOT_INFO & " A, FWLOT B, FWLOT_PN2M C " & _
+                '        " where " & gsCAT_TLI_LOT_ID & " = '" & Trim(Me.txtLotID(miIndex).Text) & "'" & _
+                '        " and A." & gsCAT_TLI_MCDPARENT & " = B.APPID" & _
+                '        " and C.KEYDATA = '" & gsLOT_CUSTOMATTR_IPN & "'" & _
+                '        " and B.SYSID = C.FROMID")
+                Set colRS = moProRawSql.QueryDatabase( _
+                    "select A." & gsCAT_TLI_MCDPARENT & "," & _
+                          " A." & gsCAT_TLI_MCP_FLAG & " " & _
+                        " from " & gsCAT_TBL_LOT_INFO & " A " & _
+                        " where " & gsCAT_TLI_LOT_ID & " = '" & Trim(Me.txtLotId(miIndex).Text) & "'")
+                'Modifid by Jack on 2014/03/24 for JC201400088. <End>
                 
                 If colRS.Count > 0 Then
-                    For Each oItem In colRS
-                        iWIdIndex = oItem.Item(1)
-                        arrWaferId(iWIdIndex) = Left(Me.txtLotId(miIndex).Text, 6) & "-" & oItem.Item(1)
-                        arrWaferIdChipQty(iWIdIndex) = oItem.Item(2)
-                    Next oItem
+                    sParentLotID = colRS.Item(1).Item(gsCAT_TLI_MCDPARENT)
+                    sMcpFlag = colRS.Item(1).Item(gsCAT_TLI_MCP_FLAG)
+                    'sParentIPN = colRS.Item(1).Item("IPN")'Marked by Jack on 2014/03/24 for JC201400088.
                 End If
                 
-                Call modPrint.Prt_WS_RENESAS_SHIPPING(Me.txtLotId(miIndex).Text, _
-                                                      Me.txtProdNo(miIndex).Text, _
-                                                      Me.txtWQty(miIndex).Text, _
-                                                      Me.txtCqty(miIndex).Text, _
-                                                      Me.txtPartNo(miIndex).Text, _
-                                                      arrWaferId, _
-                                                      arrWaferIdChipQty, _
-                                                      Format(Now, "yyyy/mm/dd"), _
-                                                      Me.txtUserId(miIndex).Text, _
-                                                      Me.cboPrintServer.Text, _
-                                                      moCwMbx, moAppLog)
+                'Added by Jack on 2014/03/24 for JC201400088. <Start>
+                If sMcpFlag = "F" Or sMcpFlag = "D" Then
+                    Set colRS = moProRawSql.QueryDatabase( _
+                    "select A." & gsCAT_TLI_MCDPARENT & "," & _
+                          " A." & gsCAT_TLI_MCP_FLAG & "," & _
+                          " C.VALDATA as IPN" & _
+                        " from " & gsCAT_TBL_LOT_INFO & " A, FWLOT B, FWLOT_PN2M C " & _
+                        " where " & gsCAT_TLI_LOT_ID & " = '" & Trim(Me.txtLotId(miIndex).Text) & "'" & _
+                        " and A." & gsCAT_TLI_MCDPARENT & " = B.APPID" & _
+                        " and C.KEYDATA = '" & gsLOT_CUSTOMATTR_IPN & "'" & _
+                        " and B.SYSID = C.FROMID")
+                    If colRS.Count > 0 Then
+                       sParentIPN = colRS.Item(1).Item("IPN")
+                    End If
+                End If
+                'Added by Jack on 2014/03/24 for JC201400088. <End>
                 
+                'Marked by Jack on 2014/03/24 for JC201400088. <Start>
+                '修改Label列印卡關
+                '目前：不論McpFlag內容為何，當MCDParent為空值，則出現錯誤訊息，不允許列印。
+                '變更：判斷McpFlag，決定列印Label內容。
+                '      McpFlag='F'  依McdParent 串F13S 相關資料。
+                '      McpFlag='D'  依McdParent 串MultiCode IPN 相關資料。
+                '      McpFlag not ('F','D')  不需判斷McdParent，直接列印。
+'                If sParentLotID = "" Then
+'                    'Modify by Sam start on 2008/06/12 for ReqNO:M200806023
+'                    'sMsg = "TBL_LOT_INFO.MCDPARENT Is Null" & vbCrLf & vbCrLf & _
+'                    '       "此Label無法列印, 請用WS_SMALL_LABEL取代" & vbCrLf & vbCrLf & _
+'                    '       "This label can not print, please replaced it with WS_SMALL_LABEL."
+'                    'Modified by Jack 2009/09/08 [JC900117]
+'                    sMsg = "TBL_LOT_INFO.MCDPARENT Is Null" & vbCrLf & vbCrLf & _
+'                           "此Label無法列印, 請通知SFG重設MCDPARENT值." & vbCrLf & vbCrLf & _
+'                           "This label can not print, please notice SFG to reset MCDPARENT."
+'
+'                    UtShowMsgBox sMsg
+''                    UtShowMsgBox "TBL_LOT_INFO.MCDPARENT Is Null"
+'                    'Modify by Sam end on 2008/06/12 for ReqNO:M200806023
+'                    GoTo ExitHandler
+'
+'                End If
+                'Marked by Jack on 2014/03/24 for JC201400088. <End>
+                
+                Set colWSMCDInfo = New Collection
+                iCQty = 0
+                iWQty = 0
+                'Modify by Sam on 20140429 for ReqNo:JC201400140 ,增加C的判斷
+                'If sMcpFlag = "F" Then 'F13S prod
+                If sMcpFlag = "F" Or sMcpFlag = "C" Then 'F13S prod
+                    'ADD B.PROCESSINGSTATUS <> 'Terminated' CRITERIA by Tony on 20080117 Req.M200801028
+                    Set colRS = moProRawSql.QueryDatabase( _
+                        "select A." & gsCAT_TLI_LOT_ID & "," & _
+                               "C.VALDATA as IPN, B.COMPONENTQTY, " & _
+                               "C2.VALDATA as WQTY" & _
+                        " from " & gsCAT_TBL_LOT_INFO & " A, fwlot B, fwlot_pn2m C, fwlot_pn2m C2" & _
+                        " where A." & gsCAT_TLI_MCDPARENT & " = '" & sParentLotID & "'" & _
+                        " and A." & gsCAT_TLI_LOT_ID & " = B.APPID " & _
+                        " and C.KEYDATA = '" & gsLOT_CUSTOMATTR_IPN & "'" & _
+                        " and B.SYSID = C.FROMID " & _
+                        " and C2.KEYDATA = '" & gsLOT_CUSTOMATTR_WAFER_QTY & "'" & _
+                        " and B.SYSID = C2.FROMID " & _
+                        " and B.PROCESSINGSTATUS <> '" & gsLOT_STATUS_TERMINATED & "'")
+                    
+                    For Each oItem In colRS
+                        If oItem.Item(1) = sParentLotID Then
+                            colWSMCDInfo.Add oItem.Item(1) & ";" & _
+                                             oItem.Item(2) & ";" & _
+                                             "BIN1;" & _
+                                             oItem.Item(3)
+                        Else
+                            'Add by Sam Start on 20140429 for ReqNO:JC201400140
+                            If sMcpFlag = "C" Then
+                                colWSMCDInfo.Add oItem.Item(1) & ";" & _
+                                                 oItem.Item(2) & ";" & _
+                                                 "BIN7;" & _
+                                                 oItem.Item(3)
+                            Else
+                            'Add by Sam End on 20140429 for ReqNO:JC201400140
+                                colWSMCDInfo.Add oItem.Item(1) & ";" & _
+                                                 oItem.Item(2) & ";" & _
+                                                 "BIN3;" & _
+                                                 oItem.Item(3)
+                            End If
+                        End If
+                        iCQty = iCQty + Val(oItem.Item(3))
+                        iWQty = iWQty + Val(oItem.Item("WQTY"))
+                    Next oItem
+                'Modified by Jack on 2014/03/24 for JC201400088. <Start>
+                'Else '照原 mcd label
+                'a. 原本 : Else '照原 mcd label
+                '   修改 : ElseIf sMcpFlag = "D" Then
+                'b. 原本 : where A." & gsCAT_TLI_MCDPARENT & " = '" & sParentLotID & "'"
+                '   修改 : where A." & gsCAT_TLI_LOT_ID & " = '" & sParentLotID & "' "
+                ElseIf sMcpFlag = "D" Then
+                    'ADD B.PROCESSINGSTATUS <> 'Terminated' CRITERIA by Tony on 20080117 Req.M200801028
+                    'Modified by Jack on 2014/03/24 for JC201400088. <Start>
+                    Set colRS = moProRawSql.QueryDatabase( _
+                        "select A." & gsCAT_TLI_LOT_ID & "," & _
+                               "C.VALDATA as IPN, B.COMPONENTQTY, " & _
+                               "D." & gsCAT_TMI_RANK & "," & _
+                               "C2.VALDATA as WQTY" & _
+                        " from " & gsCAT_TBL_LOT_INFO & " A, " & _
+                                 " fwlot B, fwlot_pn2m C, fwlot_pn2m C2," & _
+                                   gsCAT_TBL_MULTICODE_IPN & " D " & _
+                        " where A." & gsCAT_TLI_LOT_ID & " = '" & sParentLotID & "'" & _
+                        " and A." & gsCAT_TLI_LOT_ID & " = B.APPID " & _
+                        " and C.KEYDATA = '" & gsLOT_CUSTOMATTR_IPN & "'" & _
+                        " and B.SYSID = C.FROMID " & _
+                        " and C2.KEYDATA = '" & gsLOT_CUSTOMATTR_WAFER_QTY & "'" & _
+                        " and B.SYSID = C2.FROMID " & _
+                        " and D." & gsCAT_TMI_IPN & " = '" & sParentIPN & "'" & _
+                        " and D." & gsCAT_TMI_SUBIPN & " = C.VALDATA " & _
+                        " and B.PROCESSINGSTATUS <> '" & gsLOT_STATUS_TERMINATED & "'")
+                'Modified by Jack on 2014/03/24 for JC201400088. <End>
+                        
+                    For Each oItem In colRS
+                        colWSMCDInfo.Add oItem.Item(1) & ";" & _
+                                         oItem.Item(2) & ";" & _
+                                         (Asc(oItem.Item(4)) - 64) & ";" & _
+                                         oItem.Item(3)
+                        iCQty = iCQty + Val(oItem.Item(3))
+                        iWQty = iWQty + Val(oItem.Item(5))
+                    Next oItem
+                'Added by Jack on 2014/03/24 for JC201400088. <Start>
+                'McpFlag not ('F','D')  不需判斷McdParent，直接列印。
+                Else
+                    Set colRS = moProRawSql.QueryDatabase( _
+                        "select A." & gsCAT_TLI_LOT_ID & "," & _
+                               "C.VALDATA as IPN, B.COMPONENTQTY, " & _
+                               "C2.VALDATA as WQTY" & _
+                        " from " & gsCAT_TBL_LOT_INFO & " A, fwlot B, fwlot_pn2m C, fwlot_pn2m C2" & _
+                        " where A." & gsCAT_TLI_LOT_ID & " = '" & Trim(Me.txtLotId(miIndex).Text) & "'" & _
+                        " and A." & gsCAT_TLI_LOT_ID & " = B.APPID " & _
+                        " and C.KEYDATA = '" & gsLOT_CUSTOMATTR_IPN & "'" & _
+                        " and B.SYSID = C.FROMID " & _
+                        " and C2.KEYDATA = '" & gsLOT_CUSTOMATTR_WAFER_QTY & "'" & _
+                        " and B.SYSID = C2.FROMID " & _
+                        " and B.PROCESSINGSTATUS <> '" & gsLOT_STATUS_TERMINATED & "'")
+                    
+                    For Each oItem In colRS
+                        colWSMCDInfo.Add oItem.Item(1) & ";" & _
+                                         oItem.Item(2) & ";" & _
+                                         "BIN1;" & _
+                                         oItem.Item(3)
+                        iCQty = iCQty + Val(oItem.Item(3))
+                        iWQty = iWQty + Val(oItem.Item("WQTY"))
+                    Next oItem
+                'Added by Jack on 2014/03/24 for JC201400088. <End>
+                End If
+                
+                If colRS.Count > 0 Then
+                    'Modified by Tony on 20120120 for Req.JC201200010
+                    'sSysTime to Format(dteNow, "yyyy/mm/dd")
+                    Call modPrint.Prt_WSMULTILOT_TO_SFG(Trim(Me.txtUserId(miIndex).Text), _
+                                                   Format(dteNow, "yyyy/mm/dd"), _
+                                                   CStr(iWQty), _
+                                                   CStr(iCQty), _
+                                                   Me.cboPrintServer.Text, moCwMbx, moAppLog, _
+                                                   colWSMCDInfo)
+                End If
 
-Public Sub Prt_WS_RENESAS_SHIPPING(ByVal sLotNo As String, _
-                                ByVal sProdNo As String, _
-                                ByVal sWQty As String, _
-                                ByVal sQty As String, _
-                                ByVal sPartNo As String, _
-                                ByRef arrWaferId() As String, _
-                                ByRef arrWaferIdChipQty() As String, _
-                                ByVal sPrintDate As String, _
-                                ByVal sUserID As String, _
+Public Sub Prt_WSMULTILOT_TO_SFG(ByVal sUserName As String, _
+                                ByVal sTimeStamp As String, _
+                                ByVal sParWqty As String, _
+                                ByVal sParCQTY As String, _
                                 ByVal sPrinterServer As String, _
                                 ByVal moCwMbx As Object, _
-                                ByVal oLogCtrl As Object)
+                                ByVal oLogCtrl As Object, _
+                                colLotInfo As Collection)
+
 
 On Error GoTo ExitHandler:
 
@@ -54,165 +199,106 @@ Dim sProcID         As String
 Dim typErrInfo      As tErrInfo
 Dim lErrCode        As Long
 Dim sErrMsg         As String
+
+Dim iIdx            As Integer
+Dim arrLotInfo      As Variant
+
 '----
 ' Init
 '----
-    sProcID = "Prt_WS_RENESAS_SHIPPING"
+    sProcID = "Prt_WSMULTILOT_TO_SFG"
     Call LogProcIn(msMODULE_ID, sProcID, oLogCtrl)
-
 '----
 ' Condition Checking
 '----
-
+    
 '----
 ' Action
 '----
+   
     '******
     'Print Label Info
     '******
-        sMsg = sMsg & "^XA"
-        sMsg = sMsg & "^PRC"
-        sMsg = sMsg & "^LH0,0^FS"
-        sMsg = sMsg & "^LL1441"
-        sMsg = sMsg & "^MD0"
-        sMsg = sMsg & "^MNY"
-        sMsg = sMsg & "^LH0,0^FS"
-        sMsg = sMsg & "^FO38,370^A0B,30,0^CI0^FR^FDLOT:^FS"
-        sMsg = sMsg & "^FO38,200^A0B,30,0^CI0^FR^FD" & sLotNo & "^FS"
-        sMsg = sMsg & "^BY2,2.0^FO70,38^BAB,40,N,,^FR^FD" & sLotNo & "^FS"
-        
-        sMsg = sMsg & "^FO119,350^A0B,30,0^CI0^FR^FDPART:^FS"
-        sMsg = sMsg & "^FO119,24^A0B,30,0^CI0^FR^FD" & sPartNo & "^FS"
-        sMsg = sMsg & "^BY2,2,40^FO154,18^BAB,,N,,^FR^FD" & sPartNo & "^FS"
-        sMsg = sMsg & "^FO202,350^A0B,30,0^CI0^FR^FDPROD:^FS"
-        sMsg = sMsg & "^FO202,80^A0B,30,0^CI0^FR^FD" & sProdNo & "^FS"
-        sMsg = sMsg & "^FO256,16^A0N,30,0^CI0^FR^FD1:^FS"
-        sMsg = sMsg & "^FO284,16^A0N,30,0^CI0^FR^FD" & arrWaferId(1) & "^FS"
-        sMsg = sMsg & "^FO465,16^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(1) & "^FS"
-        sMsg = sMsg & "^FO256,51^A0N,30,0^CI0^FR^FD2:^FS"
-        sMsg = sMsg & "^FO284,51^A0N,30,0^CI0^FR^FD" & arrWaferId(2) & "^FS"
-        sMsg = sMsg & "^FO465,51^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(2) & "^FS"
-        sMsg = sMsg & "^FO256,87^A0N,30,0^CI0^FR^FD3:^FS"
-        sMsg = sMsg & "^FO284,87^A0N,30,0^CI0^FR^FD" & arrWaferId(3) & "^FS"
-        sMsg = sMsg & "^FO465,87^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(3) & "^FS"
-        sMsg = sMsg & "^FO256,121^A0N,30,0^CI0^FR^FD4:^FS"
-        sMsg = sMsg & "^FO284,121^A0N,30,0^CI0^FR^FD" & arrWaferId(4) & "^FS"
-        sMsg = sMsg & "^FO465,121^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(4) & "^FS"
-        sMsg = sMsg & "^FO256,157^A0N,30,0^CI0^FR^FD5:^FS"
-        sMsg = sMsg & "^FO284,157^A0N,30,0^CI0^FR^FD" & arrWaferId(5) & "^FS"
-        sMsg = sMsg & "^FO465,157^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(5) & "^FS"
-        sMsg = sMsg & "^FO256,192^A0N,30,0^CI0^FR^FD6:^FS"
-        sMsg = sMsg & "^FO284,192^A0N,30,0^CI0^FR^FD" & arrWaferId(6) & "^FS"
-        sMsg = sMsg & "^FO466,192^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(6) & "^FS"
-        sMsg = sMsg & "^FO256,227^A0N,30,0^CI0^FR^FD7:^FS"
-        sMsg = sMsg & "^FO284,227^A0N,30,0^CI0^FR^FD" & arrWaferId(7) & "^FS"
-        sMsg = sMsg & "^FO466,227^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(7) & "^FS"
-        sMsg = sMsg & "^FO256,262^A0N,30,0^CI0^FR^FD8:^FS"
-        sMsg = sMsg & "^FO284,262^A0N,30,0^CI0^FR^FD" & arrWaferId(8) & "^FS"
-        sMsg = sMsg & "^FO466,262^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(8) & "^FS"
-        sMsg = sMsg & "^FO256,298^A0N,30,0^CI0^FR^FD9:^FS"
-        sMsg = sMsg & "^FO284,298^A0N,30,0^CI0^FR^FD" & arrWaferId(9) & "^FS"
-        sMsg = sMsg & "^FO466,298^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(9) & "^FS"
-        sMsg = sMsg & "^FO242,332^A0N,30,0^CI0^FR^FD10:^FS"
-        sMsg = sMsg & "^FO284,332^A0N,30,0^CI0^FR^FD" & arrWaferId(10) & "^FS"
-        sMsg = sMsg & "^FO466,332^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(10) & "^FS"
-        sMsg = sMsg & "^FO591,16^A0N,30,0^CI0^FR^FD11:^FS"
-        sMsg = sMsg & "^FO631,16^A0N,30,0^CI0^FR^FD" & arrWaferId(11) & "^FS"
-        sMsg = sMsg & "^FO813,16^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(11) & "^FS"
-        sMsg = sMsg & "^FO591,51^A0N,30,0^CI0^FR^FD12:^FS"
-        sMsg = sMsg & "^FO631,51^A0N,30,0^CI0^FR^FD" & arrWaferId(12) & "^FS"
-        sMsg = sMsg & "^FO813,51^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(12) & "^FS"
-        sMsg = sMsg & "^FO591,87^A0N,30,0^CI0^FR^FD13:^FS"
-        sMsg = sMsg & "^FO631,87^A0N,30,0^CI0^FR^FD" & arrWaferId(13) & "^FS"
-        sMsg = sMsg & "^FO813,87^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(13) & "^FS"
-        sMsg = sMsg & "^FO591,121^A0N,30,0^CI0^FR^FD14:^FS"
-        sMsg = sMsg & "^FO631,121^A0N,30,0^CI0^FR^FD" & arrWaferId(14) & "^FS"
-        sMsg = sMsg & "^FO813,121^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(14) & "^FS"
-        sMsg = sMsg & "^FO591,157^A0N,30,0^CI0^FR^FD15:^FS"
-        sMsg = sMsg & "^FO631,157^A0N,30,0^CI0^FR^FD" & arrWaferId(15) & "^FS"
-        sMsg = sMsg & "^FO813,157^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(15) & "^FS"
-        sMsg = sMsg & "^FO591,192^A0N,30,0^CI0^FR^FD16:^FS"
-        sMsg = sMsg & "^FO631,192^A0N,30,0^CI0^FR^FD" & arrWaferId(16) & "^FS"
-        sMsg = sMsg & "^FO813,192^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(16) & "^FS"
-        sMsg = sMsg & "^FO591,227^A0N,30,0^CI0^FR^FD17:^FS"
-        sMsg = sMsg & "^FO631,227^A0N,30,0^CI0^FR^FD" & arrWaferId(17) & "^FS"
-        sMsg = sMsg & "^FO813,227^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(17) & "^FS"
-        sMsg = sMsg & "^FO591,262^A0N,30,0^CI0^FR^FD18:^FS"
-        sMsg = sMsg & "^FO631,262^A0N,30,0^CI0^FR^FD" & arrWaferId(18) & "^FS"
-        sMsg = sMsg & "^FO813,262^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(18) & "^FS"
-        sMsg = sMsg & "^FO591,298^A0N,30,0^CI0^FR^FD19:^FS"
-        sMsg = sMsg & "^FO631,298^A0N,30,0^CI0^FR^FD" & arrWaferId(19) & "^FS"
-        sMsg = sMsg & "^FO813,298^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(19) & "^FS"
-        sMsg = sMsg & "^FO591,332^A0N,30,0^CI0^FR^FD20:^FS"
-        sMsg = sMsg & "^FO631,332^A0N,30,0^CI0^FR^FD" & arrWaferId(20) & "^FS"
-        sMsg = sMsg & "^FO813,332^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(20) & "^FS"
-        sMsg = sMsg & "^FO943,16^A0N,30,0^CI0^FR^FD21:^FS"
-        sMsg = sMsg & "^FO983,16^A0N,30,0^CI0^FR^FD" & arrWaferId(21) & "^FS"
-        sMsg = sMsg & "^FO1164,16^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(21) & "^FS"
-        sMsg = sMsg & "^FO943,51^A0N,30,0^CI0^FR^FD22:^FS"
-        sMsg = sMsg & "^FO983,51^A0N,30,0^CI0^FR^FD" & arrWaferId(22) & "^FS"
-        sMsg = sMsg & "^FO1164,51^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(22) & "^FS"
-        sMsg = sMsg & "^FO943,87^A0N,30,0^CI0^FR^FD23:^FS"
-        sMsg = sMsg & "^FO983,87^A0N,30,0^CI0^FR^FD" & arrWaferId(23) & "^FS"
-        sMsg = sMsg & "^FO1164,87^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(23) & "^FS"
-        sMsg = sMsg & "^FO943,121^A0N,30,0^CI0^FR^FD24:^FS"
-        sMsg = sMsg & "^FO983,121^A0N,30,0^CI0^FR^FD" & arrWaferId(24) & "^FS"
-        sMsg = sMsg & "^FO1164,121^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(24) & "^FS"
-        sMsg = sMsg & "^FO943,157^A0N,30,0^CI0^FR^FD25:^FS"
-        sMsg = sMsg & "^FO983,157^A0N,30,0^CI0^FR^FD" & arrWaferId(25) & "^FS"
-        sMsg = sMsg & "^FO1164,157^A0N,30,0^CI0^FR^FD" & arrWaferIdChipQty(25) & "^FS"
-        
-        'Added by Jack Hsieh 2008/07/11 [M200807015] <Start>
-        'Add a text line : "On line"
-        'Modify 220 to 200 by Tony on 20090612 for Req.JC900074
-        sMsg = sMsg & "^FO943,200^A0N,35,0^CI0^FR^FDOn line^FS" 'Added by Jack
-        'Added by Jack Hsieh 2008/07/11 [M200807015] <End>
-        
-        sMsg = sMsg & "^FO252,384^A0N,35,0^CI0^FR^FDTTL QTY:^FS"
-        sMsg = sMsg & "^FO390,384^A0N,35,0^CI0^FR^FD" & sWQty & "PCS,^FS"
-        sMsg = sMsg & "^FO506,384^A0N,35,0^CI0^FR^FD" & sQty & "EA,^FS"
-        
-        'Modify 264 to 244 by Tony on 20090612 for Req.JC900074
-        sMsg = sMsg & "^FO943,244^A0N,35,0^CI0^FR^FDID No:^FS"
-        
-        'Modify 264 to 244 by Tony on 20090612 for Req.JC900074
-        sMsg = sMsg & "^FO1039,244^A0N,35,0^CI0^FR^FD" & sUserID & "^FS"
-        
-        sMsg = sMsg & "^FO694,384^A0N,35,0^CI0^FR^FDDATE:^FS"
-        sMsg = sMsg & "^FO794,384^A0N,35,0^CI0^FR^FD" & sPrintDate & "^FS" 'sPrintDate-->2008/5/28
-        
-        'Modify 308 to 288 by Tony on 20090612 for Req.JC900074
-        sMsg = sMsg & "^FO943,288^A0N,35,0^CI0^FR^FDTQA:^FS"
-        
-        'Add by Tony on 20090612 for Req.JC900074
-        sMsg = sMsg & "^FO1030,284^GB190,140,4^FS"
-        
-        sMsg = sMsg & "^PQ1,0,0,N"
-        sMsg = sMsg & "^XZ"
+    sMsg = ""
     
-'        sMsg = sMsg & "^XA^LH10,00^LL500"
-'        sMsg = sMsg & "^FO00,05^GB780,475,3^FS"
-'        sMsg = sMsg & "^FO30,20^A0,27,25^FDLOT NO: " & sLotNo & "^FS"
-'        sMsg = sMsg & "^FO30,130^A0,27,25^FDPRODUCT NO: " & sProdNo & "^FS"
-'        sMsg = sMsg & "^FO30,235^A0,27,25^FDWAFER PCS:  " & sWqty & "PCS^FS"
-'        sMsg = sMsg & "^FO30,340^A0,27,25^FDQUANTITY:  " & sQty & "EA^FS"
-'        sMsg = sMsg & "^FO30,445^A0,27,25^FDPART NO: " & sPartNo & "^FS"
-'        sMsg = sMsg & "^FO30,55^BY2,2,55^B3,,,N^FD" & sLotNo & "^FS"
-'        sMsg = sMsg & "^FO30,160^BY2,2,55^B3,,,N^FD" & sProdNo & "^FS"
-'        sMsg = sMsg & "^FO30,265^BY2,2,55^B3,,,N^FD" & sWqty & "^FS"
-'        sMsg = sMsg & "^FO30,370^BY2,2,55^B3,,,N^FD" & sQty & "^FS"
-'        sMsg = sMsg & "^FO425,385^GB355,50,3^FS"
-'        sMsg = sMsg & "^FO425,425^GB0,50,3^FS"
-'        sMsg = sMsg & "^FO440,400^A0,27,25^FDDATE CODE:^FS"
-'        sMsg = sMsg & "^FO440,440^A0,27,25^FDQA:^FS"
-'        sMsg = sMsg & "^PQ1"
-'        sMsg = sMsg & "^XZ"
+'mark by Nelson start on 2007/09/14 for SI Request
+'    sMsg = sMsg & "^XA"
+'    sMsg = sMsg & "^LH0,0^FS"
+'    sMsg = sMsg & "^LL1441"
+'    sMsg = sMsg & "^MD0"
+'    sMsg = sMsg & "^MNY"
+'
+'    sMsg = sMsg & "^FO360,120^A0R,40,32^CI0^FR^FDLOT^FS"
+'    sMsg = sMsg & "^FO360,300^A0R,40,32^CI0^FR^FDPROD^FS"
+'    sMsg = sMsg & "^FO360, 680^A0R,40,32^CI0^FR^FDQTY^FS"
+'    sMsg = sMsg & "^FO360,810^A0R,40,32^CI0^FR^FDCODE^FS"
+'
+'
+'    For iIdx = colLotInfo.Count To 1 Step -1
+'        arrLotInfo = Split(colLotInfo(iIdx), ";")
+'        'vChildLotId & ";" & vIPN & ";" & vCode & ";" & vCQty
+'
+'        sMsg = sMsg & "^FO" & CStr(304 - 36 * (iIdx - 1)) & ", 60^A0R,25,32^CI0^FR^FD" & arrLotInfo(0) & "^FS"
+'        sMsg = sMsg & "^FO" & CStr(304 - 36 * (iIdx - 1)) & ", 300^A0R,25,32^CI0^FR^FD" & arrLotInfo(1) & "^FS"
+'        sMsg = sMsg & "^FO" & CStr(304 - 36 * (iIdx - 1)) & ", 680^A0R,25,32^CI0^FR^FD" & arrLotInfo(3) & "^FS"
+'        sMsg = sMsg & "^FO" & CStr(304 - 36 * (iIdx - 1)) & ", 810^A0R,25,32^CI0^FR^FD" & arrLotInfo(2) & "^FS"
+'        sMsg = sMsg & "^BY2, 2.0^FO" & CStr(295 - 50 * (iIdx - 1)) & ",910^B3R,N,30,N,Y^FR^FD" & arrLotInfo(0) & "^FS"
+'
+'    Next iIdx
+'
+'    sMsg = sMsg & "^FO105,100^A0R,30,32^CI0^FR^FDTTL QTY:  " & sParWqty & " PCS,    " & sParCQTY & " EA^FS"
+'    sMsg = sMsg & "^FO105,520^A0R,30,32^CI0^FR^FDID No:  " & sUserName & " ^FS"
+'    sMsg = sMsg & "^FO105,770^A0R,30,32^CI0^FR^FDDG: 0^FS"
+'    sMsg = sMsg & "^FO50,100^A0R,30,32^CI0^FR^FDDATE: " & sTimeStamp & " ^FS"
+'    sMsg = sMsg & "^FO50,470^A0R,30,32^CI0^FR^FDSerial No: 0206000115^FS"
+'    sMsg = sMsg & "^FO50,800^A0R,30,32^CI0^FR^FDTQA:^FS"
+'    sMsg = sMsg & "^XZ"
+    sMsg = sMsg & "^XA"
+    sMsg = sMsg & "^LH0,0^FS"
+    sMsg = sMsg & "^LL440"
+    sMsg = sMsg & "^MD0"
+    sMsg = sMsg & "^MNY"
+
+    sMsg = sMsg & "^FO116,36^A0N,40,32^CI0^FR^FDLOT^FS"
+    sMsg = sMsg & "^FO300,36^A0N,40,32^CI0^FR^FDPROD^FS"
+    sMsg = sMsg & "^FO655,36^A0N,40,32^CI0^FR^FDQTY^FS"
+    sMsg = sMsg & "^FO783,36^A0N,40,32^CI0^FR^FDCODE^FS"
+
+
+    For iIdx = 1 To colLotInfo.Count
+        arrLotInfo = Split(colLotInfo(iIdx), ";")
+        'vChildLotId & ";" & vIPN & ";" & vCode & ";" & vCQty
+
+        sMsg = sMsg & "^FO56, " & CStr(108 + 36 * (iIdx - 1)) & "^A0N,25,32^CI0^FR^FD" & arrLotInfo(0) & "^FS"
+        sMsg = sMsg & "^FO296, " & CStr(108 + 36 * (iIdx - 1)) & "^A0N,25,32^CI0^FR^FD" & arrLotInfo(1) & "^FS"
+        sMsg = sMsg & "^FO655, " & CStr(108 + 36 * (iIdx - 1)) & "^A0N,25,32^CI0^FR^FD" & arrLotInfo(3) & "^FS"
+        sMsg = sMsg & "^FO783, " & CStr(108 + 36 * (iIdx - 1)) & "^A0N,25,32^CI0^FR^FD" & arrLotInfo(2) & "^FS"
+        sMsg = sMsg & "^BY2, 2.0^FO875, " & CStr(108 + 36 * (iIdx - 1)) & "^B3N,N,30,N,Y^FR^FD" & arrLotInfo(0) & "^FS"
+        
+    Next iIdx
+    
+    sMsg = sMsg & "^FO96,304^A0N,30,32^CI0^FR^FDTTL QTY:  " & sParWqty & " PCS,    " & sParCQTY & " EA^FS"
+    sMsg = sMsg & "^FO520,304^A0N,30,32^CI0^FR^FDID No:  " & sUserName & " ^FS"
+    sMsg = sMsg & "^FO747,304^A0N,30,32^CI0^FR^FDDG: 0^FS"
+    sMsg = sMsg & "^FO96,356^A0N,30,32^CI0^FR^FDDATE: " & sTimeStamp & " ^FS"
+    sMsg = sMsg & "^FO480,356^A0N,30,32^CI0^FR^FDSerial No: 0206000115^FS"
+    
+    'Modified by Jack 2009/07/15 JC900084
+    'sMsg = sMsg & "^FO795,356^A0N,30,32^CI0^FR^FDTQA:^FS"
+    sMsg = sMsg & "^FO850,356^A0N,30,32^CI0^FR^FDTQA:^FS"
+    
+    'Added by Jack 2009/07/15 JC900084
+    sMsg = sMsg & "^FO930,284^GB190,140,4^FS"
+    
+    sMsg = sMsg & "^XZ"
+'add by Nelson end on 2007/09/14 for SI Request
+    '******
+    
     '******
     ' End of Label Info
     '******
-
     '******
-    'Send message to TDS
+    'Send message to prtserver
     '******
         
         'Add by Tony Start on 20110117 for Req.JC201100003
@@ -226,6 +312,8 @@ Dim sErrMsg         As String
             Call RaiseError(lErrCode, sErrMsg)
         End If
     '******
+
+
 '----
 ' Done
 '----
