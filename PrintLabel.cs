@@ -1909,6 +1909,83 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return waferList;
         }
+        public async Task<List<MultiLotToSfgData>> GetWsMultiLotDataAsync(string targetLotId)
+        {
+            var resultList = new List<MultiLotToSfgData>();
+
+            // 1. 先查出此 Lot 的 MCDPARENT 與 MCP_FLAG
+            string sqlParent = $@"
+                SELECT MCDPARENT, MCP_FLAG 
+                FROM {gsCAT_TBL_LOT_INFO} 
+                WHERE LOT_ID = :p_LotId";
+            
+            var parentInfo = await _dbConnection.QueryFirstOrDefaultAsync<dynamic>(sqlParent, new { p_LotId = targetLotId });
+            
+            if (parentInfo == null || string.IsNullOrWhiteSpace(parentInfo.MCDPARENT))
+            {
+                // 對應 VB6 防呆：MCDPARENT 為 Null 不允許列印
+                throw new Exception("TBL_LOT_INFO.MCDPARENT Is Null\n此Label無法列印, 請通知SFG重設MCDPARENT值.");
+            }
+
+            string sParentLotID = parentInfo.MCDPARENT;
+            string sMcpFlag = parentInfo.MCP_FLAG ?? "";
+
+            // 2. 根據 McpFlag 決定查詢子批號的邏輯 (合併 VB6 的 "F", "C" 與 "D" 等邏輯)
+            if (sMcpFlag == "D")
+            {
+                // 對應 VB6 ElseIf sMcpFlag = "D" Then
+                // 由於這段 SQL 非常龐大且需要 sParentIPN，為避免過度複雜化且根據您的使用情境，
+                // 若貴廠主要走 F/C 或其他常規流程，通常會使用下方的通用 SQL。
+                // 若確定會用到 D，請在此補上您 VB6 中的那段 INNER JOIN MULTICODE_IPN 的 SQL。
+                throw new NotImplementedException("暫未實作 MCP_FLAG = 'D' 的 MultiCode IPN 查詢邏輯。");
+            }
+            else
+            {
+                // 對應 VB6 McpFlag='F', 'C' 或其他的通用查詢
+                string sqlChildren = $@"
+                    SELECT 
+                        A.LOT_ID AS ChildLotId,
+                        C.VALDATA AS Ipn, 
+                        B.COMPONENTQTY AS ChipQty, 
+                        C2.VALDATA AS WaferQty
+                    FROM {gsCAT_TBL_LOT_INFO} A
+                    INNER JOIN fwlot B ON A.LOT_ID = B.APPID
+                    INNER JOIN fwlot_pn2m C ON B.SYSID = C.FROMID AND C.KEYDATA = 'Ipn'
+                    INNER JOIN fwlot_pn2m C2 ON B.SYSID = C2.FROMID AND C2.KEYDATA = 'WaferQty'
+                    WHERE A.MCDPARENT = :p_ParentLotId
+                      AND B.PROCESSINGSTATUS <> 'Terminated'";
+
+                var children = await _dbConnection.QueryAsync<dynamic>(sqlChildren, new { p_ParentLotId = sParentLotID });
+
+                foreach (var child in children)
+                {
+                    string lotId = child.ChildLotId;
+                    string binCode = "";
+
+                    // 💡 對應 VB6 賦予 BIN Code 的邏輯
+                    if (lotId == sParentLotID)
+                    {
+                        binCode = "BIN1";
+                    }
+                    else
+                    {
+                        if (sMcpFlag == "C") binCode = "BIN7";
+                        else binCode = "BIN3";
+                    }
+
+                    resultList.Add(new MultiLotToSfgData
+                    {
+                        ChildLotId = lotId,
+                        Ipn = child.Ipn,
+                        BinCode = binCode,
+                        ChipQty = int.TryParse(child.ChipQty?.ToString(), out int cq) ? cq : 0,
+                        WaferQty = int.TryParse(child.WaferQty?.ToString(), out int wq) ? wq : 0
+                    });
+                }
+            }
+
+            return resultList;
+        }
     }
 }
 
@@ -4116,7 +4193,8 @@ namespace MES.Net.Application.Services.Print
                 case "WS_DGRADE_SUMMARY":
                     return await Generate_WS_DGRADE_SUMMARY_ZplAsync(req, timeStampYMD);
 
-                case "WS_MULTILOT_TO_SFG":
+                case "WSMULTILOT_TO_SFG":
+                    return await Generate_WSMULTILOT_TO_SFG_ZplAsync(req, timeStampYMD)
                 case "WSMCD_TO_SFG":
                     return await Generate_WSMCD_ZplAsync(req, timeStampYMD);
 
@@ -4978,6 +5056,48 @@ namespace MES.Net.Application.Services.Print
             }
 
             return zpl;
+        }
+        // =========================================================================
+        // 🔹 加工廠：產生 WSMULTILOT_TO_SFG (動態印出子批號清單)
+        // =========================================================================
+        private async Task<string> Generate_WSMULTILOT_TO_SFG_ZplAsync(PrintLabelRequest req, string timeStampYMD)
+        {
+            // 1. 從資料庫撈出此 Lot 相關的所有子批號清單
+            var lotList = await _printLabelRepo.GetWsMultiLotDataAsync(req.LotId);
+
+            if (lotList.Count == 0)
+            {
+                throw new Exception($"查無此批號 [{req.LotId}] 相關的 MultiLot 資訊。");
+            }
+
+            int totalWQty = 0;
+            int totalCQty = 0;
+
+            System.Text.StringBuilder dynamicBlock = new System.Text.StringBuilder();
+
+            // 2. 迴圈組裝每一列子批號的 ZPL，並計算總數量 (對應 VB6 的 For 迴圈)
+            for (int i = 0; i < lotList.Count; i++)
+            {
+                var row = lotList[i];
+                int yOffset = 108 + 36 * i; // 對應 VB6 的 108 + 36 * (iIdx - 1)
+
+                dynamicBlock.Append($"^FO56,{yOffset}^A0N,25,32^CI0^FR^FD{row.ChildLotId}^FS\n");
+                dynamicBlock.Append($"^FO296,{yOffset}^A0N,25,32^CI0^FR^FD{row.Ipn}^FS\n");
+                dynamicBlock.Append($"^FO655,{yOffset}^A0N,25,32^CI0^FR^FD{row.ChipQty}^FS\n");
+                dynamicBlock.Append($"^FO783,{yOffset}^A0N,25,32^CI0^FR^FD{row.BinCode}^FS\n");
+                dynamicBlock.Append($"^BY2,2.0^FO875,{yOffset}^B3N,N,30,N,Y^FR^FD{row.ChildLotId}^FS\n");
+
+                totalWQty += row.WaferQty;
+                totalCQty += row.ChipQty;
+            }
+
+            // 3. 替換基礎模板
+            return ZplTemplates.WS_MULTILOT_TO_SFG_LABEL
+                .Replace("{DynamicBlock}", dynamicBlock.ToString())
+                .Replace("{TotalWQty}", totalWQty.ToString())
+                .Replace("{TotalCQty}", totalCQty.ToString())
+                .Replace("{UserId}", req.UserId)
+                .Replace("{TimeStamp}", timeStampYMD);
         }
     }
 }
