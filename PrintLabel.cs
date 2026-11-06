@@ -2240,25 +2240,21 @@ namespace MES.Net.Infrastructure.Printing
 ^XZ";
 
         // 💡 3. WSMULTILOT_TO_SFG 標籤
-        public static readonly string WSMULTILOT_TO_SFG = @"
-^XA
-^LH0,0^FS
-^LL440
-^MD0
-^MNY
-^FO116,36^A0N,40,32^CI0^FR^FDLOT^FS
-^FO300,36^A0N,40,32^CI0^FR^FDPROD^FS
-^FO655,36^A0N,40,32^CI0^FR^FDQTY^FS
-^FO783,36^A0N,40,32^CI0^FR^FDCODE^FS
-{DynamicMultiLotBlock}
-^FO96,304^A0N,30,32^CI0^FR^FDTTL QTY:  {WQty} PCS,    {CQty} EA^FS
-^FO520,304^A0N,30,32^CI0^FR^FDID No:  {UserName} ^FS
-^FO747,304^A0N,30,32^CI0^FR^FDDG: 0^FS
-^FO96,356^A0N,30,32^CI0^FR^FDDATE: {TimeStamp} ^FS
-^FO480,356^A0N,30,32^CI0^FR^FDSerial No: 0206000115^FS
-^FO850,356^A0N,30,32^CI0^FR^FDTQA:^FS
-^FO930,284^GB190,140,4^FS
-^XZ";
+        public static readonly string WS_MULTILOT_TO_SFG_LABEL = @"
+        ^XA^LH0,0^FS^LL440^MD0^MNY
+        ^FO116,36^A0N,40,32^CI0^FR^FDLOT^FS
+        ^FO300,36^A0N,40,32^CI0^FR^FDPROD^FS
+        ^FO655,36^A0N,40,32^CI0^FR^FDQTY^FS
+        ^FO783,36^A0N,40,32^CI0^FR^FDCODE^FS
+        {DynamicBlock}
+        ^FO96,304^A0N,30,32^CI0^FR^FDTTL QTY:  {TotalWQty} PCS,    {TotalCQty} EA^FS
+        ^FO520,304^A0N,30,32^CI0^FR^FDID No:  {UserId} ^FS
+        ^FO747,304^A0N,30,32^CI0^FR^FDDG: 0^FS
+        ^FO96,356^A0N,30,32^CI0^FR^FDDATE: {TimeStamp} ^FS
+        ^FO480,356^A0N,30,32^CI0^FR^FDSerial No: 0206000115^FS
+        ^FO850,356^A0N,30,32^CI0^FR^FDTQA:^FS
+        ^FO930,284^GB190,140,4^FS
+        ^XZ";
 
         // 💡 4. WS_RENESAS_SHIPPING 標籤 (Renesas 客戶專用出貨標籤)
         public static readonly string WS_RENESAS_SHIPPING = @"
