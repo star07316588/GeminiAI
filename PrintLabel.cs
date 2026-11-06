@@ -1909,11 +1909,13 @@ namespace MES.Net.Infrastructure.Repository.Print
 
             return waferList;
         }
-        public async Task<List<MultiLotToSfgData>> GetWsMultiLotDataAsync(string targetLotId)
+public async Task<List<MultiLotToSfgData>> GetWsMultiLotDataAsync(string targetLotId)
         {
             var resultList = new List<MultiLotToSfgData>();
 
+            // -------------------------------------------------------------
             // 1. 先查出此 Lot 的 MCDPARENT 與 MCP_FLAG
+            // -------------------------------------------------------------
             string sqlParent = $@"
                 SELECT MCDPARENT, MCP_FLAG 
                 FROM {gsCAT_TBL_LOT_INFO} 
@@ -1930,18 +1932,71 @@ namespace MES.Net.Infrastructure.Repository.Print
             string sParentLotID = parentInfo.MCDPARENT;
             string sMcpFlag = parentInfo.MCP_FLAG ?? "";
 
-            // 2. 根據 McpFlag 決定查詢子批號的邏輯 (合併 VB6 的 "F", "C" 與 "D" 等邏輯)
+            // -------------------------------------------------------------
+            // 2. 針對 F 或 D 的情況，預先查出 sParentIPN 
+            // (對應 VB6 中 "Added by Jack on 2014/03/24" 的前置查詢)
+            // -------------------------------------------------------------
+            string sParentIPN = "";
+            if (sMcpFlag == "F" || sMcpFlag == "D")
+            {
+                string sqlParentIpn = $@"
+                    SELECT C.VALDATA AS IPN
+                    FROM {gsCAT_TBL_LOT_INFO} A
+                    INNER JOIN FWLOT B ON A.MCDPARENT = B.APPID
+                    INNER JOIN FWLOT_PN2M C ON B.SYSID = C.FROMID AND C.KEYDATA = 'Ipn'
+                    WHERE A.LOT_ID = :p_LotId
+                      AND ROWNUM = 1"; // 確保只取第一筆
+
+                sParentIPN = await _dbConnection.QueryFirstOrDefaultAsync<string>(sqlParentIpn, new { p_LotId = targetLotId }) ?? "";
+            }
+
+            // -------------------------------------------------------------
+            // 3. 根據 McpFlag 決定查詢子批號的詳細清單
+            // -------------------------------------------------------------
             if (sMcpFlag == "D")
             {
-                // 對應 VB6 ElseIf sMcpFlag = "D" Then
-                // 由於這段 SQL 非常龐大且需要 sParentIPN，為避免過度複雜化且根據您的使用情境，
-                // 若貴廠主要走 F/C 或其他常規流程，通常會使用下方的通用 SQL。
-                // 若確定會用到 D，請在此補上您 VB6 中的那段 INNER JOIN MULTICODE_IPN 的 SQL。
-                throw new NotImplementedException("暫未實作 MCP_FLAG = 'D' 的 MultiCode IPN 查詢邏輯。");
+                // 💡 實作 VB6 ElseIf sMcpFlag = "D" Then 的複雜 MultiCode IPN 關聯
+                string sqlChildrenD = $@"
+                    SELECT 
+                        A.LOT_ID AS ChildLotId,
+                        C.VALDATA AS Ipn, 
+                        B.COMPONENTQTY AS ChipQty, 
+                        C2.VALDATA AS WaferQty,
+                        D.RANK AS RankCode
+                    FROM {gsCAT_TBL_LOT_INFO} A
+                    INNER JOIN fwlot B ON A.LOT_ID = B.APPID
+                    INNER JOIN fwlot_pn2m C ON B.SYSID = C.FROMID AND C.KEYDATA = 'Ipn'
+                    INNER JOIN fwlot_pn2m C2 ON B.SYSID = C2.FROMID AND C2.KEYDATA = 'WaferQty'
+                    INNER JOIN {gsCAT_TBL_MULTICODE_IPN} D ON D.SUBIPN = C.VALDATA AND D.IPN = :p_ParentIpn
+                    WHERE A.LOT_ID = :p_ParentLotId
+                      AND B.PROCESSINGSTATUS <> 'Terminated'";
+
+                var childrenD = await _dbConnection.QueryAsync<dynamic>(sqlChildrenD, new { 
+                    p_ParentLotId = sParentLotID,
+                    p_ParentIpn = sParentIPN
+                });
+
+                foreach (var child in childrenD)
+                {
+                    // 💡 對應 VB6：(Asc(oItem.Item(4)) - 64) 來計算 BIN Code
+                    string rankCode = child.RankCode?.ToString() ?? "A"; 
+                    char rankChar = rankCode.Length > 0 ? rankCode[0] : 'A';
+                    int binNumber = ((int)rankChar) - 64; 
+                    if (binNumber < 1) binNumber = 1; // 簡易防呆
+
+                    resultList.Add(new MultiLotToSfgData
+                    {
+                        ChildLotId = child.ChildLotId,
+                        Ipn = child.Ipn,
+                        BinCode = $"BIN{binNumber}",
+                        ChipQty = int.TryParse(child.ChipQty?.ToString(), out int cq) ? cq : 0,
+                        WaferQty = int.TryParse(child.WaferQty?.ToString(), out int wq) ? wq : 0
+                    });
+                }
             }
             else
             {
-                // 對應 VB6 McpFlag='F', 'C' 或其他的通用查詢
+                // 💡 實作 VB6 McpFlag='F', 'C' 或其他的通用查詢 (原本的邏輯)
                 string sqlChildren = $@"
                     SELECT 
                         A.LOT_ID AS ChildLotId,
