@@ -1,46 +1,26 @@
-// 💡 步驟 1：建立一個字典 (Dictionary) 來儲存 Id 與 ChipQty 的對應關係
-            // 這樣可以快速透過 Id 找到對應的數量
-            var componentDict = new System.Collections.Generic.Dictionary<int, string>();
+請優化以下程式
 
-            // 💡 步驟 2：安全地遍歷 oLot.Components，將資料塞入字典
-            // 使用 foreach 更安全，不用擔心 Length 邊界問題
-            if (oLot.Components != null)
+            // 1. 設定目標資料夾路徑
+            string folderPath = @"D:\Report\PCDMS";
+            // 2. 設定搜尋條件（以 H1B103 開頭的任何檔案）
+            string searchPattern = "H1B103*";
+            // 3. 檢查資料夾是否存在
+            checkDirectory:
+            if (Directory.Exists(folderPath))
             {
-                foreach (var comp in oLot.Components)
+                // 4. 取得符合條件的檔案完整路徑陣列
+                string[] files = Directory.GetFiles(folderPath, searchPattern);
+
+                foreach (string file in files)
                 {
-                    // 假設 Id 格式為 "04", "07", "25"，轉成數字以便後續 1~25 的迴圈對應
-                    if (int.TryParse(comp.Id, out int compId))
+                    foreach (string line in File.ReadLines(file))
                     {
-                        // 嘗試取得 ChipQty 屬性，若沒有則給空字串
-                        string chipQty = "";
-                        if (comp.Attributes != null && comp.Attributes.ContainsKey("ChipQty"))
-                        {
-                            chipQty = comp.Attributes["ChipQty"]?.ToString() ?? "";
-                        }
-                        
-                        componentDict[compId] = chipQty;
+                        _allDataGET.Add(line);
                     }
                 }
             }
-
-            // ---------------------------------------------------------
-            // ... (準備您的 sbComps、xBases、yBases 陣列) ...
-            // ---------------------------------------------------------
-
-            // 💡 步驟 3：執行 1 到 25 的迴圈進行 ZPL 組合
-            for (int i = 1; i <= 25; i++)
+            else
             {
-                int col = (i - 1) / 5;
-                int row = (i - 1) % 5;
-
-                // 💡 關鍵：用 TryGetValue 去字典裡找這個位置 (i) 是否有值
-                // 如果有找到，compVal 就是對應的 ChipQty (例如 "2500")；沒找到就是空字串 ""
-                string compVal = "";
-                if (componentDict.TryGetValue(i, out string valFound))
-                {
-                    compVal = valFound;
-                }
-
-                // 將取得的值 (可能為數字字串，也可能為空白) 寫入 ZPL 佔位符
-                sbComps.AppendLine($"^FO{xBases[col]},{yBases[row]}^A0N,25,32^CI0^FR^FD {i,2}:   {compVal}^FS");
+                Directory.CreateDirectory(folderPath);
+                goto checkDirectory;
             }
