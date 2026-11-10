@@ -1,26 +1,20 @@
-請優化以下程式
+// 1. 設定目標資料夾路徑與搜尋條件
+string folderPath = @"D:\Report\PCDMS";
+string searchPattern = "H1B103*";
 
-            // 1. 設定目標資料夾路徑
-            string folderPath = @"D:\Report\PCDMS";
-            // 2. 設定搜尋條件（以 H1B103 開頭的任何檔案）
-            string searchPattern = "H1B103*";
-            // 3. 檢查資料夾是否存在
-            checkDirectory:
-            if (Directory.Exists(folderPath))
-            {
-                // 4. 取得符合條件的檔案完整路徑陣列
-                string[] files = Directory.GetFiles(folderPath, searchPattern);
+// 2. 檢查資料夾是否存在，若不存在則建立並直接結束 (因為空資料夾沒檔案可讀)
+if (!Directory.Exists(folderPath))
+{
+    Directory.CreateDirectory(folderPath);
+    return; // 或是直接 return / break，視你的外層邏輯而定
+}
 
-                foreach (string file in files)
-                {
-                    foreach (string line in File.ReadLines(file))
-                    {
-                        _allDataGET.Add(line);
-                    }
-                }
-            }
-            else
-            {
-                Directory.CreateDirectory(folderPath);
-                goto checkDirectory;
-            }
+// 3. 取得符合條件的檔案 (使用 EnumerateFiles 節省記憶體)
+var files = Directory.EnumerateFiles(folderPath, searchPattern);
+
+foreach (string file in files)
+{
+    // 4. 讀取檔案內容
+    // 如果 _allDataGET 是 List<string>，建議直接使用 AddRange，效能更好且程式碼更簡潔
+    _allDataGET.AddRange(File.ReadLines(file)); 
+}
