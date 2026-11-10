@@ -1,3 +1,5 @@
+D:\mif\source_file\archive\202611
+
 // 1. 設定目標資料夾路徑與搜尋條件
 string folderPath = @"D:\Report\PCDMS";
 string searchPattern = "H1B103*";
