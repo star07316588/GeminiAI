@@ -1,0 +1,672 @@
+<-> 01:32:14.600 | ------------------------------------------- 
+<-> 01:32:14.604 | 2026/11/11 上午 01:32:14: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q219500/TMV06/21/SORT2/20261
+                 | 111~013212000
+<-> 01:32:14.807 | 2026/11/11 上午 01:32:14: Refresh ExpectEndTime.
+<-> 01:32:15.014 | 2026/11/11 上午 01:32:15: UpdateMonitorSingleEq: SendSuccess
+<-> 01:32:15.023 | 2026/11/11 上午 01:32:15: Update AGV Unload information for TMV06
+<-> 01:32:15.031 | 2026/11/11 上午 01:32:15: Update AGV Dispatch EndTime information for TMV06
+<-> 01:32:18.831 | ------------------------------------------- 
+<-> 01:32:18.835 | 2026/11/11 上午 01:32:18: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:18.840 | 2026/11/11 上午 01:32:18: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:18.997 | ------------------------------------------- 
+<-> 01:32:19.001 | 2026/11/11 上午 01:32:18: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:19.005 | 2026/11/11 上午 01:32:18: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:19.166 | ------------------------------------------- 
+<-> 01:32:19.169 | 2026/11/11 上午 01:32:18: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:19.174 | 2026/11/11 上午 01:32:18: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:19.343 | ------------------------------------------- 
+<-> 01:32:19.347 | 2026/11/11 上午 01:32:18: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:19.351 | 2026/11/11 上午 01:32:18: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:19.524 | ------------------------------------------- 
+<-> 01:32:19.528 | 2026/11/11 上午 01:32:19: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:19.532 | 2026/11/11 上午 01:32:19: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:19.703 | ------------------------------------------- 
+<-> 01:32:19.708 | 2026/11/11 上午 01:32:19: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:19.712 | 2026/11/11 上午 01:32:19: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:19.876 | ------------------------------------------- 
+<-> 01:32:19.880 | 2026/11/11 上午 01:32:19: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:19.884 | 2026/11/11 上午 01:32:19: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:20.084 | ------------------------------------------- 
+<-> 01:32:20.088 | 2026/11/11 上午 01:32:19: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:20.092 | 2026/11/11 上午 01:32:19: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:20.257 | ------------------------------------------- 
+<-> 01:32:20.262 | 2026/11/11 上午 01:32:19: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:20.266 | 2026/11/11 上午 01:32:19: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:20.432 | ------------------------------------------- 
+<-> 01:32:20.437 | 2026/11/11 上午 01:32:19: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:20.441 | 2026/11/11 上午 01:32:19: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:20.617 | ------------------------------------------- 
+<-> 01:32:20.621 | 2026/11/11 上午 01:32:20: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:20.625 | 2026/11/11 上午 01:32:20: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:20.783 | ------------------------------------------- 
+<-> 01:32:20.788 | 2026/11/11 上午 01:32:20: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:20.792 | 2026/11/11 上午 01:32:20: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:20.958 | ------------------------------------------- 
+<-> 01:32:20.963 | 2026/11/11 上午 01:32:20: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:20.967 | 2026/11/11 上午 01:32:20: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:21.130 | ------------------------------------------- 
+<-> 01:32:21.134 | 2026/11/11 上午 01:32:20: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:21.138 | 2026/11/11 上午 01:32:20: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:21.308 | ------------------------------------------- 
+<-> 01:32:21.312 | 2026/11/11 上午 01:32:20: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:21.316 | 2026/11/11 上午 01:32:20: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:21.508 | ------------------------------------------- 
+<-> 01:32:21.512 | 2026/11/11 上午 01:32:20: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:21.517 | 2026/11/11 上午 01:32:20: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:21.689 | ------------------------------------------- 
+<-> 01:32:21.693 | 2026/11/11 上午 01:32:21: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:21.698 | 2026/11/11 上午 01:32:21: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:21.876 | ------------------------------------------- 
+<-> 01:32:21.880 | 2026/11/11 上午 01:32:21: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:21.884 | 2026/11/11 上午 01:32:21: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:22.062 | ------------------------------------------- 
+<-> 01:32:22.067 | 2026/11/11 上午 01:32:21: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:22.071 | 2026/11/11 上午 01:32:21: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:22.235 | ------------------------------------------- 
+<-> 01:32:22.239 | 2026/11/11 上午 01:32:21: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:22.244 | 2026/11/11 上午 01:32:21: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:22.416 | ------------------------------------------- 
+<-> 01:32:22.420 | 2026/11/11 上午 01:32:21: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:22.425 | 2026/11/11 上午 01:32:21: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:22.589 | ------------------------------------------- 
+<-> 01:32:22.594 | 2026/11/11 上午 01:32:22: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:22.598 | 2026/11/11 上午 01:32:22: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:22.761 | ------------------------------------------- 
+<-> 01:32:22.766 | 2026/11/11 上午 01:32:22: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:22.771 | 2026/11/11 上午 01:32:22: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:22.939 | ------------------------------------------- 
+<-> 01:32:22.944 | 2026/11/11 上午 01:32:22: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:22.948 | 2026/11/11 上午 01:32:22: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:23.120 | ------------------------------------------- 
+<-> 01:32:23.124 | 2026/11/11 上午 01:32:22: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26E27730/zWSORTER/
+<-> 01:32:23.129 | 2026/11/11 上午 01:32:22: Add 'InsertSorterControl/26E27730/zWSORTER/' to SorterContrl colletcion.
+<-> 01:32:29.172 | 2026/11/11 上午 01:32:29: Add 'InsertSorterControl' for 26E27730/zWSORTER
+<-> 01:32:31.945 | ------------------------------------------- 
+<-> 01:32:31.950 | 2026/11/11 上午 01:32:31: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319103/SORTP/StepIssue/
+<-> 01:32:31.995 | 2026/11/11 上午 01:32:31: No Action.
+<-> 01:32:31.996 | 2026/11/11 上午 01:32:31: UpdateMonitorSingleEq: SendSuccess
+<-> 01:32:32.002 | ------------------------------------------- 
+<-> 01:32:32.007 | 2026/11/11 上午 01:32:31: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319103/SORTP/Init/
+<-> 01:32:32.669 | 2026/11/11 上午 01:32:32: No Action.
+<-> 01:32:32.674 | ------------------------------------------- 
+<-> 01:32:32.679 | 2026/11/11 上午 01:32:32: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319303/SORTP/StepIssue/
+<-> 01:32:32.713 | 2026/11/11 上午 01:32:32: No Action.
+<-> 01:32:32.718 | ------------------------------------------- 
+<-> 01:32:32.722 | 2026/11/11 上午 01:32:32: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319303/SORTP/Init/
+<-> 01:32:33.189 | 2026/11/11 上午 01:32:32: No Action.
+<-> 01:32:33.194 | ------------------------------------------- 
+<-> 01:32:33.199 | 2026/11/11 上午 01:32:32: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV17/RUN
+<-> 01:32:33.211 | 2026/11/11 上午 01:32:32: Refresh EqID: TMV17
+<-> 01:32:33.576 | 2026/11/11 上午 01:32:33: Update AGV Unload information for TMV17
+<-> 01:32:33.581 | 2026/11/11 上午 01:32:33: Get UnloadType: TA for TMV17
+<-> 01:32:34.075 | 2026/11/11 上午 01:32:34: UpdateMonitorSingleEq: SendSuccess
+<-> 01:33:18.121 | ------------------------------------------- 
+<-> 01:33:18.127 | 2026/11/11 上午 01:33:18: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV12/SETUP
+<-> 01:33:18.142 | 2026/11/11 上午 01:33:18: Refresh EqID: TMV12
+<-> 01:33:19.504 | 2026/11/11 上午 01:33:19: UpdateMonitorSingleEq: SendSuccess
+<-> 01:34:11.328 | ------------------------------------------- 
+<-> 01:34:11.333 | 2026/11/11 上午 01:34:11: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U742106.01/SORT2/Init/
+<-> 01:34:12.793 | 2026/11/11 上午 01:34:12: No Action.
+<-> 01:34:12.799 | ------------------------------------------- 
+<-> 01:34:12.804 | 2026/11/11 上午 01:34:12: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TM01/RUN
+<-> 01:34:12.817 | 2026/11/11 上午 01:34:12: Refresh EqID: TM01
+<-> 01:34:12.960 | 2026/11/11 上午 01:34:12: Update AGV Unload information for TM01
+<-> 01:34:12.969 | 2026/11/11 上午 01:34:12: Get UnloadType: TA for TM01
+<-> 01:34:13.260 | 2026/11/11 上午 01:34:13: UpdateMonitorSingleEq: SendSuccess
+<-> 01:34:21.561 | ------------------------------------------- 
+<-> 01:34:21.566 | 2026/11/11 上午 01:34:21: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8P86960B/TMV05/14/SORTT/20261
+                 | 111~013419000
+<-> 01:34:22.224 | 2026/11/11 上午 01:34:21: Refresh ExpectEndTime.
+<-> 01:34:23.540 | 2026/11/11 上午 01:34:23: UpdateMonitorSingleEq: SendSuccess
+<-> 01:34:23.573 | 2026/11/11 上午 01:34:23: Update AGV Unload information for TMV05
+<-> 01:34:23.589 | 2026/11/11 上午 01:34:23: Update AGV Dispatch EndTime information for TMV05
+<-> 01:34:23.605 | ------------------------------------------- 
+<-> 01:34:23.610 | 2026/11/11 上午 01:34:23: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8P86960B/SORTT/AutoExec/
+<-> 01:34:23.638 | 2026/11/11 上午 01:34:23: No Action.
+<-> 01:34:23.644 | ------------------------------------------- 
+<-> 01:34:23.649 | 2026/11/11 上午 01:34:23: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8P86960B/SORTT/AutoOK/
+<-> 01:34:23.666 | 2026/11/11 上午 01:34:23: No Action.
+<-> 01:34:52.840 | ------------------------------------------- 
+<-> 01:34:52.845 | 2026/11/11 上午 01:34:52: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q319103/TMV17/07/SORTP/20261
+                 | 111~013451000
+<-> 01:34:53.148 | 2026/11/11 上午 01:34:52: Refresh ExpectEndTime.
+<-> 01:34:53.462 | 2026/11/11 上午 01:34:53: UpdateMonitorSingleEq: SendSuccess
+<-> 01:34:53.489 | 2026/11/11 上午 01:34:53: Update AGV Unload information for TMV17
+<-> 01:34:53.506 | 2026/11/11 上午 01:34:53: Update AGV Dispatch EndTime information for TMV17
+<-> 01:34:54.518 | ------------------------------------------- 
+<-> 01:34:54.523 | 2026/11/11 上午 01:34:54: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319103/SORTP/AutoExec/
+<-> 01:34:54.539 | 2026/11/11 上午 01:34:54: No Action.
+<-> 01:34:54.544 | ------------------------------------------- 
+<-> 01:34:54.549 | 2026/11/11 上午 01:34:54: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319103/SORTP/AutoOK/
+<-> 01:34:54.565 | 2026/11/11 上午 01:34:54: No Action.
+<-> 01:35:18.309 | ------------------------------------------- 
+<-> 01:35:18.314 | 2026/11/11 上午 01:35:18: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U666100/SORT2/AutoOK/ManualExe
+                 | c
+<-> 01:35:18.337 | 2026/11/11 上午 01:35:18: No Action.
+<-> 01:35:20.409 | ------------------------------------------- 
+<-> 01:35:20.415 | 2026/11/11 上午 01:35:20: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U666100/SORT2/AutoOK/ManualOK
+<-> 01:35:20.439 | 2026/11/11 上午 01:35:20: No Action.
+<-> 01:35:26.984 | ------------------------------------------- 
+<-> 01:35:26.990 | 2026/11/11 上午 01:35:26: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U666000/SORT2/AutoOK/ManualExe
+                 | c
+<-> 01:35:27.011 | 2026/11/11 上午 01:35:26: No Action.
+<-> 01:35:27.183 | ------------------------------------------- 
+<-> 01:35:27.188 | 2026/11/11 上午 01:35:26: CP_ETEST_MonitorCore ReceivedMessage: UpdateETtestMoveOut/5U666100
+<-> 01:35:27.222 | 2026/11/11 上午 01:35:26: Get StepName: BAKE2 and Recipe:  250 24 HRS
+<-> 01:35:27.227 | 2026/11/11 上午 01:35:26: Update ETtestMoveOut information for 5U666100
+<-> 01:35:29.631 | ------------------------------------------- 
+<-> 01:35:29.636 | 2026/11/11 上午 01:35:29: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U666000/SORT2/AutoOK/ManualOK
+<-> 01:35:29.664 | 2026/11/11 上午 01:35:29: No Action.
+<-> 01:37:14.561 | ------------------------------------------- 
+<-> 01:37:14.567 | 2026/11/11 上午 01:37:14: Start to process Schedual Check.
+<-> 01:37:14.572 | 2026/11/11 上午 01:37:14: Test time abnormal check start.
+<-> 01:37:17.280 | 2026/11/11 上午 01:37:17: Test time abnormal check end.
+<-> 01:37:17.286 | 2026/11/11 上午 01:37:17: Wait move lot check CP complete start.
+<-> 01:37:19.990 | 2026/11/11 上午 01:37:19: Wait move lot check CP complete end.
+<-> 01:37:20.588 | 2026/11/11 上午 01:37:20: Clear waits lots.....
+<-> 01:37:20.624 | 2026/11/11 上午 01:37:20: Show waits lots for: TA02A,TA02B,TK02,TK03,TK05,TK06,TK08,TK09,TK13,TK14,TK2
+                 | 0,TK22,TK25,TK26,TM01,TM17,TMV17
+<-> 01:37:26.533 | 2026/11/11 上午 01:37:26: Clear 5U742106.01 from TM01
+<-> 01:37:27.825 | 2026/11/11 上午 01:37:27: Clear 8Q319303 from TMV17
+<-> 01:37:28.273 | 2026/11/11 上午 01:37:27: Clear 8Q319103 from TMV17
+<-> 01:37:28.690 | 2026/11/11 上午 01:37:28: Show waits lots complete.
+<-> 01:37:28.695 | 2026/11/11 上午 01:37:28: Unload Type Refresh start.
+<-> 01:37:28.740 | 2026/11/11 上午 01:37:28: Get UnloadType: TA for TA02A
+<-> 01:37:28.785 | 2026/11/11 上午 01:37:28: Get UnloadType: TA for TA02B
+<-> 01:37:28.826 | 2026/11/11 上午 01:37:28: Get UnloadType: TA for TM01
+<-> 01:37:28.916 | 2026/11/11 上午 01:37:28: Get TM17 NextLotID: 5U754505
+<-> 01:37:28.919 | 2026/11/11 上午 01:37:28: Get UnloadType: TA for TM17
+<-> 01:37:28.957 | 2026/11/11 上午 01:37:28: Get UnloadType: TA for TMV17
+<-> 01:37:28.966 | 2026/11/11 上午 01:37:28: Unload Type Refresh end.
+<-> 01:37:28.971 | 2026/11/11 上午 01:37:28: CP Auto Monitor check start.
+<-> 01:37:30.943 | 2026/11/11 上午 01:37:30: CP Auto Monitor check: MoveOut timeout.
+<-> 01:37:31.218 | 2026/11/11 上午 01:37:30: CP Auto Monitor check end.
+<-> 01:37:31.224 | 2026/11/11 上午 01:37:30: Search PEIS inputed data to update.
+<-> 01:37:32.614 | 2026/11/11 上午 01:37:32: Search SorterControl inputed data to insert.
+<-> 01:37:40.707 | 2026/11/11 上午 01:37:40: UpdateMonitorAllEq: SendSuccess
+<-> 01:37:40.713 | 2026/11/11 上午 01:37:40: End of Schedual Check.
+<-> 01:37:59.779 | ------------------------------------------- 
+<-> 01:37:59.785 | 2026/11/11 上午 01:37:59: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q211500/TMV13/03/SORTO/20261
+                 | 111~013758000
+<-> 01:38:25.499 | ------------------------------------------- 
+<-> 01:38:25.505 | 2026/11/11 上午 01:38:25: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U792700/TM12/05/SORT1/202611
+                 | 11~013825000
+<-> 01:38:26.801 | 2026/11/11 上午 01:38:26: Refresh ExpectEndTime.
+<-> 01:38:28.662 | 2026/11/11 上午 01:38:28: UpdateMonitorSingleEq: SendSuccess
+<-> 01:38:28.674 | 2026/11/11 上午 01:38:28: Update AGV Unload information for TM12
+<-> 01:38:28.684 | 2026/11/11 上午 01:38:28: Update AGV Dispatch EndTime information for TM12
+<-> 01:38:36.904 | ------------------------------------------- 
+<-> 01:38:36.909 | 2026/11/11 上午 01:38:36: CP_ETEST_MonitorCore ReceivedMessage: UpdateETtestMoveOut/5T40760003
+<-> 01:38:36.936 | 2026/11/11 上午 01:38:36: Get StepName: WVM-100 and Recipe: 
+<-> 01:38:36.941 | 2026/11/11 上午 01:38:36: Update ETtestMoveOut information for 5T40760003
+<-> 01:38:42.395 | ------------------------------------------- 
+<-> 01:38:42.400 | 2026/11/11 上午 01:38:42: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U558700/TM11/09/SORTX/202611
+                 | 11~013842000
+<-> 01:38:43.578 | 2026/11/11 上午 01:38:43: Refresh ExpectEndTime.
+<-> 01:38:44.819 | 2026/11/11 上午 01:38:44: UpdateMonitorSingleEq: SendSuccess
+<-> 01:38:44.830 | 2026/11/11 上午 01:38:44: Update AGV Unload information for TM11
+<-> 01:38:44.839 | 2026/11/11 上午 01:38:44: Update AGV Dispatch EndTime information for TM11
+<-> 01:39:00.675 | ------------------------------------------- 
+<-> 01:39:00.682 | 2026/11/11 上午 01:39:00: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q319303/TMV17/18/SORTP/20261
+                 | 111~013859000
+<-> 01:39:00.941 | ------------------------------------------- 
+<-> 01:39:00.946 | 2026/11/11 上午 01:39:00: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319303/SORTP/AutoExec/
+<-> 01:39:00.996 | 2026/11/11 上午 01:39:00: No Action.
+<-> 01:39:01.450 | ------------------------------------------- 
+<-> 01:39:01.456 | 2026/11/11 上午 01:39:00: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV17/IDLE
+<-> 01:39:01.476 | 2026/11/11 上午 01:39:00: Refresh EqID: TMV17
+<-> 01:39:02.684 | 2026/11/11 上午 01:39:02: UpdateMonitorSingleEq: SendSuccess
+<-> 01:39:02.691 | ------------------------------------------- 
+<-> 01:39:02.698 | 2026/11/11 上午 01:39:02: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q319303/SORTP/AutoOK/
+<-> 01:39:02.715 | 2026/11/11 上午 01:39:02: No Action.
+<-> 01:40:00.216 | ------------------------------------------- 
+<-> 01:40:00.222 | 2026/11/11 上午 01:40:00: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q218600/TMV07/02/SORT2/20261
+                 | 111~013959000
+<-> 01:40:00.401 | 2026/11/11 上午 01:40:00: Refresh ExpectEndTime.
+<-> 01:40:02.590 | 2026/11/11 上午 01:40:02: UpdateMonitorSingleEq: SendSuccess
+<-> 01:40:02.605 | 2026/11/11 上午 01:40:02: Update AGV Unload information for TMV07
+<-> 01:40:02.616 | 2026/11/11 上午 01:40:02: Update AGV Dispatch EndTime information for TMV07
+<-> 01:40:10.302 | ------------------------------------------- 
+<-> 01:40:10.308 | 2026/11/11 上午 01:40:10: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q321400.01/SORTT1/Init/
+<-> 01:40:11.824 | 2026/11/11 上午 01:40:11: No Action.
+<-> 01:40:11.830 | ------------------------------------------- 
+<-> 01:40:11.836 | 2026/11/11 上午 01:40:11: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV17/RUN
+<-> 01:40:11.850 | 2026/11/11 上午 01:40:11: Refresh EqID: TMV17
+<-> 01:40:12.088 | 2026/11/11 上午 01:40:11: Update AGV Unload information for TMV17
+<-> 01:40:12.096 | 2026/11/11 上午 01:40:11: Get UnloadType: TA for TMV17
+<-> 01:40:12.476 | 2026/11/11 上午 01:40:12: UpdateMonitorSingleEq: SendSuccess
+<-> 01:41:38.296 | ------------------------------------------- 
+<-> 01:41:38.303 | 2026/11/11 上午 01:41:38: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q292000/TMV19/21/SORTD/20261
+                 | 111~014137000
+<-> 01:42:19.854 | ------------------------------------------- 
+<-> 01:42:19.860 | 2026/11/11 上午 01:42:19: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U724300/TM14/05/SORT2/202611
+                 | 11~014218000
+<-> 01:42:20.100 | 2026/11/11 上午 01:42:19: Refresh ExpectEndTime.
+<-> 01:42:21.627 | 2026/11/11 上午 01:42:21: UpdateMonitorSingleEq: SendSuccess
+<-> 01:42:21.644 | 2026/11/11 上午 01:42:21: Update AGV Unload information for TM14
+<-> 01:42:21.658 | 2026/11/11 上午 01:42:21: Update AGV Dispatch EndTime information for TM14
+<-> 01:42:21.670 | ------------------------------------------- 
+<-> 01:42:21.680 | 2026/11/11 上午 01:42:21: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8P844800/TMV18/13/SORT3/20261
+                 | 111~014218000
+<-> 01:42:26.188 | ------------------------------------------- 
+<-> 01:42:26.194 | 2026/11/11 上午 01:42:26: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q162100/TMV15/25/SORT1/20261
+                 | 111~014225000
+<-> 01:42:26.313 | ------------------------------------------- 
+<-> 01:42:26.319 | 2026/11/11 上午 01:42:26: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q162100/SORT1/AutoExec/
+<-> 01:42:26.339 | 2026/11/11 上午 01:42:26: No Action.
+<-> 01:42:27.546 | ------------------------------------------- 
+<-> 01:42:27.553 | 2026/11/11 上午 01:42:27: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV15/IDLE
+<-> 01:42:27.569 | 2026/11/11 上午 01:42:27: Refresh EqID: TMV15
+<-> 01:42:28.904 | 2026/11/11 上午 01:42:28: UpdateMonitorSingleEq: SendSuccess
+<-> 01:42:28.911 | ------------------------------------------- 
+<-> 01:42:28.917 | 2026/11/11 上午 01:42:28: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q162100/SORT1/AutoOK/Init
+<-> 01:42:28.936 | 2026/11/11 上午 01:42:28: Add 'Wait Move To Next Step' for 8Q162100/TMV15/SORT1
+<-> 01:42:29.048 | 2026/11/11 上午 01:42:28: Get UnloadType: TA for TMV15
+<-> 01:42:29.334 | 2026/11/11 上午 01:42:29: UpdateMonitorSingleEq: SendSuccess
+<-> 01:42:40.722 | ------------------------------------------- 
+<-> 01:42:40.728 | 2026/11/11 上午 01:42:40: Start to process Schedual Check.
+<-> 01:42:40.734 | 2026/11/11 上午 01:42:40: Test time abnormal check start.
+<-> 01:42:42.486 | 2026/11/11 上午 01:42:42: Test time abnormal check end.
+<-> 01:42:42.492 | 2026/11/11 上午 01:42:42: Wait move lot check CP complete start.
+<-> 01:42:44.172 | 2026/11/11 上午 01:42:44: Wait move lot check CP complete end.
+<-> 01:42:45.741 | 2026/11/11 上午 01:42:45: Clear waits lots.....
+<-> 01:42:45.763 | 2026/11/11 上午 01:42:45: Show waits lots for: TA02A,TA02B,TK02,TK03,TK05,TK06,TK08,TK09,TK13,TK14,TK2
+                 | 0,TK22,TK25,TK26,TM01,TM17,TMV15,TMV17
+<-> 01:42:51.379 | 2026/11/11 上午 01:42:51: List 8P440000 to TMV15
+<-> 01:42:52.909 | 2026/11/11 上午 01:42:52: Clear 8Q321400.01 from TMV17
+<-> 01:42:53.310 | 2026/11/11 上午 01:42:52: Show waits lots complete.
+<-> 01:42:53.316 | 2026/11/11 上午 01:42:52: Unload Type Refresh start.
+<-> 01:42:53.353 | 2026/11/11 上午 01:42:52: Get UnloadType: TA for TA02A
+<-> 01:42:53.387 | 2026/11/11 上午 01:42:52: Get UnloadType: TA for TA02B
+<-> 01:42:53.427 | 2026/11/11 上午 01:42:52: Get UnloadType: TA for TM01
+<-> 01:42:53.508 | 2026/11/11 上午 01:42:52: Get TM17 NextLotID: 5U754505
+<-> 01:42:53.511 | 2026/11/11 上午 01:42:52: Get UnloadType: TA for TM17
+<-> 01:42:53.557 | 2026/11/11 上午 01:42:53: Get UnloadType: TA for TMV17
+<-> 01:42:53.566 | 2026/11/11 上午 01:42:53: Unload Type Refresh end.
+<-> 01:42:53.572 | 2026/11/11 上午 01:42:53: CP Auto Monitor check start.
+<-> 01:42:54.664 | 2026/11/11 上午 01:42:54: CP Auto Monitor check: MoveOut timeout.
+<-> 01:42:54.788 | 2026/11/11 上午 01:42:54: CP Auto Monitor check end.
+<-> 01:42:54.795 | 2026/11/11 上午 01:42:54: Search PEIS inputed data to update.
+<-> 01:42:55.117 | 2026/11/11 上午 01:42:55: Search SorterControl inputed data to insert.
+<-> 01:43:03.053 | 2026/11/11 上午 01:43:03: UpdateMonitorAllEq: SendSuccess
+<-> 01:43:03.060 | 2026/11/11 上午 01:43:03: End of Schedual Check.
+<-> 01:43:27.678 | ------------------------------------------- 
+<-> 01:43:27.686 | 2026/11/11 上午 01:43:27: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q162100/SORT1/AutoOK/AutoExec
+<-> 01:43:27.705 | 2026/11/11 上午 01:43:27: No Action.
+<-> 01:43:29.048 | ------------------------------------------- 
+<-> 01:43:29.055 | 2026/11/11 上午 01:43:29: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q162100/SORT1/AutoOK/AutoOK
+<-> 01:43:29.079 | 2026/11/11 上午 01:43:29: No Action.
+<-> 01:43:55.536 | ------------------------------------------- 
+<-> 01:43:55.542 | 2026/11/11 上午 01:43:55: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U754700/TM17/24/SORTE/202611
+                 | 11~014354000
+<-> 01:43:55.697 | 2026/11/11 上午 01:43:55: Refresh ExpectEndTime.
+<-> 01:43:56.031 | 2026/11/11 上午 01:43:56: UpdateMonitorSingleEq: SendSuccess
+<-> 01:43:56.043 | 2026/11/11 上午 01:43:56: Update AGV Unload information for TM17
+<-> 01:43:56.052 | 2026/11/11 上午 01:43:56: Update AGV Dispatch EndTime information for TM17
+<-> 01:44:11.023 | ------------------------------------------- 
+<-> 01:44:11.030 | 2026/11/11 上午 01:44:11: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TM16/IDLE
+<-> 01:44:11.047 | 2026/11/11 上午 01:44:11: Refresh EqID: TM16
+<-> 01:44:12.398 | 2026/11/11 上午 01:44:12: UpdateMonitorSingleEq: SendSuccess
+<-> 01:45:17.914 | ------------------------------------------- 
+<-> 01:45:17.921 | 2026/11/11 上午 01:45:17: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U673709/SORT2/StepIssue/
+<-> 01:45:17.950 | 2026/11/11 上午 01:45:17: No Action.
+<-> 01:45:17.958 | ------------------------------------------- 
+<-> 01:45:17.964 | 2026/11/11 上午 01:45:17: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U673709/SORT2/Init/
+<-> 01:45:18.431 | 2026/11/11 上午 01:45:17: No Action.
+<-> 01:45:18.439 | ------------------------------------------- 
+<-> 01:45:18.445 | 2026/11/11 上午 01:45:17: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TM16/RUN
+<-> 01:45:18.461 | 2026/11/11 上午 01:45:17: Refresh EqID: TM16
+<-> 01:45:18.636 | 2026/11/11 上午 01:45:18: Update AGV Unload information for TM16
+<-> 01:45:18.691 | 2026/11/11 上午 01:45:18: Get TM16 NextLotID: 5U673600A1
+<-> 01:45:18.695 | 2026/11/11 上午 01:45:18: Get UnloadType: TA for TM16
+<-> 01:45:19.041 | 2026/11/11 上午 01:45:19: UpdateMonitorSingleEq: SendSuccess
+<-> 01:46:39.162 | ------------------------------------------- 
+<-> 01:46:39.169 | 2026/11/11 上午 01:46:39: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TA22B/REPAIR
+<-> 01:46:39.184 | 2026/11/11 上午 01:46:39: Refresh EqID: TA22B
+<-> 01:46:41.565 | 2026/11/11 上午 01:46:41: UpdateMonitorSingleEq: SendSuccess
+<-> 01:46:53.800 | ------------------------------------------- 
+<-> 01:46:53.807 | 2026/11/11 上午 01:46:53: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV15/WSETUP
+<-> 01:46:53.822 | 2026/11/11 上午 01:46:53: Refresh EqID: TMV15
+<-> 01:46:54.123 | 2026/11/11 上午 01:46:54: UpdateMonitorSingleEq: SendSuccess
+<-> 01:47:15.382 | ------------------------------------------- 
+<-> 01:47:15.389 | 2026/11/11 上午 01:47:15: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U836400/TA02A/01/SORTB1/2026
+                 | 1111~013956000
+<-> 01:47:15.506 | ------------------------------------------- 
+<-> 01:47:15.512 | 2026/11/11 上午 01:47:15: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836400.01/SORTB1/AutoExec/
+<-> 01:47:16.535 | 2026/11/11 上午 01:47:16: No Action.
+<-> 01:47:16.689 | ------------------------------------------- 
+<-> 01:47:16.696 | 2026/11/11 上午 01:47:16: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TA02A/IDLE
+<-> 01:47:16.718 | 2026/11/11 上午 01:47:16: Refresh EqID: TA02A
+<-> 01:47:17.992 | 2026/11/11 上午 01:47:17: UpdateMonitorSingleEq: SendSuccess
+<-> 01:47:18.000 | ------------------------------------------- 
+<-> 01:47:18.006 | 2026/11/11 上午 01:47:17: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836400.01/SORTB1/AutoOK/Init
+<-> 01:47:18.051 | 2026/11/11 上午 01:47:17: Add 'Wait Move To Next Step' for 5U836400.01/TA02A/SORTB1
+<-> 01:47:18.206 | 2026/11/11 上午 01:47:17: Get UnloadType: TA for TA02A
+<-> 01:47:18.491 | 2026/11/11 上午 01:47:18: UpdateMonitorSingleEq: SendSuccess
+<-> 01:47:27.829 | ------------------------------------------- 
+<-> 01:47:27.836 | 2026/11/11 上午 01:47:27: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TA22B/IDLE
+<-> 01:47:27.855 | 2026/11/11 上午 01:47:27: Refresh EqID: TA22B
+<-> 01:47:28.173 | 2026/11/11 上午 01:47:28: UpdateMonitorSingleEq: SendSuccess
+<-> 01:47:28.439 | ------------------------------------------- 
+<-> 01:47:28.446 | 2026/11/11 上午 01:47:28: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U836300/TA02B/25/SORTB1/2026
+                 | 1111~014008000
+<-> 01:47:29.625 | ------------------------------------------- 
+<-> 01:47:29.632 | 2026/11/11 上午 01:47:29: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836300.01/SORTB1/AutoExec/
+<-> 01:47:29.670 | 2026/11/11 上午 01:47:29: No Action.
+<-> 01:47:29.896 | ------------------------------------------- 
+<-> 01:47:29.904 | 2026/11/11 上午 01:47:29: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TA02B/IDLE
+<-> 01:47:29.922 | 2026/11/11 上午 01:47:29: Refresh EqID: TA02B
+<-> 01:47:30.231 | 2026/11/11 上午 01:47:30: UpdateMonitorSingleEq: SendSuccess
+<-> 01:47:30.238 | ------------------------------------------- 
+<-> 01:47:30.245 | 2026/11/11 上午 01:47:30: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836300.01/SORTB1/AutoOK/Init
+<-> 01:47:30.266 | 2026/11/11 上午 01:47:30: Add 'Wait Move To Next Step' for 5U836300.01/TA02B/SORTB1
+<-> 01:47:30.390 | 2026/11/11 上午 01:47:30: Get UnloadType: TA for TA02B
+<-> 01:47:32.713 | 2026/11/11 上午 01:47:32: UpdateMonitorSingleEq: SendSuccess
+<-> 01:47:32.721 | ------------------------------------------- 
+<-> 01:47:32.728 | 2026/11/11 上午 01:47:32: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836400.01/SORTB1/AutoOK/AutoE
+                 | xec
+<-> 01:47:32.774 | 2026/11/11 上午 01:47:32: No Action.
+<-> 01:47:33.384 | ------------------------------------------- 
+<-> 01:47:33.392 | 2026/11/11 上午 01:47:33: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836400.01/SORTB1/AutoOK/AutoO
+                 | K
+<-> 01:47:33.416 | 2026/11/11 上午 01:47:33: No Action.
+<-> 01:47:39.824 | ------------------------------------------- 
+<-> 01:47:39.831 | 2026/11/11 上午 01:47:39: CP_ETEST_MonitorCore ReceivedMessage: UpdateETtestMoveOut/5U836400
+<-> 01:47:39.867 | 2026/11/11 上午 01:47:39: Get StepName: BAKE1 and Recipe:  250 24 HRS
+<-> 01:47:39.875 | 2026/11/11 上午 01:47:39: Update ETtestMoveOut information for 5U836400
+<-> 01:47:40.400 | ------------------------------------------- 
+<-> 01:47:40.407 | 2026/11/11 上午 01:47:40: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U693600/TM15/08/SORTT1/20261
+                 | 111~014739000
+<-> 01:47:41.583 | 2026/11/11 上午 01:47:41: Refresh ExpectEndTime.
+<-> 01:47:42.041 | 2026/11/11 上午 01:47:42: UpdateMonitorSingleEq: SendSuccess
+<-> 01:47:42.058 | 2026/11/11 上午 01:47:42: Update AGV Unload information for TM15
+<-> 01:47:42.070 | 2026/11/11 上午 01:47:42: Update AGV Dispatch EndTime information for TM15
+<-> 01:47:48.716 | ------------------------------------------- 
+<-> 01:47:48.723 | 2026/11/11 上午 01:47:48: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U884900/SORT1/StepIssue/
+<-> 01:47:48.744 | 2026/11/11 上午 01:47:48: No Action.
+<-> 01:47:48.756 | ------------------------------------------- 
+<-> 01:47:48.763 | 2026/11/11 上午 01:47:48: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U884900/SORT1/Init/
+<-> 01:47:49.204 | 2026/11/11 上午 01:47:48: No Action.
+<-> 01:47:49.212 | ------------------------------------------- 
+<-> 01:47:49.219 | 2026/11/11 上午 01:47:48: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TA22B/RUN
+<-> 01:47:49.234 | 2026/11/11 上午 01:47:48: Refresh EqID: TA22B
+<-> 01:47:49.471 | 2026/11/11 上午 01:47:48: Update AGV Unload information for TA22B
+<-> 01:47:49.481 | 2026/11/11 上午 01:47:48: Get UnloadType: TA for TA22B
+<-> 01:47:50.672 | 2026/11/11 上午 01:47:50: UpdateMonitorSingleEq: SendSuccess
+<-> 01:48:03.077 | ------------------------------------------- 
+<-> 01:48:03.085 | 2026/11/11 上午 01:48:03: Start to process Schedual Check.
+<-> 01:48:03.092 | 2026/11/11 上午 01:48:03: Test time abnormal check start.
+<-> 01:48:07.473 | 2026/11/11 上午 01:48:07: Test time abnormal check end.
+<-> 01:48:07.481 | 2026/11/11 上午 01:48:07: Wait move lot check CP complete start.
+<-> 01:48:09.600 | ------------------------------------------- 
+<-> 01:48:09.607 | 2026/11/11 上午 01:48:09: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV15/SETUP
+<-> 01:48:09.623 | 2026/11/11 上午 01:48:09: Refresh EqID: TMV15
+<-> 01:48:10.877 | 2026/11/11 上午 01:48:10: UpdateMonitorSingleEq: SendSuccess
+<-> 01:48:10.878 | 2026/11/11 上午 01:48:09: Wait move lot check CP complete end.
+<-> 01:48:11.502 | 2026/11/11 上午 01:48:10: Clear waits lots.....
+<-> 01:48:11.522 | 2026/11/11 上午 01:48:10: Clear TMV15 waits lots.
+<-> 01:48:11.932 | 2026/11/11 上午 01:48:11: Show waits lots for: TA02A,TA02B,TK02,TK03,TK05,TK06,TK08,TK09,TK13,TK14,TK2
+                 | 0,TK22,TK25,TK26,TM01,TM16,TM17,TMV17
+<-> 01:48:17.163 | 2026/11/11 上午 01:48:17: List 5U727100.01 to TM16
+<-> 01:48:17.320 | 2026/11/11 上午 01:48:17: List 5U673600A1 to TM16
+<-> 01:48:18.230 | 2026/11/11 上午 01:48:18: Show waits lots complete.
+<-> 01:48:18.238 | 2026/11/11 上午 01:48:18: Unload Type Refresh start.
+<-> 01:48:18.295 | 2026/11/11 上午 01:48:18: Get UnloadType: TA for TM01
+<-> 01:48:18.387 | 2026/11/11 上午 01:48:18: Get TM16 NextLotID: 5U673600A1
+<-> 01:48:18.393 | 2026/11/11 上午 01:48:18: Get UnloadType: TA for TM16
+<-> 01:48:19.533 | 2026/11/11 上午 01:48:19: Get TM17 NextLotID: 5U754505
+<-> 01:48:19.541 | 2026/11/11 上午 01:48:19: Get UnloadType: TA for TM17
+<-> 01:48:19.647 | 2026/11/11 上午 01:48:19: Get UnloadType: TA for TMV17
+<-> 01:48:19.663 | 2026/11/11 上午 01:48:19: Unload Type Refresh end.
+<-> 01:48:19.671 | 2026/11/11 上午 01:48:19: CP Auto Monitor check start.
+<-> 01:48:21.536 | 2026/11/11 上午 01:48:21: CP Auto Monitor check: MoveOut timeout.
+<-> 01:48:21.661 | 2026/11/11 上午 01:48:21: CP Auto Monitor check end.
+<-> 01:48:21.669 | 2026/11/11 上午 01:48:21: Search PEIS inputed data to update.
+<-> 01:48:22.169 | 2026/11/11 上午 01:48:22: Search SorterControl inputed data to insert.
+<-> 01:48:31.943 | 2026/11/11 上午 01:48:31: UpdateMonitorAllEq: SendSuccess
+<-> 01:48:31.951 | 2026/11/11 上午 01:48:31: End of Schedual Check.
+<-> 01:48:34.034 | ------------------------------------------- 
+<-> 01:48:34.042 | 2026/11/11 上午 01:48:34: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836300.01/SORTB1/AutoOK/AutoE
+                 | xec
+<-> 01:48:34.080 | 2026/11/11 上午 01:48:34: No Action.
+<-> 01:48:35.411 | ------------------------------------------- 
+<-> 01:48:35.418 | 2026/11/11 上午 01:48:35: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836300.01/SORTB1/AutoOK/AutoO
+                 | K
+<-> 01:48:35.465 | 2026/11/11 上午 01:48:35: No Action.
+<-> 01:49:00.262 | ------------------------------------------- 
+<-> 01:49:00.271 | 2026/11/11 上午 01:49:00: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q254800/TMV03/08/SORT2/20261
+                 | 111~014859000
+<-> 01:49:01.521 | 2026/11/11 上午 01:49:00: Refresh ExpectEndTime.
+<-> 01:49:02.705 | 2026/11/11 上午 01:49:02: UpdateMonitorSingleEq: SendSuccess
+<-> 01:49:02.724 | 2026/11/11 上午 01:49:02: Update AGV Unload information for TMV03
+<-> 01:49:02.739 | 2026/11/11 上午 01:49:02: Update AGV Dispatch EndTime information for TMV03
+<-> 01:50:46.918 | ------------------------------------------- 
+<-> 01:50:46.927 | 2026/11/11 上午 01:50:46: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U789205.01/SORTB1/Init/
+<-> 01:50:47.412 | 2026/11/11 上午 01:50:46: No Action.
+<-> 01:50:47.524 | ------------------------------------------- 
+<-> 01:50:47.532 | 2026/11/11 上午 01:50:47: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TA02A/RUN
+<-> 01:50:47.548 | 2026/11/11 上午 01:50:47: Refresh EqID: TA02A
+<-> 01:50:47.805 | 2026/11/11 上午 01:50:47: Update AGV Unload information for TA02A
+<-> 01:50:47.811 | 2026/11/11 上午 01:50:47: Get UnloadType: TA for TA02A
+<-> 01:50:48.146 | 2026/11/11 上午 01:50:48: UpdateMonitorSingleEq: SendSuccess
+<-> 01:50:49.052 | ------------------------------------------- 
+<-> 01:50:49.060 | 2026/11/11 上午 01:50:49: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q311200/TMV16/03/SORT2/20261
+                 | 111~015048000
+<-> 01:51:02.947 | ------------------------------------------- 
+<-> 01:51:02.956 | 2026/11/11 上午 01:51:02: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U836304/SORTB1/Init/
+<-> 01:51:03.466 | 2026/11/11 上午 01:51:02: No Action.
+<-> 01:51:03.600 | ------------------------------------------- 
+<-> 01:51:03.608 | 2026/11/11 上午 01:51:03: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TA02B/RUN
+<-> 01:51:03.628 | 2026/11/11 上午 01:51:03: Refresh EqID: TA02B
+<-> 01:51:03.863 | 2026/11/11 上午 01:51:03: Update AGV Unload information for TA02B
+<-> 01:51:03.870 | 2026/11/11 上午 01:51:03: Get UnloadType: TA for TA02B
+<-> 01:51:04.161 | 2026/11/11 上午 01:51:04: UpdateMonitorSingleEq: SendSuccess
+<-> 01:52:40.620 | ------------------------------------------- 
+<-> 01:52:40.628 | 2026/11/11 上午 01:52:40: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U558700/TM11/11/SORTX/202611
+                 | 11~015239000
+<-> 01:52:40.832 | 2026/11/11 上午 01:52:40: Refresh ExpectEndTime.
+<-> 01:52:41.163 | 2026/11/11 上午 01:52:41: UpdateMonitorSingleEq: SendSuccess
+<-> 01:52:41.178 | 2026/11/11 上午 01:52:41: Update AGV Unload information for TM11
+<-> 01:52:41.190 | 2026/11/11 上午 01:52:41: Update AGV Dispatch EndTime information for TM11
+<-> 01:52:44.472 | ------------------------------------------- 
+<-> 01:52:44.480 | 2026/11/11 上午 01:52:44: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q211500/TMV13/04/SORTO/20261
+                 | 111~015243000
+<-> 01:53:02.855 | ------------------------------------------- 
+<-> 01:53:02.864 | 2026/11/11 上午 01:53:02: CP_ETEST_MonitorCore ReceivedMessage: PEISUpdate
+<-> 01:53:04.866 | ------------------------------------------- 
+<-> 01:53:04.874 | 2026/11/11 上午 01:53:04: Search PEIS inputed data to update.
+<-> 01:53:05.748 | 2026/11/11 上午 01:53:05: Update PEIS data for SID:26776862, Auto stop Test with ReviewFlag: S
+<-> 01:53:06.313 | 2026/11/11 上午 01:53:05: Trigger Stop Test with [WREPAIR] for SID: 26776862
+<-> 01:53:13.122 | ------------------------------------------- 
+<-> 01:53:13.131 | 2026/11/11 上午 01:53:13: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV13/WREPAIR
+<-> 01:53:13.147 | 2026/11/11 上午 01:53:13: Refresh EqID: TMV13
+<-> 01:53:14.485 | 2026/11/11 上午 01:53:14: UpdateMonitorSingleEq: SendSuccess
+<-> 01:53:14.486 | 2026/11/11 上午 01:53:13: UpdateMonitorAllEq: SendSuccess
+<-> 01:53:14.495 | ------------------------------------------- 
+<-> 01:53:14.503 | 2026/11/11 上午 01:53:14: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U724300/TM14/06/SORT2/202611
+                 | 11~015309000
+<-> 01:53:15.703 | 2026/11/11 上午 01:53:15: Refresh ExpectEndTime.
+<-> 01:53:16.993 | 2026/11/11 上午 01:53:16: UpdateMonitorSingleEq: SendSuccess
+<-> 01:53:17.020 | 2026/11/11 上午 01:53:16: Update AGV Unload information for TM14
+<-> 01:53:17.037 | 2026/11/11 上午 01:53:16: Update AGV Dispatch EndTime information for TM14
+<-> 01:53:30.986 | ------------------------------------------- 
+<-> 01:53:30.995 | 2026/11/11 上午 01:53:30: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:31.003 | 2026/11/11 上午 01:53:30: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:31.004 | 2026/11/11 上午 01:53:30: UpdateMonitorAllEq: SendSuccess
+<-> 01:53:31.013 | ------------------------------------------- 
+<-> 01:53:31.021 | 2026/11/11 上午 01:53:30: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:31.029 | 2026/11/11 上午 01:53:30: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:31.038 | ------------------------------------------- 
+<-> 01:53:31.047 | 2026/11/11 上午 01:53:30: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:31.055 | 2026/11/11 上午 01:53:30: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:31.064 | ------------------------------------------- 
+<-> 01:53:31.073 | 2026/11/11 上午 01:53:30: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:31.081 | 2026/11/11 上午 01:53:30: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:31.963 | ------------------------------------------- 
+<-> 01:53:31.972 | 2026/11/11 上午 01:53:31: Start to process Schedual Check.
+<-> 01:53:31.981 | 2026/11/11 上午 01:53:31: Test time abnormal check start.
+<-> 01:53:34.487 | ------------------------------------------- 
+<-> 01:53:34.496 | 2026/11/11 上午 01:53:34: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:34.504 | 2026/11/11 上午 01:53:34: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:34.515 | ------------------------------------------- 
+<-> 01:53:35.524 | 2026/11/11 上午 01:53:34: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:35.532 | 2026/11/11 上午 01:53:35: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:35.541 | ------------------------------------------- 
+<-> 01:53:35.549 | 2026/11/11 上午 01:53:35: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:35.558 | 2026/11/11 上午 01:53:35: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:35.717 | ------------------------------------------- 
+<-> 01:53:35.725 | 2026/11/11 上午 01:53:35: CP_ETEST_MonitorCore ReceivedMessage: InsertSorterControl/26B26896/zWSORTER/
+<-> 01:53:35.734 | 2026/11/11 上午 01:53:35: Add 'InsertSorterControl/26B26896/zWSORTER/' to SorterContrl colletcion.
+<-> 01:53:36.160 | ------------------------------------------- 
+<-> 01:53:36.169 | 2026/11/11 上午 01:53:36: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8P676500/TM08/16/SORTT1/20261
+                 | 111~015336000
+<-> 01:53:36.179 | {CP_ETEST_MonitorCore.WaferEndNotice.B3CEA081} !ERROR! Insufficient memory to perform operation.
+<-> 02:31:16.629 | ====================================================================================================
+<-> 02:31:16.638 | {CITLogCtrl.clsLogTraceMsg} for [CP_ETEST_MonitorCore] ClientID:=- -> OPENED AND INITIALIZED!!!
+<-> 02:31:16.646 | ====================================================================================================
+<-> 02:31:16.667 | {CP_ETEST_MonitorCore.ApIniGetEmailItem.B3F11AA2} Item [EMAIL] assigned with value=[]
+<-> 02:31:16.676 | {CP_ETEST_MonitorCore.ApIniGetEmailItem.B3F11AAB} Item [CC] assigned with value=[]
+<-> 02:31:16.685 | {CP_ETEST_MonitorCore.ApIniGetEmailItem.B3F11AB4} Item [SMTP] assigned with value=[]
+<-> 02:31:19.229 | {CP_ETEST_MonitorCore.InitFwCtrls.B3F12895} [MBX.Init] -> Begin: (MbxName:=fw_mbx_fwadmin,HostName:=
+                 | 172.19.50.171,PCMBXsrvName:=PCMBXsrv.21)
+<-> 02:31:19.338 | {CP_ETEST_MonitorCore.InitFwCtrls.B3F12895} [MBX.Init] <- End (Tick=99): (MbxName:=fw_mbx_fwadmin,Ho
+                 | stName:=172.19.50.171,PCMBXsrvName:=PCMBXsrv.21)
+<-> 02:31:19.347 | {CP_ETEST_MonitorCore.InitFwCtrls.B3F12895} [WF.Init] -> Begin: (MbxName:=fw_mbx_fwadmin,HostName:=1
+                 | 72.19.50.171,PCMBXsrvName:=PCMBXsrv.21)
+<-> 02:31:20.868 | {CP_ETEST_MonitorCore.InitFwCtrls.B3F12895} [WF.Init] <- End (Tick=530): (MbxName:=fw_mbx_fwadmin,Ho
+                 | stName:=172.19.50.171,PCMBXsrvName:=PCMBXsrv.21)
+<-> 02:31:20.931 | 2026/11/11 上午 02:31:20: MES AutoReconneciton Success.RetryUser :MIT01
+<-> 02:31:20.962 | ------------------------------------------- 
+<-> 02:31:20.971 | 2026/11/11 上午 02:31:20: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8P676500/SORTT1/ManualExec/
+<-> 02:31:21.005 | MES連線成功.
+<-> 02:31:21.461 | ------------------------------------------- 
+<-> 02:31:21.471 | 2026/11/11 上午 02:31:20: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TM08/IDLE
+<-> 02:31:21.487 | 2026/11/11 上午 02:31:20: Refresh EqID: TM08
+<-> 02:31:22.288 | SignalR State: Connected
+<-> 02:31:22.300 | ------------------------------------------- 
+<-> 02:31:22.310 | 2026/11/11 上午 02:31:22: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8P676500/SORTT1/ManualOK/
+<-> 02:31:22.335 | ------------------------------------------- 
+<-> 02:31:22.346 | ------------------------------------------- 
+<-> 02:31:22.357 | 2026/11/11 上午 02:31:22: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TM08/WSETUP
+<-> 02:31:22.378 | 2026/11/11 上午 02:31:22: Refresh EqID: TM08
+<-> 02:31:24.986 | 啟動Monitor初始化與更新.
+<-> 02:31:24.998 | ------------------------------------------- 
+<-> 02:31:25.008 | 2026/11/11 上午 02:31:24: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV13/REPAIR
+<-> 02:31:25.028 | 2026/11/11 上午 02:31:24: Refresh EqID: TMV13
+<-> 02:31:26.172 | ------------------------------------------- 
+<-> 02:31:26.186 | ------------------------------------------- 
+<-> 02:31:26.197 | 2026/11/11 上午 02:31:26: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/5U742106/TM01/04/SORT2/202611
+                 | 11~015650000
+<-> 02:31:26.252 | 2026/11/11 上午 02:31:26: WaferEnd的Lot與機台上的不相符, 不進行預計結束時間的計算.
+<-> 02:31:26.261 | 2026/11/11 上午 02:31:26: Monitor maintain start.
+<-> 02:31:26.291 | ------------------------------------------- 
+<-> 02:31:26.301 | 2026/11/11 上午 02:31:26: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U742106.01/SORT2/AutoExec/
+<-> 02:31:26.343 | 2026/11/11 上午 02:31:26: No Action.
+<-> 02:31:26.352 | 2026/11/11 上午 02:31:26: Monitor maintain end.
+<-> 02:31:26.364 | ------------------------------------------- 
+<-> 02:31:26.374 | 2026/11/11 上午 02:31:26: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TM01/IDLE
+<-> 02:31:26.392 | 2026/11/11 上午 02:31:26: Refresh EqID: TM01
+<-> 02:31:28.170 | 2026/11/11 上午 02:31:26: Monitor Init start.
+<-> 02:31:28.261 | ------------------------------------------- 
+<-> 02:31:28.272 | 2026/11/11 上午 02:31:28: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U742106.01/SORT2/AutoOK/Init
+<-> 02:31:28.291 | 2026/11/11 上午 02:31:28: Add 'Wait Move To Next Step' for 5U742106.01/TM01/SORT2
+<-> 02:31:28.395 | 2026/11/11 上午 02:31:28: Get UnloadType: TA for TM01
+<-> 02:31:30.995 | ------------------------------------------- 
+<-> 02:31:31.006 | 2026/11/11 上午 02:31:30: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U742106.01/SORT2/AutoOK/AutoEx
+                 | ec
+<-> 02:31:31.030 | 2026/11/11 上午 02:31:30: No Action.
+<-> 02:31:31.039 | 2026/11/11 上午 02:31:28: Refresh EqID: TA02A
+<-> 02:31:31.168 | 2026/11/11 上午 02:31:30: Get UnloadType: TA for TA02A
+<-> 02:31:31.196 | ------------------------------------------- 
+<-> 02:31:31.207 | 2026/11/11 上午 02:31:30: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/5U742106.01/SORT2/AutoOK/AutoOK
+<-> 02:31:31.232 | 2026/11/11 上午 02:31:30: No Action.
+<-> 02:31:31.241 | 2026/11/11 上午 02:31:30: Refresh EqID: TA02B
+<-> 02:31:31.385 | 2026/11/11 上午 02:31:30: Get UnloadType: TA for TA02B
+<-> 02:31:31.416 | ------------------------------------------- 
+<-> 02:31:31.426 | 2026/11/11 上午 02:31:30: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8P89810K/TMV10/12/SORTC/20261
+                 | 111~015827000
+<-> 02:31:31.909 | 2026/11/11 上午 02:31:31: Refresh ExpectEndTime.
+<-> 02:31:33.687 | 2026/11/11 上午 02:31:33: Update AGV Unload information for TMV10
+<-> 02:31:33.716 | 2026/11/11 上午 02:31:33: Update AGV Dispatch EndTime information for TMV10
+<-> 02:31:33.739 | 2026/11/11 上午 02:31:30: Refresh EqID: TA05A
+<-> 02:31:34.159 | 2026/11/11 上午 02:31:33: Get UnloadType: TA for TA05A
+<-> 02:31:34.190 | ------------------------------------------- 
+<-> 02:31:34.201 | 2026/11/11 上午 02:31:33: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q114505/TM18/01/SORT1/202611
+                 | 11~015832000
+<-> 02:31:34.467 | 2026/11/11 上午 02:31:33: Refresh ExpectEndTime.
+<-> 02:31:35.062 | 2026/11/11 上午 02:31:35: Update AGV Unload information for TM18
+<-> 02:31:35.079 | 2026/11/11 上午 02:31:35: Update AGV Dispatch EndTime information for TM18
+<-> 02:31:35.097 | 2026/11/11 上午 02:31:33: Refresh EqID: TA05B
+<-> 02:31:35.241 | 2026/11/11 上午 02:31:35: Get UnloadType: TA for TA05B
+<-> 02:31:35.268 | ------------------------------------------- 
+<-> 02:31:35.278 | 2026/11/11 上午 02:31:35: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV12/IDLE
+<-> 02:31:35.293 | 2026/11/11 上午 02:31:35: Refresh EqID: TMV12
+<-> 02:31:37.714 | 2026/11/11 上午 02:31:35: Refresh EqID: TA22A
+<-> 02:31:37.927 | 2026/11/11 上午 02:31:37: Get UnloadType: TA for TA22A
+<-> 02:31:37.956 | ------------------------------------------- 
+<-> 02:31:37.967 | 2026/11/11 上午 02:31:37: CP_ETEST_MonitorCore ReceivedMessage: ReviewUpdate/TMV13/26776862/Y
+<-> 02:31:37.980 | 2026/11/11 上午 02:31:37: SortLevel1 for EqID: TMV13
+<-> 02:31:38.417 | 2026/11/11 上午 02:31:37: Refresh EqID: TA22B
+<-> 02:31:39.632 | 2026/11/11 上午 02:31:39: Get UnloadType: TA for TA22B
+<-> 02:31:39.652 | ------------------------------------------- 
+<-> 02:31:39.663 | 2026/11/11 上午 02:31:39: CP_ETEST_MonitorCore ReceivedMessage: ReviewUpdate/TM01/26775833/Y
+<-> 02:31:39.677 | 2026/11/11 上午 02:31:39: SortLevel1 for EqID: TM01
+<-> 02:31:40.154 | 2026/11/11 上午 02:31:39: Refresh EqID: TK02
+<-> 02:31:40.208 | ------------------------------------------- 
+<-> 02:31:40.219 | 2026/11/11 上午 02:31:40: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8L542200/SORTP/AutoOK/ManualExe
+                 | c
+<-> 02:31:40.242 | 2026/11/11 上午 02:31:40: No Action.
+<-> 02:31:40.251 | 2026/11/11 上午 02:31:40: Refresh EqID: TK03
+<-> 02:31:40.286 | ------------------------------------------- 
+<-> 02:31:40.296 | 2026/11/11 上午 02:31:40: CP_ETEST_MonitorCore ReceivedMessage: ReviewUpdate/TM01/26775832/Y
+<-> 02:31:40.310 | 2026/11/11 上午 02:31:40: SortLevel1 for EqID: TM01
+<-> 02:31:42.322 | 2026/11/11 上午 02:31:40: Refresh EqID: TK04
+<-> 02:31:42.432 | ------------------------------------------- 
+<-> 02:31:42.443 | 2026/11/11 上午 02:31:42: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q321400/TMV17/04/SORTT1/2026
+                 | 1111~015936000
+<-> 02:31:43.521 | 2026/11/11 上午 02:31:42: WaferEnd的Lot與機台上的不相符, 不進行預計結束時間的計算.
+<-> 02:31:43.531 | 2026/11/11 上午 02:31:42: Refresh EqID: TK05
+<-> 02:31:43.701 | 2026/11/11 上午 02:31:43: Get UnloadType: TA for TK05
+<-> 02:31:43.735 | ------------------------------------------- 
+<-> 02:31:43.745 | 2026/11/11 上午 02:31:43: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q321400.01/SORTT1/AutoExec/
+<-> 02:31:43.773 | 2026/11/11 上午 02:31:43: No Action.
+<-> 02:31:43.782 | 2026/11/11 上午 02:31:43: Refresh EqID: TK06
+<-> 02:31:43.818 | ------------------------------------------- 
+<-> 02:31:43.829 | 2026/11/11 上午 02:31:43: CP_ETEST_MonitorCore ReceivedMessage: EqChange/TMV17/IDLE
+<-> 02:31:43.847 | 2026/11/11 上午 02:31:43: Refresh EqID: TMV17
+<-> 02:31:44.434 | 2026/11/11 上午 02:31:43: Refresh EqID: TK07
+<-> 02:31:44.476 | ------------------------------------------- 
+<-> 02:31:44.487 | 2026/11/11 上午 02:31:44: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8Q321400.01/SORTT1/AutoOK/Init
+<-> 02:31:44.510 | 2026/11/11 上午 02:31:44: Add 'Wait Move To Next Step' for 8Q321400.01/TMV17/SORTT1
+<-> 02:31:45.687 | 2026/11/11 上午 02:31:45: Get UnloadType: TA for TMV17
+<-> 02:31:46.098 | ------------------------------------------- 
+<-> 02:31:46.110 | 2026/11/11 上午 02:31:46: CP_ETEST_MonitorCore ReceivedMessage: ReviewUpdate/TM01/26775836/Y
+<-> 02:31:46.123 | {CP_ETEST_MonitorCore.UnloadTypeReview.B3F19196} !ERROR! Message bus connection was lost
+<-> 02:31:46.192 | {Error Trapped} In --> CP_ETEST_MonitorCore.UnloadTypeReview.B3F19196()!!!
+                 | Error Sequence: 
+                 | --> CP_ETEST_MonitorCore.UnloadTypeReview.B3F19196
+                 | --> Error: (41224) --> Error: (41224) Message bus connection was lost
+<-> 02:31:46.203 | 2026/11/11 上午 02:31:46: SortLevel1 for EqID: TM01
+<-> 02:31:46.215 | {CP_ETEST_MonitorCore.Level1Sort.B3F191F3} !ERROR! Message bus connection was lost
+<-> 02:31:46.278 | {Error Trapped} In --> CP_ETEST_MonitorCore.Level1Sort.B3F191F3()!!!
+                 | Error Sequence: 
+                 | --> CP_ETEST_MonitorCore.Level1Sort.B3F191F3
+                 | --> Error: (41224) --> Error: (41224) Message bus connection was lost
+<-> 02:31:46.287 | {CP_ETEST_MonitorCore.InitFwCtrls.B3F19153} [MBX.Init] -> Begin: (MbxName:=fw_mbx_fwadmin,HostName:=
+                 | 172.19.50.171,PCMBXsrvName:=PCMBXsrv.21)
+<-> 02:31:46.381 | {CP_ETEST_MonitorCore.InitFwCtrls.B3F19153} [MBX.Init] <- End (Tick=94): (MbxName:=fw_mbx_fwadmin,Ho
+                 | stName:=172.19.50.171,PCMBXsrvName:=PCMBXsrv.21)
+<-> 02:31:46.390 | {CP_ETEST_MonitorCore.InitFwCtrls.B3F19153} [WF.Init] -> Begin: (MbxName:=fw_mbx_fwadmin,HostName:=1
+                 | 72.19.50.171,PCMBXsrvName:=PCMBXsrv.21)
+<-> 02:31:46.403 | ------------------------------------------- 
+<-> 02:31:46.413 | 2026/11/11 上午 02:31:46: CP_ETEST_MonitorCore ReceivedMessage: LotEnd/8L542200/SORTP/AutoOK/ManualOK
+<-> 02:31:47.374 | 2026/11/11 上午 02:31:47: No Action.
+<-> 02:31:47.386 | ------------------------------------------- 
+<-> 02:31:47.397 | 2026/11/11 上午 02:31:47: CP_ETEST_MonitorCore ReceivedMessage: ReviewUpdate/TM01/26775834/Y
+<-> 02:31:47.413 | 2026/11/11 上午 02:31:47: SortLevel1 for EqID: TM01
+<-> 02:31:49.163 | ------------------------------------------- 
+<-> 02:31:49.175 | 2026/11/11 上午 02:31:49: CP_ETEST_MonitorCore ReceivedMessage: WaferEnd/8Q219500/TMV06/22/SORT2/20261
+                 | 111~015940000
+<-> 02:31:49.335 | 2026/11/11 上午 02:31:49: Refresh ExpectEndTime.
+<-> 02:31:51.671 | 2026/11/11 上午 02:31:51: Update AGV Unload information for TMV06
+<-> 02:31:51.686 | 2026/11/11 上午 02:31:51: Update AGV Dispatch EndTime information for TMV06
