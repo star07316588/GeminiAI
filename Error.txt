@@ -1,1 +1,7 @@
--ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\您的腳本存放路徑\Monitor-Process.ps1"
+寫一個powershell去監控工作管理員的詳細資料存放於C:\Windows\SysWOW64\FwClient\Exe\LogFile\ProcessDetail，並by天記錄成一份excel檔案，ex:ProcessDetail_20261111.xlsx
+
+內容包含 名稱, PID, 狀態, 使用者名稱, CPU, 記憶體, 紀錄的時間(YYYY/MM/DD hh:mm:ss)
+
+若過了當天就會寫一份新的Excel檔案
+
+然後請清除超過30天的Excel檔案,僅保留一個月
