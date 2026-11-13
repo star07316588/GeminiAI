@@ -1,7 +1,1 @@
-寫一個powershell去監控工作管理員的詳細資料存放於C:\Windows\SysWOW64\FwClient\Exe\LogFile\ProcessDetail，並by天記錄成一份excel檔案，ex:ProcessDetail_20261111.xlsx
-
-內容包含 名稱, PID, 狀態, 使用者名稱, CPU, 記憶體, 紀錄的時間(YYYY/MM/DD hh:mm:ss)
-
-若過了當天就會寫一份新的Excel檔案
-
-然後請清除超過30天的Excel檔案,僅保留一個月
+PE21986760LFFI                3         20261112 194605000REPAIR_OK           針位,AC                                           清針                                              Needle adjustment        10868R    239       239       245       9         13        SB        125       TMV13     110                           PM OK     Bin71 s404-407a,s443-446a,s753-756a,s799-802a. Bin99 s9-10a,s33-34a,s56-58a,s79-80a,s485-488a,s846-849a, s893-896a,s940-943a,s988-991a,s1036-1037a. 詳見5U707300SB#6                                                                                                                                        
