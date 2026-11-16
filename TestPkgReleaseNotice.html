@@ -1,0 +1,248 @@
+<template>
+  <div id="app" class="container-fluid mt-3 test-pkg-release-notice">
+    <!-- 標題區塊 -->
+    <div class="row mb-2">
+      <div class="col-12">
+        <h4 class="text-primary"><i class="fas fa-search"></i> TestPkgReleaseNotice</h4>
+      </div>
+    </div>
+
+    <!-- 查詢條件區塊 (Select Criteria to query) -->
+    <fieldset class="border p-3 mb-3 shadow-sm rounded">
+      <legend class="w-auto px-2 text-primary font-weight-bold" style="font-size: 1.1rem;">Select Criteria to query</legend>
+      
+      <div class="row form-group align-items-center mb-2">
+        <!-- 左欄 -->
+        <div class="col-md-2 text-right">
+          <label class="font-weight-bold">PEIS Prod Code :</label>
+        </div>
+        <div class="col-md-3">
+          <input type="text" class="form-control form-control-sm" v-model="queryForm.tdsProdCode" @keyup.enter="executeQuery" />
+        </div>
+        
+        <!-- 右欄 -->
+        <div class="col-md-2 text-right">
+          <label class="font-weight-bold">Step Name :</label>
+        </div>
+        <div class="col-md-3">
+          <select class="form-control form-control-sm" v-model="queryForm.stepName">
+            <option value=""></option>
+            <option v-for="item in initData.stepNames" :key="item" :value="item">{{ item }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row form-group align-items-center mb-2">
+        <div class="col-md-2 text-right">
+          <label class="font-weight-bold">Prod Group :</label>
+        </div>
+        <div class="col-md-3">
+          <input type="text" class="form-control form-control-sm" v-model="queryForm.prodGroup" @keyup.enter="executeQuery" />
+        </div>
+        
+        <div class="col-md-2 text-right">
+          <label class="font-weight-bold">Eq Type2 :</label>
+        </div>
+        <div class="col-md-3">
+          <select class="form-control form-control-sm" v-model="queryForm.eqType2s">
+            <option value=""></option>
+            <option v-for="item in initData.eqType2s" :key="item" :value="item">{{ item }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row form-group align-items-center mb-2">
+        <div class="col-md-2 text-right">
+          <label class="font-weight-bold">Pkg Type :</label>
+        </div>
+        <div class="col-md-3">
+          <select class="form-control form-control-sm" v-model="queryForm.pkgType">
+            <option value=""></option>
+            <option v-for="item in initData.pkgTypes" :key="item" :value="item">{{ item }}</option>
+          </select>
+        </div>
+        
+        <div class="col-md-2 text-right">
+          <label class="font-weight-bold">Sub System :</label>
+        </div>
+        <div class="col-md-3">
+          <select class="form-control form-control-sm" v-model="queryForm.subSystem">
+            <option value=""></option>
+            <option v-for="item in initData.subSystems" :key="item" :value="item">{{ item }}</option>
+          </select>
+        </div>
+        
+        <!-- 查詢按鈕 -->
+        <div class="col-md-2 text-right">
+          <button class="btn btn-primary btn-sm px-4" @click="executeQuery" :disabled="isLoading">
+            <i class="fas fa-spinner fa-spin" v-if="isLoading"></i> Query Confirm
+          </button>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- Grid 顯示區塊 (Lot Information) -->
+    <fieldset class="border p-3 mb-3 shadow-sm rounded">
+      <legend class="w-auto px-2 text-primary font-weight-bold" style="font-size: 1.1rem;">Lot Information</legend>
+      
+      <!-- 此處以原生 Table 呈現，若專案使用 jqGrid，請將此段改為 <table id="spdLotInfo"></table> -->
+      <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+        <table class="table table-bordered table-hover table-sm text-center">
+          <thead class="thead-light" style="position: sticky; top: 0; z-index: 1;">
+            <tr>
+              <th>TdsProdCode</th>
+              <th>ProdGroup</th>
+              <th>PkgType</th>
+              <th>PinCount</th>
+              <th>StepName</th>
+              <th>EqType2</th>
+              <th>SubSystem</th>
+              <th>UPH</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="gridData.length === 0">
+              <td colspan="8" class="text-muted py-3">No Data Available</td>
+            </tr>
+            <tr v-for="(row, index) in gridData" :key="index">
+              <td>{{ row.TdsProdCode }}</td>
+              <td>{{ row.ProdGroup }}</td>
+              <td>{{ row.PkgType }}</td>
+              <td>{{ row.PinCount }}</td>
+              <td>{{ row.StepName }}</td>
+              <td>{{ row.EqType2 }}</td>
+              <td>{{ row.SubSystem }}</td>
+              <td>{{ row.Uph }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </fieldset>
+
+    <!-- 底部控制按鈕 -->
+    <div class="row">
+      <div class="col-12 text-right">
+        <button class="btn btn-secondary btn-sm px-4" @click="closeForm">Close</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+// 假設專案有統整的 axios 實例或共用 function，請依循專案架構引入
+// import axios from 'axios';
+// import Swal from 'sweetalert2';
+
+export default {
+  name: 'TestPkgReleaseNotice',
+  data() {
+    return {
+      isLoading: false,
+      // 綁定查詢條件的 Model
+      queryForm: {
+        tdsProdCode: '',
+        prodGroup: '',
+        pkgType: '',
+        stepName: '',
+        eqType2s: '',
+        subSystem: ''
+      },
+      // 存放下拉選單的初始資料
+      initData: {
+        pkgTypes: [],
+        stepNames: [],
+        eqType2s: [],
+        subSystems: []
+      },
+      // Grid 資料源
+      gridData: []
+    };
+  },
+  mounted() {
+    // 畫面載入時取得下拉選單資料 (對應原 VB6 InitComboBox)
+    this.fetchInitData();
+  },
+  methods: {
+    // 初始化下拉選單資料
+    async fetchInitData() {
+      try {
+        const response = await axios.get('/api/TestPkgReleaseNotice/InitData');
+        if (response.data && response.data.success) {
+          this.initData = response.data.data;
+        } else {
+          this.showAlert('Error', '載入選單資料失敗: ' + response.data.message, 'error');
+        }
+      } catch (error) {
+        console.error('Fetch InitData Error:', error);
+        this.showAlert('Error', '無法連線至伺服器取得初始資料。', 'error');
+      }
+    },
+
+    // 執行查詢 (對應原 VB6 cmdQuery_Click 與 ExecQuery)
+    async executeQuery() {
+      // 防呆：確認至少有一個條件有值
+      const form = this.queryForm;
+      if (!form.tdsProdCode && !form.prodGroup && !form.pkgType && 
+          !form.stepName && !form.eqType2s && !form.subSystem) {
+        this.showAlert('Warning', 'Pls input Query Criteria !!<br/>請輸入查詢條件 !!', 'warning');
+        return;
+      }
+
+      this.isLoading = true;
+      this.gridData = []; // 清空前次查詢結果
+
+      try {
+        const response = await axios.post('/api/TestPkgReleaseNotice/Query', this.queryForm);
+        
+        if (response.data && response.data.success) {
+          this.gridData = response.data.data;
+          
+          if (this.gridData.length === 0) {
+            this.showAlert('Info', '無符合條件之資料 !!', 'info');
+          }
+        } else {
+          this.showAlert('Error', '查詢失敗: ' + response.data.message, 'error');
+        }
+      } catch (error) {
+        console.error('Query Error:', error);
+        this.showAlert('Error', '伺服器執行查詢時發生例外錯誤。', 'error');
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    // 關閉視窗 (對應原 VB6 cmdCancel_Click)
+    closeForm() {
+      // 根據 MES 專案的頁籤機制或視窗機制決定行為
+      // 例如：window.close() 或觸發 Vue Router 的返回
+      console.log('Close button clicked');
+      // this.$router.back();
+      window.close();
+    },
+
+    // 統一的提示訊息封裝 (建議使用 SweetAlert2)
+    showAlert(title, htmlMessage, iconType) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: title,
+          html: htmlMessage,
+          icon: iconType,
+          confirmButtonText: 'OK'
+        });
+      } else {
+        alert(htmlMessage.replace('<br/>', '\n'));
+      }
+    }
+  }
+};
+</script>
+
+<style scoped>
+/* 針對介面微調，符合傳統 MES 緊湊型設計 */
+.test-pkg-release-notice fieldset legend {
+  background-color: #fff;
+}
+.test-pkg-release-notice .form-group {
+  margin-bottom: 0.5rem;
+}
+</style>
