@@ -701,104 +701,110 @@ computed: {
                 async doPrint() {
                     if (this.isBinCardMode) { VMessageBox.alert('FT BIN CARD 標籤請使用右方的 Pass / Fail 按鈕進行列印！'); return; }
                     if (!this.form.printerServer || !this.form.labelFormat) { VMessageBox.alert('請選擇完整的伺服器與標籤格式！'); return; }
-
-                    // 💡 將 lotsToPrint 升級為「物件陣列」，以便儲存 LotId, IPN, 數量等附加資訊
+                
                     let lotsToPrint = [];
-                    
+                
                     if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) {
                         if (!this.form.labelData.trim() || !this.form.subProductNo) { VMessageBox.alert('請輸入 LOT NO 並確認批號資訊已載入！'); return; }
                         if (this.form.boxQty <= 0) { VMessageBox.alert('請輸入正確的 Box Qty (箱數)！'); return; }
-                        lotsToPrint.push({ 
-                            lotId: this.form.labelData.trim(), 
-                            ipn: this.form.subProductNo, 
-                            cQty: this.form.subQty, 
-                            wQty: this.form.subWaferQty 
+                        lotsToPrint.push({
+                            lotId: this.form.labelData.trim(),
+                            ipn: this.form.subProductNo,
+                            partNo: this.isRenesasMode ? this.form.subPartNo : '',
+                            cQty: this.form.subQty,
+                            wQty: this.form.subWaferQty
                         });
                     }
                     else if (this.isTrLabelMode) {
                         if (!this.form.labelData.trim() || !this.form.trReelId) { VMessageBox.alert('請輸入 Lot NO 並確認 Reel ID 是否選定！'); return; }
-                        lotsToPrint.push({ 
-                            lotId: this.form.labelData.trim(), 
-                            ipn: this.form.trIpn, 
-                            waferId: this.form.trReelId 
+                        lotsToPrint.push({
+                            lotId: this.form.labelData.trim(),
+                            ipn: this.form.trIpn,
+                            cQty: this.form.trQtyReel ? this.form.trQtyReel.toString() : '',
+                            waferId: this.form.trReelId
                         });
                     }
                     else if (this.isLabelPackEnabled) {
-                        // 💡 修正：針對 FT_Label_PACK_INFO 區分 Auto 與 Manual
                         if (this.form.lpiMode === 'Manual') {
                             if (!this.form.lpiLabelSpecNo || !this.form.packageCode) { VMessageBox.alert('請選擇完整的 Label Pack 手動參數！'); return; }
-                            lotsToPrint.push({ lotId: '', ipn: '' }); // 手動模式不依賴 IPN 查詢
+                            lotsToPrint.push({ lotId: '', ipn: '' });
                         } else {
                             if (!this.form.labelData.trim()) { VMessageBox.alert('Auto 模式請輸入 LOT NO！'); return; }
-                            // 💡 關鍵：Auto 模式下，必須確保 IPN 有被傳入 (我們可以透過額外的欄位或直接送出讓後端去查)
-                            lotsToPrint.push({ 
-                                lotId: this.form.labelData.trim(), 
-                                // 若 LPI 畫面上沒有獨立顯示 IPN 的文字框，可以暫時傳空字串，
-                                // 並讓後端 C# 在 GetLabelSpecInfoAsync 前主動用 LotId 查一次 IPN
-                                ipn: '' 
-                            });
+                            lotsToPrint.push({ lotId: this.form.labelData.trim(), ipn: '' });
                         }
-                    } 
+                    }
                     else if (this.isLotListEnabled || this.isWsEngShelfMode) {
+                        // 💡 確保表格模式完整收集 lotOwner 與 route (例如 PP01)
                         lotsToPrint = this.lotList
                             .filter(row => row.checked && row.lotNo.trim() !== '')
                             .map(row => ({
                                 lotId: row.lotNo.trim(),
-                                ipn: row.productNo,
-                                cQty: row.chipQty,
-                                wQty: row.waferQty,
-                                // 💡 新增：將 lotOwner 與 route 一併收集送出
-                                lotOwner: row.lotOwner,
-                                route: row.route 
+                                ipn: row.productNo || '',
+                                cQty: row.chipQty || '',
+                                wQty: row.waferQty || '',
+                                lotOwner: row.lotOwner || '',
+                                route: row.route || ''
                             }));
-                        
+                
                         if (lotsToPrint.length === 0) { VMessageBox.alert('請至少勾選一筆 Lot 才能列印！'); return; }
                     }
                     else {
                         if (!this.form.labelData.trim() && this.form.printMode !== 'Reprint') { VMessageBox.alert('請輸入 LOT NO 或 Label Data！'); return; }
                         lotsToPrint.push({ lotId: this.form.labelData.trim() });
                     }
-
+                
                     let finalPrintMode = this.form.printMode;
                     if (this.isLabelPackEnabled) finalPrintMode = this.form.lpiMode;
-                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) finalPrintMode = 'Normal'; 
-
+                    if (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) finalPrintMode = 'Normal';
+                
+                    // 💡 統一取得登入工號，避免 UserId 傳入 null
+                    const loginUser = sessionStorage.getItem('mes_loginId')
+                        || this.form.subPacker
+                        || (window.checkAuth && window.checkAuth().userName)
+                        || 'System';
+                
                     document.body.style.cursor = 'wait'; this.setStatus('PRINTING...', 'info');
                     try {
                         let allSuccess = true; let errorMsg = '';
-                        
+                
                         for (const item of lotsToPrint) {
                             const payload = {
-                                Stage: this.form.stage, 
-                                LabelFormat: this.form.labelFormat, 
+                                Stage: this.form.stage,
+                                LabelFormat: this.form.labelFormat,
                                 LotId: item.lotId,
-                                PrintMode: finalPrintMode, 
+                                PrintMode: finalPrintMode,
                                 PrinterServer: this.form.printerServer,
-                                BoxQty: this.form.boxQty, 
+                                BoxQty: this.form.boxQty,
                                 PrintQty: this.form.printQty,
                                 SearchData: this.form.searchData,
-                                
+                
                                 WaferId: item.waferId || '',
                                 IPN: item.ipn || '',
+                                PartNo: item.partNo || '',
                                 CQty: item.cQty || '',
                                 WQty: item.wQty || '',
-                                
-                                // 💡 新增：將畫面上已有的 PartNo 直接傳給後端
-                                PartNo: this.isRenesasMode ? this.form.subPartNo : (item.partNo || ''),
-                                
-                                UserId: (this.isSubLabelMode || this.isRenesasMode || this.isWsSummaryMode) ? this.form.subPacker : (window.checkAuth ? window.checkAuth().userName : 'System')
+                
+                                // 💡 補回 LotOwner、Route 與 RouteId，確保兩者皆能接到 PP01
+                                LotOwner: item.lotOwner || '',
+                                Route: item.route || '',
+                                RouteId: item.route || '',
+                
+                                UserId: loginUser
                             };
-                            
+                
                             if (this.isLabelPackEnabled) {
-                                payload.LabelSpecNo = this.form.lpiLabelSpecNo; payload.CarrierType = this.form.carrierType;
-                                payload.BoxingSpecNo = this.form.boxingSpecNo; payload.Brand = this.form.brand;
-                                payload.PinCount = this.form.pinCount; payload.PackageCode = this.form.packageCode;
+                                payload.LabelSpecNo = this.form.lpiLabelSpecNo;
+                                payload.CarrierType = this.form.carrierType;
+                                payload.BoxingSpecNo = this.form.boxingSpecNo;
+                                payload.Brand = this.form.brand;
+                                payload.PinCount = this.form.pinCount;
+                                payload.PackageCode = this.form.packageCode;
                             }
-                            
+                
                             const res = await this.executeSinglePrint(payload);
                             if (!res.Success) { allSuccess = false; errorMsg += `Lot [${item.lotId}] 失敗: ${res.Message}\n`; }
                         }
-                        
+                
                         if (allSuccess) { VMessageBox.alert('標籤列印指令已全數成功送出！'); this.setStatus('PRINT SUCCESS', 'success'); }
                         else { VMessageBox.alert(errorMsg); this.setStatus('COMPLETED WITH ERRORS', 'warning'); }
                     } finally { document.body.style.cursor = 'default'; }
