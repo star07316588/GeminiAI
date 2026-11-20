@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CP Auto Monitor</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        .action-cell {
+            white-space: pre-line;
+            line-height: 1.4;
+        }
+        .action-alert {
+            color: #d32f2f;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" data-app>
+        <div class="page-layout">
+            <mes-toolbar title="CP Auto Monitor"></mes-toolbar>
+
+            <div class="page-body">
+                <mes-action-bar :buttons="actionButtons"
+                                :auto-add-close="true"
+                                @action="onAction"></mes-action-bar>
+
+                <div>
+                    <mes-query-result ref="resultGrid"
+                                      title="CP Auto Monitor"
+                                      :columns="colGrid"
+                                      :summary="summary"
+                                      :data="dataList"
+                                      :selectable="0"
+                                      style="height: calc(100vh - 175px);">
+                    </mes-query-result>
+                </div>
+            </div>
+
+            <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
+        </div>
+    </div>
+
+    <script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/tabulator.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+    <script src="/Scripts/mes-query-result.js?v=260522"></script>
+
+    <script>
+        Vue.use(VMessageBox);
+
+        var vapp = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    isLoading: false,
+                    dataList: [],
+                    colGrid: [
+                        { title: 'EqID', field: 'EqID', width: 90 },
+                        { title: 'LotID', field: 'LotID', width: 120 },
+                        { title: 'StepName', field: 'StepName', width: 100 },
+                        {
+                            title: 'Action',
+                            field: 'Action',
+                            width: 420,
+                            formatter: function (cell) {
+                                const val = cell.getValue() || '';
+                                const rowData = cell.getRow().getData();
+                                const isAlert = rowData.IsAlert || rowData.isAlert;
+                                const cls = isAlert ? 'action-cell action-alert' : 'action-cell';
+                                return `<div class="${cls}">${val}</div>`;
+                            }
+                        },
+                        { title: 'StepNo', field: 'StepNo', width: 90 },
+                        { title: 'LotStatus', field: 'LotStatus', width: 95 },
+                        { title: 'CurrentRule', field: 'CurrentRule', width: 110 },
+                        { title: 'TdsTestSumTime', field: 'TdsTestSumTime', width: 165 },
+                        { title: 'CPAutoStatusTime', field: 'CPAutoStatusTime', width: 165 },
+                        { title: 'LotEndStatus', field: 'LotEndStatus', width: 120 },
+                        { title: 'LotCompleteStatus', field: 'LotCompleteStatus', width: 140 },
+                        { title: 'Comments', field: 'Comments', width: 220 }
+                    ],
+                    statusMsg: 'READY',
+                    statusMsgType: ''
+                };
+            },
+
+            computed: {
+                actionButtons() {
+                    return [
+                        { action: 'refresh', label: 'Refresh', icon: 'mdi-refresh', color: 'primary', disabled: this.isLoading }
+                    ];
+                },
+                summary() {
+                    return [{ label: 'TOTAL LOTS', value: this.dataList.length }];
+                }
+            },
+
+            mounted() {
+                // 畫面載入後自動執行查詢 (對應原 VB6 Form_Activate)
+                this.doRefresh();
+            },
+
+            methods: {
+                async doRefresh() {
+                    if (this.isLoading) return;
+                    this.isLoading = true;
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('REFRESHING...', 'info');
+
+                    try {
+                        const response = await mesfetch("/api/CPAutoMonitor/Query");
+                        if (response.success || response.Success) {
+                            this.dataList = response.data || response.Data || [];
+                            this.$nextTick(() => {
+                                if (this.$refs.resultGrid) this.$refs.resultGrid.setData(this.dataList);
+                            });
+                            this.setStatus('REFRESH SUCCESS', 'success');
+                        } else {
+                            VMessageBox.alert(response.message || response.Message || '查詢發生異常');
+                            this.setStatus('REFRESH FAILED', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Refresh Error:', error);
+                        VMessageBox.alert('查詢發生錯誤', 'Error');
+                        this.setStatus('REFRESH FAILED', 'error');
+                    } finally {
+                        this.isLoading = false;
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                doClose() {
+                    window.location.href = '/Content/F5.html';
+                },
+
+                onAction(action) {
+                    const map = {
+                        refresh: this.doRefresh,
+                        close: this.doClose
+                    };
+                    if (map[action]) map[action].call(this);
+                },
+
+                setStatus(msg, type) {
+                    this.statusMsg = msg;
+                    this.statusMsgType = type || '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
