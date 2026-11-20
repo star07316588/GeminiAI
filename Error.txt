@@ -1,12 +1,11 @@
-因為Comment是Oracle系統保留字，故會出現錯誤
-ORA-00923: 在應出現的位置找不到 FROM 關鍵字
-
-SELECT a.IP            AS IP,
-       a.AREA          AS Area,
-       a.MONITORSYSTEM AS SystemName,
-       a.COMMENTS      AS Comment
-  FROM TBL_MONITORPC_SYSTEMVERSION_IP a
- WHERE a.DELETEFLAG = 'N'
-   AND a.AREA = :Area
-   AND a.MONITORSYSTEM = :SystemName
- ORDER BY a.IP
+<!-- 1. 移除 persistent，滑鼠點擊視窗外或按 ESC 即可關閉 -->
+<v-dialog v-model="detailDialog" max-width="650px">
+    <v-card>
+        ...
+        <v-card-actions class="px-4 pb-3 pt-0">
+            <v-spacer></v-spacer>
+            <!-- 2. 套用深色高對比樣式 -->
+            <v-btn class="btn-dialog-close" small depressed @click="detailDialog = false">Close</v-btn>
+        </v-card-actions>
+    </v-card>
+</v-dialog>
