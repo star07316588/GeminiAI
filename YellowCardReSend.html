@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReSendYellowCardData</title>
+
+    <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
+    <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
+    <link href="/Content/css/slimselect.css" rel="stylesheet">
+    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
+    <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+</head>
+<body>
+    <div id="app" data-app>
+        <div class="page-layout">
+            <mes-toolbar title="ReSendYellowCardData (YellowCardReSend)"></mes-toolbar>
+
+            <div class="page-body">
+                <!-- 輸入/刷入 LotId 加入清單 -->
+                <mes-search-criteria title="Add Lot"
+                                     :fields="criteriaFields"
+                                     :cols="1"
+                                     v-model="qry"
+                                     ref="criteria"
+                                     @enter="doAddLot"
+                                     style="max-width: 450px"></mes-search-criteria>
+
+                <mes-action-bar :buttons="actionButtons"
+                                :auto-add-close="true"
+                                @action="onAction"></mes-action-bar>
+
+                <!-- 批號清單 (支援多選勾選) -->
+                <div>
+                    <mes-query-result ref="resultGrid"
+                                      title="Yellow Card Lot List"
+                                      :columns="colGrid"
+                                      :summary="summary"
+                                      :data="dataList"
+                                      :selectable="true"
+                                      @rowSelected="syncSelectedRows"
+                                      @rowDeselected="syncSelectedRows"
+                                      style="height: calc(100vh - 280px);">
+                    </mes-query-result>
+                </div>
+            </div>
+
+            <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
+        </div>
+    </div>
+
+    <script src="/Scripts/vue.min.js"></script>
+    <script src="/Scripts/vuetify.min.js"></script>
+    <script src="/Scripts/tabulator.min.js"></script>
+    <script src="/Scripts/slimselect.js"></script>
+    <script src="/Scripts/mes-util.js?v=260522"></script>
+    <script src="/Scripts/mes-search-criteria.js"></script>
+    <script src="/Scripts/mes-action-bar.js"></script>
+    <script src="/Scripts/mes-query-result.js?v=260522"></script>
+
+    <script>
+        Vue.use(VMessageBox);
+
+        var vapp = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    isLoading: false,
+                    qry: {
+                        lotId: ''
+                    },
+                    criteriaFields: [
+                        { key: 'lotId', label: 'LotId :', type: 'input', placeholder: '輸入或刷入 LotId 後按 Enter 加入' }
+                    ],
+                    dataList: [],
+                    selectedRows: [],
+                    colGrid: [
+                        {
+                            formatter: 'rowSelection',
+                            titleFormatter: 'rowSelection',
+                            hozAlign: 'center',
+                            headerSort: false,
+                            width: 45
+                        },
+                        { title: 'LotId', field: 'LotId', width: 140 },
+                        { title: 'IPN', field: 'IPN', width: 160 },
+                        { title: 'Qty', field: 'Qty', width: 90, hozAlign: 'right' },
+                        { title: 'Location', field: 'Location', width: 140 },
+                        { title: 'Datecode', field: 'Datecode', width: 110 },
+                        { title: 'PackageName', field: 'PackageName', width: 150 },
+                        { title: 'Bodysize', field: 'Bodysize', width: 120 }
+                    ],
+                    statusMsg: 'READY',
+                    statusMsgType: ''
+                };
+            },
+
+            computed: {
+                actionButtons() {
+                    return [
+                        { action: 'addLot', label: 'Add Lot', icon: 'mdi-plus', color: 'primary', disabled: this.isLoading },
+                        { action: 'selectAll', label: 'Select All', icon: 'mdi-checkbox-multiple-marked-outline' },
+                        { action: 'clearAll', label: 'Clear All', icon: 'mdi-checkbox-multiple-blank-outline' },
+                        { action: 'send', label: 'Send', icon: 'mdi-send', color: 'success', disabled: this.isLoading || this.selectedRows.length === 0 }
+                    ];
+                },
+
+                summary() {
+                    return [
+                        { label: 'TOTAL', value: this.dataList.length },
+                        { label: 'SELECTED', value: this.selectedRows.length }
+                    ];
+                }
+            },
+
+            methods: {
+                /* ── 查詢並加入 Lot 至清單 ── */
+                async doAddLot() {
+                    const lotId = (this.qry.lotId || '').trim();
+                    if (!lotId) {
+                        VMessageBox.alert('請輸入 LotId !!');
+                        return;
+                    }
+
+                    // 避免重複加入同一批號
+                    if (this.dataList.some(x => (x.LotId || x.lotId) === lotId)) {
+                        VMessageBox.alert(`LotId : ${lotId} 已在清單中。`);
+                        this.qry.lotId = '';
+                        return;
+                    }
+
+                    this.isLoading = true;
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('QUERYING LOT...', 'info');
+
+                    try {
+                        const response = await mesfetch(`/api/YellowCardReSend/LotInfo?lotId=${encodeURIComponent(lotId)}`);
+                        if (response.success || response.Success) {
+                            const item = response.data || response.Data;
+                            this.dataList.push(item);
+
+                            this.$nextTick(() => {
+                                const tab = this.getTabulator();
+                                if (tab) {
+                                    tab.setData(this.dataList).then(() => {
+                                        // 預設勾選剛加入的批號 (對應原 VB6 GetLotInfo 自動勾選)
+                                        const rows = tab.getRows();
+                                        if (rows.length > 0) {
+                                            rows[rows.length - 1].select();
+                                        }
+                                        this.syncSelectedRows();
+                                    });
+                                }
+                            });
+
+                            this.qry.lotId = '';
+                            this.setStatus(`ADDED ${lotId}`, 'success');
+                        } else {
+                            VMessageBox.alert(response.message || response.Message || '查無此批號');
+                            this.setStatus('LOT CHECK FAILED', 'error');
+                        }
+                    } catch (error) {
+                        console.error('GetLotInfo Error:', error);
+                        VMessageBox.alert('查詢批號資訊發生錯誤', 'Error');
+                        this.setStatus('ERROR', 'error');
+                    } finally {
+                        this.isLoading = false;
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                /* ── Select All / Clear All ── */
+                doSelectAll() {
+                    const tab = this.getTabulator();
+                    if (tab) {
+                        tab.selectRow();
+                        this.syncSelectedRows();
+                    }
+                },
+
+                doClearAll() {
+                    const tab = this.getTabulator();
+                    if (tab) {
+                        tab.deselectRow();
+                        this.syncSelectedRows();
+                    }
+                },
+
+                /* ── 送出重送黃卡資料 ── */
+                async doSend() {
+                    this.syncSelectedRows();
+                    if (this.selectedRows.length === 0) {
+                        VMessageBox.alert('請至少勾選一筆資料 !!');
+                        return;
+                    }
+
+                    this.isLoading = true;
+                    document.body.style.cursor = 'wait';
+                    this.setStatus('SENDING...', 'info');
+
+                    try {
+                        const req = {
+                            UserId: localStorage.getItem('userId') || '', // 依貴司系統取得登入者方式調整
+                            Items: this.selectedRows
+                        };
+
+                        const response = await mesfetch("/api/YellowCardReSend/Send", req);
+                        if (response.success || response.Success) {
+                            VMessageBox.alert(response.message || response.Message || '送出成功 !!');
+                            this.dataList = [];
+                            this.selectedRows = [];
+                            if (this.$refs.resultGrid) this.$refs.resultGrid.setData([]);
+                            this.setStatus('SEND SUCCESS', 'success');
+                        } else {
+                            VMessageBox.alert(response.message || response.Message || '送出失敗');
+                            this.setStatus('SEND FAILED', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Send Error:', error);
+                        VMessageBox.alert('送出資料時發生錯誤', 'Error');
+                        this.setStatus('SEND ERROR', 'error');
+                    } finally {
+                        this.isLoading = false;
+                        document.body.style.cursor = 'default';
+                    }
+                },
+
+                getTabulator() {
+                    if (this.$refs.resultGrid && this.$refs.resultGrid.getTabulator) {
+                        return this.$refs.resultGrid.getTabulator();
+                    }
+                    return null;
+                },
+
+                syncSelectedRows() {
+                    const tab = this.getTabulator();
+                    this.selectedRows = tab ? tab.getSelectedData() : [];
+                },
+
+                doClose() {
+                    window.location.href = '/Content/F5.html';
+                },
+
+                onAction(action) {
+                    const map = {
+                        addLot: this.doAddLot,
+                        selectAll: this.doSelectAll,
+                        clearAll: this.doClearAll,
+                        send: this.doSend,
+                        close: this.doClose
+                    };
+                    if (map[action]) map[action].call(this);
+                },
+
+                setStatus(msg, type) {
+                    this.statusMsg = msg;
+                    this.statusMsgType = type || '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
