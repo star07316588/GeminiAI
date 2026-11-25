@@ -7,9 +7,65 @@
 
     <link href="/Content/css/mdi/materialdesignicons.min.css" rel="stylesheet">
     <link href="/Content/css/vuetify/vuetify.min.css" rel="stylesheet">
-    <link href="/Content/css/slimselect.css" rel="stylesheet">
-    <link href="/Content/css/tabulator.min.css" rel="stylesheet">
     <link href="/Content/css/site.css?v=260522" rel="stylesheet">
+
+    <style>
+        .form-panel {
+            background: #fff;
+            border: 1px solid #d0d7de;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .form-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #1565C0;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .grid-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .grid-table th,
+        .grid-table td {
+            border: 1px solid #ccc;
+            padding: 4px 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .grid-table thead th {
+            background-color: #f0f3f7;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .grid-table input[type="text"] {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 3px 6px;
+            font-size: 13px;
+            background-color: #fff;
+        }
+        .grid-table input[type="text"]:focus {
+            outline: none;
+            border-color: #1976d2;
+            background-color: #f5faff;
+        }
+        .grid-table input[type="text"][readonly] {
+            background-color: #e9ecef;
+            color: #333;
+            border-color: #d6d8db;
+            cursor: default;
+        }
+    </style>
 </head>
 <body>
     <div id="app" data-app>
@@ -17,32 +73,79 @@
             <mes-toolbar title="ReSendYellowCardData (YellowCardReSend)"></mes-toolbar>
 
             <div class="page-body">
-                <!-- 輸入/刷入 LotId 加入清單 -->
-                <mes-search-criteria title="Add Lot"
-                                     :fields="criteriaFields"
-                                     :cols="1"
-                                     v-model="qry"
-                                     ref="criteria"
-                                     @enter="doAddLot"
-                                     style="max-width: 450px"></mes-search-criteria>
+                <!-- 可直接編輯 LotId 的表格區塊 -->
+                <div class="form-panel">
+                    <div class="form-title">
+                        <i class="mdi mdi-table"></i> Lot List
+                        <span style="float: right; font-weight: normal; font-size: 12px; color: #555;">
+                            TOTAL: {{ validLotCount }} | SELECTED: {{ selectedRows.length }}
+                        </span>
+                    </div>
 
+                    <div style="overflow-x: auto; max-height: calc(100vh - 230px); overflow-y: auto;">
+                        <table class="grid-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 45px;">No.</th>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" @change="toggleAllLots" v-model="allLotsChecked">
+                                    </th>
+                                    <th style="width: 150px;">LotId</th>
+                                    <th style="width: 160px;">IPN</th>
+                                    <th style="width: 90px;">Qty</th>
+                                    <th style="width: 140px;">Location</th>
+                                    <th style="width: 110px;">Datecode</th>
+                                    <th style="width: 150px;">PackageName</th>
+                                    <th style="width: 120px;">Bodysize</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(row, index) in lotList" :key="index">
+                                    <td>{{ index + 1 }}</td>
+                                    <td>
+                                        <input type="checkbox" v-model="row.checked" @change="syncAllCheckedState">
+                                    </td>
+                                    <td>
+                                        <input type="text"
+                                               ref="lotInputs"
+                                               v-model="row.lotId"
+                                               @blur="fetchLotInfo(row)"
+                                               @keyup.enter="handleEnter(row, index)"
+                                               @keydown.down.prevent="handleDown(index)"
+                                               @keydown.up.prevent="handleUp(index)">
+                                    </td>
+                                    <td><input type="text" v-model="row.ipn" readonly></td>
+                                    <td><input type="text" v-model="row.qty" style="text-align: right;" readonly></td>
+                                    <td><input type="text" v-model="row.location" readonly></td>
+                                    <td><input type="text" v-model="row.datecode" readonly></td>
+                                    <td><input type="text" v-model="row.packageName" readonly></td>
+                                    <td><input type="text" v-model="row.bodysize" readonly></td>
+                                    <td>
+                                        <button type="button"
+                                                @click="removeRow(index)"
+                                                title="刪除此列"
+                                                style="border: none; background: transparent; cursor: pointer; color: #d32f2f; font-weight: bold;">✖</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="10" style="text-align: left; padding: 4px;">
+                                        <button type="button"
+                                                @click="addNewRow"
+                                                style="border: 1px dashed #ccc; background: #f9f9f9; padding: 4px 12px; cursor: pointer; color: #1565C0; font-size: 13px; width: 100%;">
+                                            ➕ 點擊或按 [ ↓ ] 向下新增一列
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 底部按鈕列 -->
                 <mes-action-bar :buttons="actionButtons"
                                 :auto-add-close="true"
                                 @action="onAction"></mes-action-bar>
-
-                <!-- 批號清單 (支援多選勾選) -->
-                <div>
-                    <mes-query-result ref="resultGrid"
-                                      title="Yellow Card Lot List"
-                                      :columns="colGrid"
-                                      :summary="summary"
-                                      :data="dataList"
-                                      :selectable="true"
-                                      @rowSelected="syncSelectedRows"
-                                      @rowDeselected="syncSelectedRows"
-                                      style="height: calc(100vh - 280px);">
-                    </mes-query-result>
-                </div>
             </div>
 
             <mes-statusbar :msg="statusMsg" :msg-type="statusMsgType"></mes-statusbar>
@@ -51,146 +154,226 @@
 
     <script src="/Scripts/vue.min.js"></script>
     <script src="/Scripts/vuetify.min.js"></script>
-    <script src="/Scripts/tabulator.min.js"></script>
-    <script src="/Scripts/slimselect.js"></script>
     <script src="/Scripts/mes-util.js?v=260522"></script>
-    <script src="/Scripts/mes-search-criteria.js"></script>
     <script src="/Scripts/mes-action-bar.js"></script>
-    <script src="/Scripts/mes-query-result.js?v=260522"></script>
 
     <script>
         Vue.use(VMessageBox);
+
+        function createEmptyRow() {
+            return {
+                checked: false,
+                lotId: '',
+                ipn: '',
+                qty: '',
+                location: '',
+                datecode: '',
+                packageName: '',
+                bodysize: '',
+                packageCode: '',
+                lastQueriedLotId: ''
+            };
+        }
 
         var vapp = new Vue({
             el: '#app',
             data() {
                 return {
                     isLoading: false,
-                    qry: {
-                        lotId: ''
-                    },
-                    criteriaFields: [
-                        { key: 'lotId', label: 'LotId :', type: 'input', placeholder: '輸入或刷入 LotId 後按 Enter 加入' }
-                    ],
-                    dataList: [],
-                    selectedRows: [],
-                    colGrid: [
-                        {
-                            formatter: 'rowSelection',
-                            titleFormatter: 'rowSelection',
-                            hozAlign: 'center',
-                            headerSort: false,
-                            width: 45
-                        },
-                        { title: 'LotId', field: 'LotId', width: 140 },
-                        { title: 'IPN', field: 'IPN', width: 160 },
-                        { title: 'Qty', field: 'Qty', width: 90, hozAlign: 'right' },
-                        { title: 'Location', field: 'Location', width: 140 },
-                        { title: 'Datecode', field: 'Datecode', width: 110 },
-                        { title: 'PackageName', field: 'PackageName', width: 150 },
-                        { title: 'Bodysize', field: 'Bodysize', width: 120 }
-                    ],
+                    allLotsChecked: false,
+                    lotList: [createEmptyRow()],
                     statusMsg: 'READY',
                     statusMsgType: ''
                 };
             },
 
             computed: {
+                selectedRows() {
+                    return this.lotList.filter(r => r.checked && (r.lotId || '').trim() !== '');
+                },
+                validLotCount() {
+                    return this.lotList.filter(r => (r.lotId || '').trim() !== '').length;
+                },
                 actionButtons() {
                     return [
-                        { action: 'addLot', label: 'Add Lot', icon: 'mdi-plus', color: 'primary', disabled: this.isLoading },
                         { action: 'selectAll', label: 'Select All', icon: 'mdi-checkbox-multiple-marked-outline' },
                         { action: 'clearAll', label: 'Clear All', icon: 'mdi-checkbox-multiple-blank-outline' },
                         { action: 'send', label: 'Send', icon: 'mdi-send', color: 'success', disabled: this.isLoading || this.selectedRows.length === 0 }
                     ];
-                },
-
-                summary() {
-                    return [
-                        { label: 'TOTAL', value: this.dataList.length },
-                        { label: 'SELECTED', value: this.selectedRows.length }
-                    ];
                 }
             },
 
+            mounted() {
+                this.$nextTick(() => {
+                    this.focusRow(0);
+                });
+            },
+
             methods: {
-                /* ── 查詢並加入 Lot 至清單 ── */
-                async doAddLot() {
-                    const lotId = (this.qry.lotId || '').trim();
+                /* ── 查詢單筆 Lot 資訊 (對應 VB6 GetLotInfo) ── */
+                async fetchLotInfo(row) {
+                    const lotId = (row.lotId || '').trim();
+                    row.lotId = lotId;
+
                     if (!lotId) {
-                        VMessageBox.alert('請輸入 LotId !!');
-                        return;
+                        this.clearRowData(row, false);
+                        this.syncAllCheckedState();
+                        return false;
                     }
 
-                    // 避免重複加入同一批號
-                    if (this.dataList.some(x => (x.LotId || x.lotId) === lotId)) {
+                    // 避免 Enter 與 Blur 連續觸發重複查詢
+                    if (lotId === row.lastQueriedLotId) {
+                        return true;
+                    }
+
+                    // 檢查是否與其他列重複
+                    const isDup = this.lotList.some(r => r !== row && (r.lotId || '').trim() === lotId);
+                    if (isDup) {
                         VMessageBox.alert(`LotId : ${lotId} 已在清單中。`);
-                        this.qry.lotId = '';
-                        return;
+                        this.clearRowData(row, true);
+                        this.syncAllCheckedState();
+                        return false;
                     }
 
-                    this.isLoading = true;
                     document.body.style.cursor = 'wait';
-                    this.setStatus('QUERYING LOT...', 'info');
+                    this.setStatus(`QUERYING ${lotId}...`, 'info');
 
                     try {
                         const response = await mesfetch(`/api/YellowCardReSend/LotInfo?lotId=${encodeURIComponent(lotId)}`);
                         if (response.success || response.Success) {
-                            const item = response.data || response.Data;
-                            this.dataList.push(item);
+                            const data = response.data || response.Data;
+                            row.lotId = data.LotId || data.lotId || lotId;
+                            row.ipn = data.IPN || data.ipn || '';
+                            row.qty = data.Qty ?? data.qty ?? '';
+                            row.location = data.Location || data.location || '';
+                            row.datecode = data.Datecode || data.datecode || '';
+                            row.packageName = data.PackageName || data.packageName || '';
+                            row.bodysize = data.Bodysize || data.bodysize || '';
+                            row.packageCode = data.PackageCode || data.packageCode || '';
+                            row.checked = true;
+                            row.lastQueriedLotId = row.lotId;
 
-                            this.$nextTick(() => {
-                                const tab = this.getTabulator();
-                                if (tab) {
-                                    tab.setData(this.dataList).then(() => {
-                                        // 預設勾選剛加入的批號 (對應原 VB6 GetLotInfo 自動勾選)
-                                        const rows = tab.getRows();
-                                        if (rows.length > 0) {
-                                            rows[rows.length - 1].select();
-                                        }
-                                        this.syncSelectedRows();
-                                    });
-                                }
-                            });
-
-                            this.qry.lotId = '';
-                            this.setStatus(`ADDED ${lotId}`, 'success');
+                            this.syncAllCheckedState();
+                            this.setStatus(`LOADED ${row.lotId}`, 'success');
+                            return true;
                         } else {
-                            VMessageBox.alert(response.message || response.Message || '查無此批號');
+                            VMessageBox.alert(response.message || response.Message || `Lotid : ${lotId} 不存在.`);
+                            this.clearRowData(row, true);
+                            this.syncAllCheckedState();
                             this.setStatus('LOT CHECK FAILED', 'error');
+                            return false;
                         }
                     } catch (error) {
                         console.error('GetLotInfo Error:', error);
                         VMessageBox.alert('查詢批號資訊發生錯誤', 'Error');
+                        this.clearRowData(row, true);
+                        this.syncAllCheckedState();
                         this.setStatus('ERROR', 'error');
+                        return false;
                     } finally {
-                        this.isLoading = false;
                         document.body.style.cursor = 'default';
                     }
                 },
 
-                /* ── Select All / Clear All ── */
-                doSelectAll() {
-                    const tab = this.getTabulator();
-                    if (tab) {
-                        tab.selectRow();
-                        this.syncSelectedRows();
+                clearRowData(row, clearLotId) {
+                    if (clearLotId) row.lotId = '';
+                    row.checked = false;
+                    row.ipn = '';
+                    row.qty = '';
+                    row.location = '';
+                    row.datecode = '';
+                    row.packageName = '';
+                    row.bodysize = '';
+                    row.packageCode = '';
+                    row.lastQueriedLotId = '';
+                },
+
+                /* ── 鍵盤導覽與新增/刪除列 ── */
+                async handleEnter(row, index) {
+                    const ok = await this.fetchLotInfo(row);
+                    if (ok) {
+                        this.handleDown(index);
                     }
                 },
 
-                doClearAll() {
-                    const tab = this.getTabulator();
-                    if (tab) {
-                        tab.deselectRow();
-                        this.syncSelectedRows();
+                handleDown(index) {
+                    if (index === this.lotList.length - 1) {
+                        this.addNewRow();
+                    } else {
+                        this.focusRow(index + 1);
                     }
+                },
+
+                handleUp(index) {
+                    if (index > 0) {
+                        this.focusRow(index - 1);
+                    }
+                },
+
+                addNewRow() {
+                    this.lotList.push(createEmptyRow());
+                    this.$nextTick(() => {
+                        this.focusRow(this.lotList.length - 1);
+                    });
+                },
+
+                removeRow(index) {
+                    if (this.lotList.length > 1) {
+                        this.lotList.splice(index, 1);
+                    } else {
+                        this.clearRowData(this.lotList[0], true);
+                    }
+                    this.syncAllCheckedState();
+                },
+
+                focusRow(index) {
+                    const inputs = this.$refs.lotInputs;
+                    if (inputs && inputs[index]) {
+                        inputs[index].focus();
+                    }
+                },
+
+                /* ── 勾選控制 ── */
+                toggleAllLots() {
+                    this.lotList.forEach(row => {
+                        if ((row.lotId || '').trim() !== '') {
+                            row.checked = this.allLotsChecked;
+                        } else {
+                            row.checked = false;
+                        }
+                    });
+                },
+
+                doSelectAll() {
+                    this.allLotsChecked = true;
+                    this.toggleAllLots();
+                },
+
+                doClearAll() {
+                    this.allLotsChecked = false;
+                    this.lotList.forEach(row => { row.checked = false; });
+                },
+
+                syncAllCheckedState() {
+                    const validRows = this.lotList.filter(r => (r.lotId || '').trim() !== '');
+                    this.allLotsChecked = validRows.length > 0 && validRows.every(r => r.checked);
                 },
 
                 /* ── 送出重送黃卡資料 ── */
                 async doSend() {
-                    this.syncSelectedRows();
-                    if (this.selectedRows.length === 0) {
-                        VMessageBox.alert('請至少勾選一筆資料 !!');
+                    const items = this.selectedRows.map(r => ({
+                        LotId: r.lotId,
+                        IPN: r.ipn,
+                        Qty: String(r.qty ?? ''),
+                        Location: r.location,
+                        Datecode: r.datecode,
+                        PackageName: r.packageName,
+                        Bodysize: r.bodysize,
+                        PackageCode: r.packageCode
+                    }));
+
+                    if (items.length === 0) {
+                        VMessageBox.alert('請至少勾選一筆有效資料 !!');
                         return;
                     }
 
@@ -200,17 +383,17 @@
 
                     try {
                         const req = {
-                            UserId: localStorage.getItem('userId') || '', // 依貴司系統取得登入者方式調整
-                            Items: this.selectedRows
+                            UserId: sessionStorage.getItem('mes_loginId') || localStorage.getItem('userId') || '',
+                            Items: items
                         };
 
                         const response = await mesfetch("/api/YellowCardReSend/Send", req);
                         if (response.success || response.Success) {
                             VMessageBox.alert(response.message || response.Message || '送出成功 !!');
-                            this.dataList = [];
-                            this.selectedRows = [];
-                            if (this.$refs.resultGrid) this.$refs.resultGrid.setData([]);
+                            this.lotList = [createEmptyRow()];
+                            this.allLotsChecked = false;
                             this.setStatus('SEND SUCCESS', 'success');
+                            this.$nextTick(() => this.focusRow(0));
                         } else {
                             VMessageBox.alert(response.message || response.Message || '送出失敗');
                             this.setStatus('SEND FAILED', 'error');
@@ -225,25 +408,12 @@
                     }
                 },
 
-                getTabulator() {
-                    if (this.$refs.resultGrid && this.$refs.resultGrid.getTabulator) {
-                        return this.$refs.resultGrid.getTabulator();
-                    }
-                    return null;
-                },
-
-                syncSelectedRows() {
-                    const tab = this.getTabulator();
-                    this.selectedRows = tab ? tab.getSelectedData() : [];
-                },
-
                 doClose() {
                     window.location.href = '/Content/F5.html';
                 },
 
                 onAction(action) {
                     const map = {
-                        addLot: this.doAddLot,
                         selectAll: this.doSelectAll,
                         clearAll: this.doClearAll,
                         send: this.doSend,
