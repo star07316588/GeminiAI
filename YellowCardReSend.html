@@ -239,7 +239,7 @@
                     this.setStatus(`QUERYING ${lotId}...`, 'info');
 
                     try {
-                        const response = await mesfetch(`/api/YellowCardReSend/LotInfo?lotId=${encodeURIComponent(lotId)}`);
+                        const response = await mesfetch("/api/query/YellowCardReSend/Query", { LotId: lotId });
                         if (response.success || response.Success) {
                             const data = response.data || response.Data;
                             row.lotId = data.LotId || data.lotId || lotId;
